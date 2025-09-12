@@ -1001,9 +1001,13 @@ pub struct UpdateCheckResult {
 // 获取当前应用版本信息
 #[tauri::command]
 async fn get_app_version() -> Result<AppVersionInfo, String> {
+    let build_date = option_env!("BUILD_DATE")
+        .unwrap_or("unknown")
+        .to_string();
+
     Ok(AppVersionInfo {
         current_version: env!("CARGO_PKG_VERSION").to_string(),
-        build_date: env!("BUILD_DATE").unwrap_or("unknown").to_string(),
+        build_date,
         commit_hash: option_env!("GIT_HASH").map(|s| s.to_string()),
     })
 }
