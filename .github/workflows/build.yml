@@ -135,15 +135,56 @@ jobs:
             **Linux:**
             ```bash
             # Ubuntu/Debian
+<<<<<<< HEAD
             sudo dpkg -i ZAugment-*-linux-amd64.deb
             # 如果依赖问题，运行：sudo apt-get install -f
+=======
+            sudo dpkg -i ZAugment-${{ github.ref_name }}-linux-amd64.deb
+>>>>>>> 7f1f4c9ad7c3af42b5d3932ac6d3825c7c478b6a
 
             # CentOS/RHEL/Fedora
-            sudo rpm -i ZAugment-*-linux-x86_64.rpm
+            sudo rpm -i ZAugment-${{ github.ref_name }}-linux-x86_64.rpm
 
+<<<<<<< HEAD
             # 通用 AppImage（推荐）
             chmod +x ZAugment-*-linux-amd64.AppImage
             ./ZAugment-*-linux-amd64.AppImage
+=======
+            # 通用 AppImage
+            chmod +x ZAugment-${{ github.ref_name }}-linux-amd64.AppImage
+            ./ZAugment-${{ github.ref_name }}-linux-amd64.AppImage
+            ```
+
+            ### 🛠️ 常见安装问题解决方案
+
+            **macOS 安全问题:**
+            ```bash
+            # 如果提示"无法验证开发者"，请运行：
+            sudo xattr -rd com.apple.quarantine /Applications/ZAugment.app
+
+            # 或者在系统偏好设置 > 安全性与隐私 > 通用 中点击"仍要打开"
+            ```
+
+            **Linux 权限问题:**
+            ```bash
+            # AppImage 权限问题
+            chmod +x ZAugment-${{ github.ref_name }}-linux-amd64.AppImage
+
+            # 缺少依赖（Ubuntu/Debian）
+            sudo apt update
+            sudo apt install libwebkit2gtk-4.0-37 libgtk-3-0
+
+            # 缺少依赖（CentOS/RHEL）
+            sudo yum install webkit2gtk3 gtk3
+            ```
+
+            **Windows 安装问题:**
+            ```bash
+            # 如果提示"Windows 已保护你的电脑"
+            # 点击"更多信息" > "仍要运行"
+
+            # 或者右键安装包 > 属性 > 解除阻止
+>>>>>>> 7f1f4c9ad7c3af42b5d3932ac6d3825c7c478b6a
             ```
 
             ### 🛠️ 常见问题解决
@@ -172,6 +213,7 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+          includeUpdaterJson: false
 
       - name: Upload artifacts (macOS)
         if: matrix.platform == 'macos-latest'

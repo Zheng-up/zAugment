@@ -67,12 +67,16 @@
         "installMode": "currentUser",
         "languages": ["SimpChinese"],
         "displayLanguageSelector": false,
+<<<<<<< HEAD
         "template": "./nsis/installer.nsi"
       }
     },
     "linux": {
       "deb": {
         "depends": ["libwebkit2gtk-4.0-37", "libgtk-3-0", "libayatana-appindicator3-1"]
+=======
+        "installerIcon": "icons/icon.ico"
+>>>>>>> 7f1f4c9ad7c3af42b5d3932ac6d3825c7c478b6a
       }
     }
   }

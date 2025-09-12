@@ -1063,16 +1063,75 @@
                 <div class="app-info">
                   <div class="info-item">
                     <span class="info-label">应用名称</span>
-                    <span class="info-value">Z Augment</span>
+                    <span class="info-value">ZAugment</span>
                   </div>
                   <div class="info-item">
                     <span class="info-label">版本号</span>
-                    <span class="info-value">v1.0.0</span>
+                    <span class="info-value">v0.1.1</span>
                   </div>
                   <div class="info-item">
                     <span class="info-label">构建时间</span>
                     <span class="info-value">{{ buildTime }}</span>
                   </div>
+                  <div class="info-item">
+                    <span class="info-label">GitHub 仓库</span>
+                    <div class="info-value-with-action">
+                      <span class="info-value">Zheng-up/zAugment</span>
+                      <button
+                        @click="openGitHubRepo"
+                        class="info-action-btn"
+                        title="在浏览器中打开 GitHub 仓库"
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                        >
+                          <path
+                            d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 应用操作按钮 -->
+                <div class="app-actions">
+                  <button
+                    @click="checkForUpdates"
+                    class="app-action-btn primary"
+                    :disabled="isCheckingUpdates"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path
+                        d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+                      />
+                    </svg>
+                    {{ isCheckingUpdates ? "检查中..." : "检查更新" }}
+                  </button>
+                  <button
+                    @click="openGitHubReleases"
+                    class="app-action-btn secondary"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path
+                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                      />
+                    </svg>
+                    查看发布
+                  </button>
                 </div>
               </div>
             </div>
@@ -1090,6 +1149,9 @@
         @update-token="handleUpdateToken"
         @add-token="handleAddTokenFromForm"
       />
+
+      <!-- 更新检测组件 -->
+      <UpdateChecker ref="updateChecker" @show-status="showStatus" />
 
       <!-- Portal打开方式选择对话框 -->
       <ModalContainer
@@ -1721,6 +1783,7 @@ import OutlookManager from "./components/OutlookManager.vue";
 import ModalContainer from "./components/ModalContainer.vue";
 import ImportTokensModal from "./components/ImportTokensModal.vue";
 import CustomTitleBar from "./components/CustomTitleBar.vue";
+import UpdateChecker from "./components/UpdateChecker.vue";
 import appreciationQR from "/赞赏.png";
 
 // 简化的状态管理
@@ -1734,6 +1797,7 @@ const outlookImportFormat = ref("format2"); // 邮箱账户导入格式
 const isRefreshingStatuses = ref(false); // 批量刷新状态
 const outlookManagerRef = ref(null); // OutlookManager组件引用
 const tokenListRef = ref(null); // TokenList组件引用
+const updateChecker = ref(null); // UpdateChecker组件引用
 const outlookAccountsCount = ref(0); // 邮箱账户数量
 const outlookAccountsStatus = ref({
   total: 0,
@@ -1806,6 +1870,9 @@ const dataDirectory = ref("正在获取...");
 const currentTokensPath = ref("正在获取...");
 const isSelectingPath = ref(false);
 const buildTime = ref(new Date().toLocaleString("zh-CN"));
+
+// 更新检查相关状态
+const isCheckingUpdates = ref(false);
 
 // WebDAV云同步相关状态 - 为每个平台单独存储配置
 const webdavConfigs = ref({
@@ -3808,6 +3875,38 @@ const syncBeforeClose = async () => {
     } catch (error) {
       console.error("关闭前同步失败:", error);
     }
+  }
+};
+
+// 更新检查相关方法
+const checkForUpdates = async () => {
+  if (updateChecker.value && updateChecker.value.manualCheckUpdate) {
+    isCheckingUpdates.value = true;
+    try {
+      await updateChecker.value.manualCheckUpdate();
+    } finally {
+      isCheckingUpdates.value = false;
+    }
+  }
+};
+
+const openGitHubRepo = async () => {
+  try {
+    await invoke("open_url", { url: "https://github.com/Zheng-up/zAugment" });
+    showStatus("已在浏览器中打开 GitHub 仓库", "success");
+  } catch (error) {
+    showStatus("打开 GitHub 仓库失败", "error");
+  }
+};
+
+const openGitHubReleases = async () => {
+  try {
+    await invoke("open_url", {
+      url: "https://github.com/Zheng-up/zAugment/releases",
+    });
+    showStatus("已在浏览器中打开发布页面", "success");
+  } catch (error) {
+    showStatus("打开发布页面失败", "error");
   }
 };
 
@@ -7168,6 +7267,84 @@ textarea.unified-input {
   font-weight: 600;
   color: #1e293b;
   font-size: 14px;
+}
+
+.info-value-with-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-action-btn {
+  padding: 6px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.info-action-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  transform: translateY(-1px);
+}
+
+.app-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(226, 232, 240, 0.5);
+}
+
+.app-action-btn {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  flex: 1;
+  justify-content: center;
+}
+
+.app-action-btn.primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+}
+
+.app-action-btn.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.app-action-btn.primary:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.app-action-btn.secondary {
+  background: rgba(255, 255, 255, 0.8);
+  color: #475569;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.app-action-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(226, 232, 240, 1);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* 响应式设计 */
