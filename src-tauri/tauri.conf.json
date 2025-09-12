@@ -70,12 +70,7 @@
         "installMode": "currentUser",
         "languages": ["SimpChinese"],
         "displayLanguageSelector": false,
-        "installerIcon": "icons/icon.ico",
-        "installScript": null,
-        "license": null,
-        "headerImage": null,
-        "sidebarImage": null,
-        "compressionLevel": "normal"
+        "installerIcon": "icons/icon.ico"
       }
     }
   }
