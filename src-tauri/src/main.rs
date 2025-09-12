@@ -964,6 +964,184 @@ async fn test_api_call() -> Result<String, String> {
     }
 }
 
+// 版本检查相关结构体
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AppVersionInfo {
+    pub current_version: String,
+    pub build_date: String,
+    pub commit_hash: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GitHubRelease {
+    pub tag_name: String,
+    pub name: String,
+    pub body: String,
+    pub published_at: String,
+    pub assets: Vec<GitHubAsset>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GitHubAsset {
+    pub name: String,
+    pub browser_download_url: String,
+    pub size: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateCheckResult {
+    pub has_update: bool,
+    pub current_version: String,
+    pub latest_version: String,
+    pub release_notes: String,
+    pub download_url: String,
+    pub asset_name: String,
+}
+
+// 获取当前应用版本信息
+#[tauri::command]
+async fn get_app_version() -> Result<AppVersionInfo, String> {
+    Ok(AppVersionInfo {
+        current_version: env!("CARGO_PKG_VERSION").to_string(),
+        build_date: env!("BUILD_DATE").unwrap_or("unknown").to_string(),
+        commit_hash: option_env!("GIT_HASH").map(|s| s.to_string()),
+    })
+}
+
+// 检查更新
+#[tauri::command]
+async fn check_for_updates() -> Result<UpdateCheckResult, String> {
+    let current_version = env!("CARGO_PKG_VERSION");
+
+    // 获取最新 Release 信息
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .user_agent("ZAugment-UpdateChecker/1.0")
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let response = client
+        .get("https://api.github.com/repos/Zheng-up/zAugment/releases/latest")
+        .header("Accept", "application/vnd.github.v3+json")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch release info: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("GitHub API request failed with status: {}", response.status()));
+    }
+
+    let release: GitHubRelease = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse release JSON: {}", e))?;
+
+    let latest_version = release.tag_name.trim_start_matches('v');
+    let has_update = is_newer_version(latest_version, current_version);
+
+    // 获取适合当前平台的下载链接
+    let (download_url, asset_name) = get_platform_download_url(&release.assets);
+
+    Ok(UpdateCheckResult {
+        has_update,
+        current_version: current_version.to_string(),
+        latest_version: latest_version.to_string(),
+        release_notes: parse_release_notes(&release.body),
+        download_url,
+        asset_name,
+    })
+}
+
+// 版本比较函数
+fn is_newer_version(latest: &str, current: &str) -> bool {
+    let latest_parts: Vec<u32> = latest.split('.').filter_map(|s| s.parse().ok()).collect();
+    let current_parts: Vec<u32> = current.split('.').filter_map(|s| s.parse().ok()).collect();
+
+    let max_len = latest_parts.len().max(current_parts.len());
+
+    for i in 0..max_len {
+        let latest_part = latest_parts.get(i).unwrap_or(&0);
+        let current_part = current_parts.get(i).unwrap_or(&0);
+
+        if latest_part > current_part {
+            return true;
+        } else if latest_part < current_part {
+            return false;
+        }
+    }
+
+    false
+}
+
+// 获取平台特定的下载链接
+fn get_platform_download_url(assets: &[GitHubAsset]) -> (String, String) {
+    let platform = std::env::consts::OS;
+    let arch = std::env::consts::ARCH;
+
+    // 根据平台和架构选择合适的资源
+    let preferred_asset = match platform {
+        "windows" => assets.iter().find(|asset|
+            asset.name.contains("windows") && asset.name.ends_with(".exe")
+        ),
+        "macos" => {
+            if arch == "aarch64" {
+                assets.iter().find(|asset|
+                    asset.name.contains("aarch64") && asset.name.ends_with(".dmg")
+                )
+            } else {
+                assets.iter().find(|asset|
+                    asset.name.contains("x64") && asset.name.ends_with(".dmg")
+                )
+            }
+        },
+        "linux" => assets.iter().find(|asset|
+            asset.name.contains("amd64") && asset.name.ends_with(".deb")
+        ).or_else(|| assets.iter().find(|asset|
+            asset.name.contains("x86_64") && asset.name.ends_with(".rpm")
+        )),
+        _ => None,
+    };
+
+    if let Some(asset) = preferred_asset {
+        (asset.browser_download_url.clone(), asset.name.clone())
+    } else if let Some(first_asset) = assets.first() {
+        (first_asset.browser_download_url.clone(), first_asset.name.clone())
+    } else {
+        (String::new(), String::new())
+    }
+}
+
+// 解析 Release Notes
+fn parse_release_notes(body: &str) -> String {
+    if body.is_empty() {
+        return "暂无更新说明".to_string();
+    }
+
+    // 提取重要的更新内容
+    let lines: Vec<&str> = body.lines().collect();
+    let mut important_lines = Vec::new();
+
+    for line in lines {
+        let trimmed = line.trim();
+        if trimmed.contains("✨") || trimmed.contains("🐛") ||
+           trimmed.contains("⚡") || trimmed.contains("🔧") ||
+           trimmed.contains("📦") || trimmed.contains("🎯") ||
+           trimmed.starts_with("- ") || trimmed.starts_with("* ") {
+            important_lines.push(trimmed);
+            if important_lines.len() >= 5 {
+                break;
+            }
+        }
+    }
+
+    if important_lines.is_empty() {
+        // 如果没有找到特殊标记，取前几行
+        body.lines().take(3).collect::<Vec<_>>().join("\n")
+    } else {
+        important_lines.join("\n")
+    }
+}
+
 #[tauri::command]
 async fn open_data_folder(
     app: tauri::AppHandle,
@@ -2213,6 +2391,10 @@ fn main() {
             get_app_settings_cmd,
             get_unified_config_cmd,
             save_ui_settings_cmd,
+
+            // 版本检查命令
+            get_app_version,
+            check_for_updates,
 
             open_internal_browser,
             close_window,

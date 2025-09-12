@@ -43,6 +43,7 @@
 
 <script>
 import ModalContainer from "./ModalContainer.vue";
+import { invoke } from "@tauri-apps/api/core";
 
 export default {
   name: "UpdateChecker",
@@ -52,39 +53,44 @@ export default {
   data() {
     return {
       showUpdateModal: false,
-      currentVersion: "0.1.1",
+      currentVersion: "",
       latestVersion: "",
       releaseNotes: "",
       downloadUrl: "",
+      assetName: "",
       isChecking: false,
     };
   },
-  mounted() {
+  async mounted() {
+    // 获取当前版本信息
+    await this.getCurrentVersion();
     // 应用启动时检查更新
     this.checkForUpdates();
   },
   methods: {
+    async getCurrentVersion() {
+      try {
+        const versionInfo = await invoke("get_app_version");
+        this.currentVersion = versionInfo.current_version;
+      } catch (error) {
+        console.error("获取版本信息失败:", error);
+        this.currentVersion = "0.1.5"; // fallback
+      }
+    },
+
     async checkForUpdates(showNoUpdateMessage = false) {
       if (this.isChecking) return;
 
       this.isChecking = true;
 
       try {
-        const response = await fetch(
-          "https://api.github.com/repos/Zheng-up/zAugment/releases/latest"
-        );
+        const updateResult = await invoke("check_for_updates");
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch release info");
-        }
-
-        const release = await response.json();
-        const latestVersion = release.tag_name.replace("v", "");
-
-        if (this.isNewerVersion(latestVersion, this.currentVersion)) {
-          this.latestVersion = latestVersion;
-          this.releaseNotes = this.parseReleaseNotes(release.body);
-          this.downloadUrl = this.getDownloadUrl(release.assets);
+        if (updateResult.has_update) {
+          this.latestVersion = updateResult.latest_version;
+          this.releaseNotes = updateResult.release_notes;
+          this.downloadUrl = updateResult.download_url;
+          this.assetName = updateResult.asset_name;
           this.showUpdateModal = true;
         } else if (showNoUpdateMessage) {
           this.$emit("show-status", "已是最新版本", "success");
@@ -99,91 +105,15 @@ export default {
       }
     },
 
-    isNewerVersion(latest, current) {
-      const latestParts = latest.split(".").map(Number);
-      const currentParts = current.split(".").map(Number);
-
-      for (
-        let i = 0;
-        i < Math.max(latestParts.length, currentParts.length);
-        i++
-      ) {
-        const latestPart = latestParts[i] || 0;
-        const currentPart = currentParts[i] || 0;
-
-        if (latestPart > currentPart) return true;
-        if (latestPart < currentPart) return false;
-      }
-
-      return false;
-    },
-
-    parseReleaseNotes(body) {
-      if (!body) return "";
-
-      // 提取主要更新内容，移除过多的技术细节
-      const lines = body.split("\n");
-      const importantLines = lines.filter((line) => {
-        return (
-          line.includes("✨") ||
-          line.includes("🐛") ||
-          line.includes("⚡") ||
-          line.includes("🔧") ||
-          line.includes("📦") ||
-          line.includes("🎯")
-        );
-      });
-
-      return importantLines.slice(0, 5).join("<br>");
-    },
-
-    getDownloadUrl(assets) {
-      if (!assets || assets.length === 0) return "";
-
-      // 根据平台选择合适的下载链接
-      const platform = this.detectPlatform();
-
-      const platformAssets = {
-        windows: assets.find(
-          (asset) =>
-            asset.name.includes("windows") && asset.name.endsWith(".exe")
-        ),
-        "macos-intel": assets.find(
-          (asset) =>
-            asset.name.includes("macos-x64") && asset.name.endsWith(".dmg")
-        ),
-        "macos-arm": assets.find(
-          (asset) =>
-            asset.name.includes("macos-arm64") && asset.name.endsWith(".dmg")
-        ),
-        linux: assets.find(
-          (asset) =>
-            asset.name.includes("linux") && asset.name.endsWith(".AppImage")
-        ),
-      };
-
-      const selectedAsset = platformAssets[platform] || assets[0];
-      return selectedAsset ? selectedAsset.browser_download_url : "";
-    },
-
-    detectPlatform() {
-      const userAgent = navigator.userAgent.toLowerCase();
-
-      if (userAgent.includes("win")) return "windows";
-      if (userAgent.includes("mac")) {
-        // 检测是否为 Apple Silicon
-        return navigator.platform === "MacIntel" ? "macos-intel" : "macos-arm";
-      }
-      if (userAgent.includes("linux")) return "linux";
-
-      return "windows"; // 默认
-    },
-
     downloadUpdate() {
       if (this.downloadUrl) {
         window.open(this.downloadUrl, "_blank");
         this.closeUpdateModal();
-        this.$emit("show-status", "下载已开始，请查看浏览器下载", "success");
+        this.$emit(
+          "show-status",
+          `正在下载 ${this.assetName}，请查看浏览器下载`,
+          "success"
+        );
       } else {
         // 如果没有直接下载链接，打开 GitHub Release 页面
         window.open(
@@ -191,6 +121,7 @@ export default {
           "_blank"
         );
         this.closeUpdateModal();
+        this.$emit("show-status", "已打开 GitHub Release 页面", "success");
       }
     },
 
