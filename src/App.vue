@@ -1067,11 +1067,7 @@
                   </div>
                   <div class="info-item">
                     <span class="info-label">版本号</span>
-                    <span class="info-value">v0.1.1</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="info-label">构建时间</span>
-                    <span class="info-value">{{ buildTime }}</span>
+                    <span class="info-value">{{ currentVersion }}</span>
                   </div>
                   <div class="info-item">
                     <span class="info-label">GitHub 仓库</span>
@@ -1869,7 +1865,7 @@ const hasUnsavedChanges = ref(false);
 const dataDirectory = ref("正在获取...");
 const currentTokensPath = ref("正在获取...");
 const isSelectingPath = ref(false);
-const buildTime = ref(new Date().toLocaleString("zh-CN"));
+const currentVersion = ref("获取中...");
 
 // 更新检查相关状态
 const isCheckingUpdates = ref(false);
@@ -3456,6 +3452,17 @@ const selectDataDirectory = async () => {
   }
 };
 
+const getCurrentVersion = async () => {
+  try {
+    // 获取当前应用版本信息
+    const versionInfo = await invoke("get_app_version");
+    currentVersion.value = `v${versionInfo.current_version}`;
+  } catch (error) {
+    console.error("获取版本信息失败:", error);
+    currentVersion.value = "v0.1.7"; // 降级显示
+  }
+};
+
 const getCurrentDataPath = async () => {
   try {
     // 获取当前数据路径
@@ -3977,6 +3984,11 @@ onMounted(async () => {
   console.log("App.vue onMounted 开始");
 
   try {
+    // 获取当前版本信息
+    console.log("开始获取当前版本...");
+    await getCurrentVersion();
+    console.log("版本信息获取成功");
+
     // 恢复初始化调用
     console.log("开始获取当前数据路径...");
     await getCurrentDataPath();

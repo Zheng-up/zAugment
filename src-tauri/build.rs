@@ -1,9 +1,6 @@
 use std::process::Command;
 
 fn main() {
-    // 设置构建时间环境变量（简单的日期格式）
-    println!("cargo:rustc-env=BUILD_DATE=2024-12-19");
-
     // 尝试获取 Git 提交哈希
     if let Ok(output) = Command::new("git")
         .args(&["rev-parse", "--short", "HEAD"])

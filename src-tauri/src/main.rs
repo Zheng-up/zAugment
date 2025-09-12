@@ -968,7 +968,6 @@ async fn test_api_call() -> Result<String, String> {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AppVersionInfo {
     pub current_version: String,
-    pub build_date: String,
     pub commit_hash: Option<String>,
 }
 
@@ -1001,13 +1000,8 @@ pub struct UpdateCheckResult {
 // 获取当前应用版本信息
 #[tauri::command]
 async fn get_app_version() -> Result<AppVersionInfo, String> {
-    let build_date = option_env!("BUILD_DATE")
-        .unwrap_or("unknown")
-        .to_string();
-
     Ok(AppVersionInfo {
         current_version: env!("CARGO_PKG_VERSION").to_string(),
-        build_date,
         commit_hash: option_env!("GIT_HASH").map(|s| s.to_string()),
     })
 }
