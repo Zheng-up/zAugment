@@ -95,9 +95,6 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "ZAugment ${{ github.ref_name }}"
-          # 只包含主要安装包，移除多余文件
-          includeDebug: false
-          includeRelease: true
           releaseBody: |
             ## 🚀 ZAugment ${{ github.ref_name }} 发布
 
@@ -135,22 +132,13 @@ jobs:
             **Linux:**
             ```bash
             # Ubuntu/Debian
-<<<<<<< HEAD
-            sudo dpkg -i ZAugment-*-linux-amd64.deb
-            # 如果依赖问题，运行：sudo apt-get install -f
-=======
             sudo dpkg -i ZAugment-${{ github.ref_name }}-linux-amd64.deb
->>>>>>> 7f1f4c9ad7c3af42b5d3932ac6d3825c7c478b6a
+            # 如果依赖问题，运行：sudo apt-get install -f
 
             # CentOS/RHEL/Fedora
             sudo rpm -i ZAugment-${{ github.ref_name }}-linux-x86_64.rpm
 
-<<<<<<< HEAD
             # 通用 AppImage（推荐）
-            chmod +x ZAugment-*-linux-amd64.AppImage
-            ./ZAugment-*-linux-amd64.AppImage
-=======
-            # 通用 AppImage
             chmod +x ZAugment-${{ github.ref_name }}-linux-amd64.AppImage
             ./ZAugment-${{ github.ref_name }}-linux-amd64.AppImage
             ```
@@ -184,7 +172,6 @@ jobs:
             # 点击"更多信息" > "仍要运行"
 
             # 或者右键安装包 > 属性 > 解除阻止
->>>>>>> 7f1f4c9ad7c3af42b5d3932ac6d3825c7c478b6a
             ```
 
             ### 🛠️ 常见问题解决
