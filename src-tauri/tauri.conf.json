@@ -36,7 +36,7 @@
   "plugins": {},
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis", "deb", "rpm", "appimage", "dmg"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -69,7 +69,13 @@
       "nsis": {
         "installMode": "currentUser",
         "languages": ["SimpChinese"],
-        "displayLanguageSelector": false
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "installScript": null,
+        "license": null,
+        "headerImage": null,
+        "sidebarImage": null,
+        "compressionLevel": "normal"
       }
     }
   }

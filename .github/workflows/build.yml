@@ -102,13 +102,12 @@ jobs:
 
             | 平台 | 文件名 | 说明 |
             |------|--------|------|
-            | **Windows** | `*-windows-x64-setup.exe` | Windows 安装程序（推荐） |
-            | **Windows** | `*-windows-x64.msi` | Windows MSI 安装包 |
-            | **macOS (Intel)** | `*-macos-x64.dmg` | Intel Mac 安装包 |
-            | **macOS (Apple Silicon)** | `*-macos-arm64.dmg` | M1/M2/M3 Mac 安装包 |
-            | **Linux (Ubuntu/Debian)** | `*-linux-amd64.deb` | DEB 安装包 |
-            | **Linux (CentOS/RHEL)** | `*-linux-x86_64.rpm` | RPM 安装包 |
-            | **Linux (通用)** | `*-linux-amd64.AppImage` | 通用可执行文件 |
+            | **Windows** | `ZAugment-${{ github.ref_name }}-windows-x64-setup.exe` | Windows 安装程序 |
+            | **macOS (Intel)** | `ZAugment-${{ github.ref_name }}-macos-x64.dmg` | Intel Mac 安装包 |
+            | **macOS (Apple Silicon)** | `ZAugment-${{ github.ref_name }}-macos-arm64.dmg` | M1/M2/M3 Mac 安装包 |
+            | **Linux (Ubuntu/Debian)** | `ZAugment-${{ github.ref_name }}-linux-amd64.deb` | DEB 安装包 |
+            | **Linux (CentOS/RHEL)** | `ZAugment-${{ github.ref_name }}-linux-x86_64.rpm` | RPM 安装包 |
+            | **Linux (通用)** | `ZAugment-${{ github.ref_name }}-linux-amd64.AppImage` | 通用可执行文件 |
 
             ### 🔧 安装方法
 
@@ -125,14 +124,45 @@ jobs:
             **Linux:**
             ```bash
             # Ubuntu/Debian
-            sudo dpkg -i ZAugment-*-linux-amd64.deb
+            sudo dpkg -i ZAugment-${{ github.ref_name }}-linux-amd64.deb
 
             # CentOS/RHEL/Fedora
-            sudo rpm -i ZAugment-*-linux-x86_64.rpm
+            sudo rpm -i ZAugment-${{ github.ref_name }}-linux-x86_64.rpm
 
             # 通用 AppImage
-            chmod +x ZAugment-*-linux-amd64.AppImage
-            ./ZAugment-*-linux-amd64.AppImage
+            chmod +x ZAugment-${{ github.ref_name }}-linux-amd64.AppImage
+            ./ZAugment-${{ github.ref_name }}-linux-amd64.AppImage
+            ```
+
+            ### 🛠️ 常见安装问题解决方案
+
+            **macOS 安全问题:**
+            ```bash
+            # 如果提示"无法验证开发者"，请运行：
+            sudo xattr -rd com.apple.quarantine /Applications/ZAugment.app
+
+            # 或者在系统偏好设置 > 安全性与隐私 > 通用 中点击"仍要打开"
+            ```
+
+            **Linux 权限问题:**
+            ```bash
+            # AppImage 权限问题
+            chmod +x ZAugment-${{ github.ref_name }}-linux-amd64.AppImage
+
+            # 缺少依赖（Ubuntu/Debian）
+            sudo apt update
+            sudo apt install libwebkit2gtk-4.0-37 libgtk-3-0
+
+            # 缺少依赖（CentOS/RHEL）
+            sudo yum install webkit2gtk3 gtk3
+            ```
+
+            **Windows 安装问题:**
+            ```bash
+            # 如果提示"Windows 已保护你的电脑"
+            # 点击"更多信息" > "仍要运行"
+
+            # 或者右键安装包 > 属性 > 解除阻止
             ```
 
             ---
@@ -141,6 +171,70 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+          includeUpdaterJson: false
+
+      - name: Rename build artifacts (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: powershell
+        run: |
+          $version = "${{ github.ref_name }}"
+          $bundlePath = "src-tauri/target/release/bundle"
+
+          # 重命名 NSIS 安装程序
+          if (Test-Path "$bundlePath/nsis/ZAugment_*_x64-setup.exe") {
+            $oldFile = Get-ChildItem "$bundlePath/nsis/ZAugment_*_x64-setup.exe" | Select-Object -First 1
+            $newName = "ZAugment-$version-windows-x64-setup.exe"
+            Rename-Item $oldFile.FullName $newName
+            Write-Host "Renamed to: $newName"
+          }
+
+      - name: Rename build artifacts (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          version="${{ github.ref_name }}"
+          bundle_path="src-tauri/target/${{ matrix.target }}/release/bundle"
+
+          # 重命名 DMG 文件
+          if [ -f "$bundle_path/dmg/ZAugment_"*".dmg" ]; then
+            old_file=$(find "$bundle_path/dmg" -name "ZAugment_*.dmg" | head -1)
+            if [ "${{ matrix.arch }}" = "arm64" ]; then
+              new_name="ZAugment-$version-macos-arm64.dmg"
+            else
+              new_name="ZAugment-$version-macos-x64.dmg"
+            fi
+            mv "$old_file" "$(dirname "$old_file")/$new_name"
+            echo "Renamed to: $new_name"
+          fi
+
+      - name: Rename build artifacts (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          version="${{ github.ref_name }}"
+          bundle_path="src-tauri/target/release/bundle"
+
+          # 重命名 DEB 文件
+          if [ -f "$bundle_path/deb/zaugment_"*"_amd64.deb" ]; then
+            old_file=$(find "$bundle_path/deb" -name "zaugment_*_amd64.deb" | head -1)
+            new_name="ZAugment-$version-linux-amd64.deb"
+            mv "$old_file" "$(dirname "$old_file")/$new_name"
+            echo "Renamed DEB to: $new_name"
+          fi
+
+          # 重命名 RPM 文件
+          if [ -f "$bundle_path/rpm/zaugment-"*".x86_64.rpm" ]; then
+            old_file=$(find "$bundle_path/rpm" -name "zaugment-*.x86_64.rpm" | head -1)
+            new_name="ZAugment-$version-linux-x86_64.rpm"
+            mv "$old_file" "$(dirname "$old_file")/$new_name"
+            echo "Renamed RPM to: $new_name"
+          fi
+
+          # 重命名 AppImage 文件
+          if [ -f "$bundle_path/appimage/zaugment_"*"_amd64.AppImage" ]; then
+            old_file=$(find "$bundle_path/appimage" -name "zaugment_*_amd64.AppImage" | head -1)
+            new_name="ZAugment-$version-linux-amd64.AppImage"
+            mv "$old_file" "$(dirname "$old_file")/$new_name"
+            echo "Renamed AppImage to: $new_name"
+          fi
 
       - name: Upload artifacts (macOS)
         if: matrix.platform == 'macos-latest'
