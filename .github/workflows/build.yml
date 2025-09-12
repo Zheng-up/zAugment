@@ -90,6 +90,8 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "ZAugment ${{ github.ref_name }}"
+          tauriScript: npm run tauri:build
+          projectPath: "."
           releaseBody: |
             ## 🚀 ZAugment ${{ github.ref_name }} 发布
 
@@ -172,69 +174,6 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
           includeUpdaterJson: false
-
-      - name: Rename build artifacts (Windows)
-        if: matrix.platform == 'windows-latest'
-        shell: powershell
-        run: |
-          $version = "${{ github.ref_name }}"
-          $bundlePath = "src-tauri/target/release/bundle"
-
-          # 重命名 NSIS 安装程序
-          if (Test-Path "$bundlePath/nsis/ZAugment_*_x64-setup.exe") {
-            $oldFile = Get-ChildItem "$bundlePath/nsis/ZAugment_*_x64-setup.exe" | Select-Object -First 1
-            $newName = "ZAugment-$version-windows-x64-setup.exe"
-            Rename-Item $oldFile.FullName $newName
-            Write-Host "Renamed to: $newName"
-          }
-
-      - name: Rename build artifacts (macOS)
-        if: matrix.platform == 'macos-latest'
-        run: |
-          version="${{ github.ref_name }}"
-          bundle_path="src-tauri/target/${{ matrix.target }}/release/bundle"
-
-          # 重命名 DMG 文件
-          if [ -f "$bundle_path/dmg/ZAugment_"*".dmg" ]; then
-            old_file=$(find "$bundle_path/dmg" -name "ZAugment_*.dmg" | head -1)
-            if [ "${{ matrix.arch }}" = "arm64" ]; then
-              new_name="ZAugment-$version-macos-arm64.dmg"
-            else
-              new_name="ZAugment-$version-macos-x64.dmg"
-            fi
-            mv "$old_file" "$(dirname "$old_file")/$new_name"
-            echo "Renamed to: $new_name"
-          fi
-
-      - name: Rename build artifacts (Linux)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          version="${{ github.ref_name }}"
-          bundle_path="src-tauri/target/release/bundle"
-
-          # 重命名 DEB 文件
-          if [ -f "$bundle_path/deb/zaugment_"*"_amd64.deb" ]; then
-            old_file=$(find "$bundle_path/deb" -name "zaugment_*_amd64.deb" | head -1)
-            new_name="ZAugment-$version-linux-amd64.deb"
-            mv "$old_file" "$(dirname "$old_file")/$new_name"
-            echo "Renamed DEB to: $new_name"
-          fi
-
-          # 重命名 RPM 文件
-          if [ -f "$bundle_path/rpm/zaugment-"*".x86_64.rpm" ]; then
-            old_file=$(find "$bundle_path/rpm" -name "zaugment-*.x86_64.rpm" | head -1)
-            new_name="ZAugment-$version-linux-x86_64.rpm"
-            mv "$old_file" "$(dirname "$old_file")/$new_name"
-            echo "Renamed RPM to: $new_name"
-          fi
-
-          # 重命名 AppImage 文件
-          if [ -f "$bundle_path/appimage/zaugment_"*"_amd64.AppImage" ]; then
-            old_file=$(find "$bundle_path/appimage" -name "zaugment_*_amd64.AppImage" | head -1)
-            new_name="ZAugment-$version-linux-amd64.AppImage"
-            mv "$old_file" "$(dirname "$old_file")/$new_name"
-            echo "Renamed AppImage to: $new_name"
-          fi
 
       - name: Upload artifacts (macOS)
         if: matrix.platform == 'macos-latest'
