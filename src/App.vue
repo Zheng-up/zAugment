@@ -1067,7 +1067,7 @@
                   </div>
                   <div class="info-item">
                     <span class="info-label">版本号</span>
-                    <span class="info-value">v0.1.0</span>
+                    <span class="info-value">v0.1.1</span>
                   </div>
                   <div class="info-item">
                     <span class="info-label">构建时间</span>
