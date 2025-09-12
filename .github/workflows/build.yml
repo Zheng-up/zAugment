@@ -90,8 +90,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "ZAugment ${{ github.ref_name }}"
-          tauriScript: npm run tauri:build
-          projectPath: "."
+          tauriScript: tauri
           releaseBody: |
             ## 🚀 ZAugment ${{ github.ref_name }} 发布
 
