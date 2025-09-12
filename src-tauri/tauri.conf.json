@@ -36,7 +36,7 @@
   "plugins": {},
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis", "deb", "rpm", "appimage", "dmg"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -63,13 +63,16 @@
         "silent": false
       },
       "allowDowngrades": false,
-      "wix": {
-        "language": "en-US"
-      },
       "nsis": {
         "installMode": "currentUser",
         "languages": ["SimpChinese"],
-        "displayLanguageSelector": false
+        "displayLanguageSelector": false,
+        "template": "./nsis/installer.nsi"
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.0-37", "libgtk-3-0", "libayatana-appindicator3-1"]
       }
     }
   }
