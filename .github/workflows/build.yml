@@ -107,12 +107,11 @@ jobs:
 
             | 平台 | 文件名 | 说明 |
             |------|--------|------|
-            | **Windows** | `ZAugment-${{ github.ref_name }}-windows-x64-setup.exe` | Windows 安装程序 |
-            | **macOS (Intel)** | `ZAugment-${{ github.ref_name }}-macos-x64.dmg` | Intel Mac 安装包 |
-            | **macOS (Apple Silicon)** | `ZAugment-${{ github.ref_name }}-macos-arm64.dmg` | M1/M2/M3 Mac 安装包 |
-            | **Linux (Ubuntu/Debian)** | `ZAugment-${{ github.ref_name }}-linux-amd64.deb` | DEB 安装包 |
-            | **Linux (CentOS/RHEL)** | `ZAugment-${{ github.ref_name }}-linux-x86_64.rpm` | RPM 安装包 |
-            | **Linux (通用)** | `ZAugment-${{ github.ref_name }}-linux-amd64.AppImage` | 通用可执行文件 |
+            | **Windows** | `ZAugment_${{ github.ref_name }}_x64-setup.exe` | Windows 安装程序 |
+            | **macOS (Intel)** | `ZAugment_${{ github.ref_name }}_x64.dmg` | Intel Mac 安装包 |
+            | **macOS (Apple Silicon)** | `ZAugment_${{ github.ref_name }}_aarch64.dmg` | M1/M2/M3 Mac 安装包 |
+            | **Linux (Ubuntu/Debian)** | `ZAugment_${{ github.ref_name }}_amd64.deb` | DEB 安装包 |
+            | **Linux (CentOS/RHEL)** | `ZAugment-${{ github.ref_name }}-1.x86_64.rpm` | RPM 安装包 |
 
             ### 🔧 安装方法
 
@@ -132,15 +131,11 @@ jobs:
             **Linux:**
             ```bash
             # Ubuntu/Debian
-            sudo dpkg -i ZAugment-${{ github.ref_name }}-linux-amd64.deb
+            sudo dpkg -i ZAugment_${{ github.ref_name }}_amd64.deb
             # 如果依赖问题，运行：sudo apt-get install -f
 
             # CentOS/RHEL/Fedora
-            sudo rpm -i ZAugment-${{ github.ref_name }}-linux-x86_64.rpm
-
-            # 通用 AppImage（推荐）
-            chmod +x ZAugment-${{ github.ref_name }}-linux-amd64.AppImage
-            ./ZAugment-${{ github.ref_name }}-linux-amd64.AppImage
+            sudo rpm -i ZAugment-${{ github.ref_name }}-1.x86_64.rpm
             ```
 
             ### 🛠️ 常见安装问题解决方案
@@ -155,9 +150,6 @@ jobs:
 
             **Linux 权限问题:**
             ```bash
-            # AppImage 权限问题
-            chmod +x ZAugment-${{ github.ref_name }}-linux-amd64.AppImage
-
             # 缺少依赖（Ubuntu/Debian）
             sudo apt update
             sudo apt install libwebkit2gtk-4.0-37 libgtk-3-0
@@ -185,8 +177,6 @@ jobs:
             #### Linux 安装问题
             - **问题**: 缺少依赖库
             - **解决**: `sudo apt-get install libwebkit2gtk-4.0-37 libgtk-3-0 libayatana-appindicator3-1`
-            - **问题**: AppImage 无法执行
-            - **解决**: `sudo apt-get install fuse libfuse2` 然后 `chmod +x` 文件
 
             #### Windows 安装问题
             - **问题**: Windows Defender 阻止安装
