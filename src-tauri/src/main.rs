@@ -1023,16 +1023,25 @@ async fn check_for_updates() -> Result<UpdateCheckResult, String> {
             error_msg
         })?;
 
+    // GitHub token - 从环境变量读取，如果没有则使用空字符串
+    let github_token = std::env::var("GITHUB_TOKEN").unwrap_or_default();
+
     // 重试机制：最多重试3次，每次间隔递增
     let mut last_error = String::new();
     for attempt in 1..=3 {
         println!("正在请求 GitHub API... (尝试 {}/3)", attempt);
 
-        let response = client
+        let mut request = client
             .get("https://api.github.com/repos/Zheng-up/zAugment/releases/latest")
             .header("Accept", "application/vnd.github.v3+json")
-            .send()
-            .await;
+            .header("User-Agent", "ZAugment/1.0");
+
+        // 添加认证头以避免速率限制（如果有 token）
+        if !github_token.is_empty() {
+            request = request.header("Authorization", format!("Bearer {}", github_token));
+        }
+
+        let response = request.send().await;
 
         match response {
             Ok(resp) => {
