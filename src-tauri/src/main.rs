@@ -1010,44 +1010,68 @@ async fn get_app_version() -> Result<AppVersionInfo, String> {
 #[tauri::command]
 async fn check_for_updates() -> Result<UpdateCheckResult, String> {
     let current_version = env!("CARGO_PKG_VERSION");
+    println!("检查更新: 当前版本 {}", current_version);
 
     // 获取最新 Release 信息
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .user_agent("ZAugment-UpdateChecker/1.0")
         .build()
-        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+        .map_err(|e| {
+            let error_msg = format!("Failed to create HTTP client: {}", e);
+            println!("错误: {}", error_msg);
+            error_msg
+        })?;
 
+    println!("正在请求 GitHub API...");
     let response = client
         .get("https://api.github.com/repos/Zheng-up/zAugment/releases/latest")
         .header("Accept", "application/vnd.github.v3+json")
         .send()
         .await
-        .map_err(|e| format!("Failed to fetch release info: {}", e))?;
+        .map_err(|e| {
+            let error_msg = format!("Failed to fetch release info: {}", e);
+            println!("网络请求错误: {}", error_msg);
+            error_msg
+        })?;
 
+    println!("GitHub API 响应状态: {}", response.status());
     if !response.status().is_success() {
-        return Err(format!("GitHub API request failed with status: {}", response.status()));
+        let error_msg = format!("GitHub API request failed with status: {}", response.status());
+        println!("API 请求失败: {}", error_msg);
+        return Err(error_msg);
     }
 
     let release: GitHubRelease = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse release JSON: {}", e))?;
+        .map_err(|e| {
+            let error_msg = format!("Failed to parse release JSON: {}", e);
+            println!("JSON 解析错误: {}", error_msg);
+            error_msg
+        })?;
 
     let latest_version = release.tag_name.trim_start_matches('v');
+    println!("最新版本: {}, 当前版本: {}", latest_version, current_version);
+
     let has_update = is_newer_version(latest_version, current_version);
+    println!("是否有更新: {}", has_update);
 
     // 获取适合当前平台的下载链接
     let (download_url, asset_name) = get_platform_download_url(&release.assets);
+    println!("下载链接: {}, 文件名: {}", download_url, asset_name);
 
-    Ok(UpdateCheckResult {
+    let result = UpdateCheckResult {
         has_update,
         current_version: current_version.to_string(),
         latest_version: latest_version.to_string(),
         release_notes: parse_release_notes(&release.body),
         download_url,
         asset_name,
-    })
+    };
+
+    println!("检查更新完成: {:?}", result);
+    Ok(result)
 }
 
 // 版本比较函数
@@ -1115,29 +1139,44 @@ fn parse_release_notes(body: &str) -> String {
         return "暂无更新说明".to_string();
     }
 
-    // 提取重要的更新内容
+    println!("原始 release notes: {}", body);
+
+    // 只提取更新内容部分，不包含发布标题
     let lines: Vec<&str> = body.lines().collect();
-    let mut important_lines = Vec::new();
+    let mut result = Vec::new();
+    let mut in_update_content = false;
 
     for line in lines {
         let trimmed = line.trim();
-        if trimmed.contains("✨") || trimmed.contains("🐛") ||
-           trimmed.contains("⚡") || trimmed.contains("🔧") ||
-           trimmed.contains("📦") || trimmed.contains("🎯") ||
-           trimmed.starts_with("- ") || trimmed.starts_with("* ") {
-            important_lines.push(trimmed);
-            if important_lines.len() >= 5 {
-                break;
+
+        // 检测更新内容部分开始
+        if trimmed.starts_with("### 更新内容") || trimmed.starts_with("###更新内容") {
+            result.push(line);
+            in_update_content = true;
+            continue;
+        }
+
+        // 如果遇到其他三级标题，停止收集
+        if trimmed.starts_with("### ") && in_update_content {
+            break;
+        }
+
+        // 在更新内容部分内，收集列表项和空行
+        if in_update_content {
+            if trimmed.starts_with("- ") || trimmed.starts_with("* ") || trimmed.is_empty() {
+                result.push(line);
             }
         }
     }
 
-    if important_lines.is_empty() {
-        // 如果没有找到特殊标记，取前几行
-        body.lines().take(3).collect::<Vec<_>>().join("\n")
-    } else {
-        important_lines.join("\n")
+    let final_result = result.join("\n");
+    println!("解析后的 release notes: {}", final_result);
+
+    if result.is_empty() {
+        return "暂无更新说明".to_string();
     }
+
+    final_result
 }
 
 #[tauri::command]

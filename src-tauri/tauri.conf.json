@@ -1,11 +1,11 @@
 {
   "productName": "ZAugment",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "identifier": "com.cubezhao.atm",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://localhost:1421",
     "frontendDist": "../dist"
   },
   "app": {

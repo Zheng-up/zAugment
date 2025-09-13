@@ -98,95 +98,35 @@ jobs:
           releaseBody: |
             ## 🚀 ZAugment ${{ github.ref_name }} 发布
 
-            ### 📦 支持平台
-            - ✅ **Windows** - 支持 Windows 10+ 系统
-            - ✅ **macOS** - 支持 Intel 和 Apple Silicon (M1/M2/M3) 芯片
-            - ✅ **Linux** - 支持 Ubuntu/Debian/CentOS/Fedora 等发行版
+            ### 更新内容
+            1. 优化了更新弹窗显示逻辑
+            2. 简化了更新内容格式处理
+            3. 修复了更新检查功能的稳定性
 
-            ### 📥 下载说明
-
-            | 平台 | 文件名 | 说明 |
-            |------|--------|------|
-            | **Windows** | `ZAugment_${{ github.ref_name }}_x64-setup.exe` | Windows 安装程序 |
-            | **macOS (Intel)** | `ZAugment_${{ github.ref_name }}_x64.dmg` | Intel Mac 安装包 |
-            | **macOS (Apple Silicon)** | `ZAugment_${{ github.ref_name }}_aarch64.dmg` | M1/M2/M3 Mac 安装包 |
-            | **Linux (Ubuntu/Debian)** | `ZAugment_${{ github.ref_name }}_amd64.deb` | DEB 安装包 |
-            | **Linux (CentOS/RHEL)** | `ZAugment-${{ github.ref_name }}-1.x86_64.rpm` | RPM 安装包 |
+            ### 📥 下载文件
+            | 平台 | 文件名 |
+            |------|--------|
+            | **Windows** | `ZAugment_${{ github.ref_name }}_x64-setup.exe` |
+            | **macOS (Intel)** | `ZAugment_${{ github.ref_name }}_x64.dmg` |
+            | **macOS (Apple Silicon)** | `ZAugment_${{ github.ref_name }}_aarch64.dmg` |
+            | **Linux (Ubuntu/Debian)** | `ZAugment_${{ github.ref_name }}_amd64.deb` |
+            | **Linux (CentOS/RHEL)** | `ZAugment-${{ github.ref_name }}-1.x86_64.rpm` |
 
             ### 🔧 安装方法
+            **Windows:** 下载 `.exe` 文件双击安装，如遇警告点击"更多信息" → "仍要运行"
 
-            **Windows:**
-            ```bash
-            # 下载 .exe 文件，双击安装
-            # 如果出现 Windows Defender 警告，点击"更多信息" -> "仍要运行"
-            ```
-
-            **macOS:**
-            ```bash
-            # 下载对应芯片的 .dmg 文件，拖拽到应用程序文件夹
-            # 如果出现"无法打开，因为无法验证开发者"错误，请运行：
+            **macOS:** 下载对应芯片的 `.dmg` 文件拖拽到应用程序文件夹，如遇安装包已损坏运行：
             sudo xattr -rd com.apple.quarantine /Applications/ZAugment.app
-            ```
 
             **Linux:**
-            ```bash
             # Ubuntu/Debian
             sudo dpkg -i ZAugment_${{ github.ref_name }}_amd64.deb
-            # 如果依赖问题，运行：sudo apt-get install -f
-
             # CentOS/RHEL/Fedora
             sudo rpm -i ZAugment-${{ github.ref_name }}-1.x86_64.rpm
-            ```
 
-            ### 🛠️ 常见安装问题解决方案
-
-            **macOS 安全问题:**
-            ```bash
-            # 如果提示"无法验证开发者"，请运行：
-            sudo xattr -rd com.apple.quarantine /Applications/ZAugment.app
-
-            # 或者在系统偏好设置 > 安全性与隐私 > 通用 中点击"仍要打开"
-            ```
-
-            **Linux 权限问题:**
-            ```bash
-            # 缺少依赖（Ubuntu/Debian）
-            sudo apt update
-            sudo apt install libwebkit2gtk-4.0-37 libgtk-3-0
-
-            # 缺少依赖（CentOS/RHEL）
-            sudo yum install webkit2gtk3 gtk3
-            ```
-
-            **Windows 安装问题:**
-            ```bash
-            # 如果提示"Windows 已保护你的电脑"
-            # 点击"更多信息" > "仍要运行"
-
-            # 或者右键安装包 > 属性 > 解除阻止
-            ```
-
-            ### 🛠️ 常见问题解决
-
-            #### macOS 安装问题
-            - **问题**: "ZAugment已损坏，无法打开"
-            - **解决**: `sudo xattr -rd com.apple.quarantine /Applications/ZAugment.app`
-            - **问题**: 应用无法启动
-            - **解决**: 在"系统偏好设置" -> "安全性与隐私" -> "通用"中点击"仍要打开"
-
-            #### Linux 安装问题
-            - **问题**: 缺少依赖库
-            - **解决**: `sudo apt-get install libwebkit2gtk-4.0-37 libgtk-3-0 libayatana-appindicator3-1`
-
-            #### Windows 安装问题
-            - **问题**: Windows Defender 阻止安装
-            - **解决**: 点击"更多信息" -> "仍要运行"，或临时关闭实时保护
-            - **问题**: 应用无法启动
-            - **解决**: 确保已安装 Microsoft Edge WebView2 运行时
 
             ---
-
-            **🔒 安全说明**: 本应用已通过多平台测试，如遇安全软件误报属正常现象
+            **🔒 安全说明**: 如遇安全软件误报属正常现象
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
