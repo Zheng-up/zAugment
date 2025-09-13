@@ -108,7 +108,20 @@ export default {
       } catch (error) {
         console.error("检查更新失败:", error);
         if (showNoUpdateMessage) {
-          this.$emit("show-status", "检查更新失败，请稍后重试", "error");
+          let errorMessage = "检查更新失败，请稍后重试";
+
+          // 根据错误类型提供更具体的错误信息
+          if (error && typeof error === "string") {
+            if (error.includes("速率限制") || error.includes("rate limit")) {
+              errorMessage = "GitHub API 访问频率过高，请稍后重试";
+            } else if (error.includes("网络")) {
+              errorMessage = "网络连接失败，请检查网络连接";
+            } else if (error.includes("timeout")) {
+              errorMessage = "请求超时，请检查网络连接";
+            }
+          }
+
+          this.$emit("show-status", errorMessage, "error");
         }
       } finally {
         this.isChecking = false;

@@ -1012,7 +1012,7 @@ async fn check_for_updates() -> Result<UpdateCheckResult, String> {
     let current_version = env!("CARGO_PKG_VERSION");
     println!("检查更新: 当前版本 {}", current_version);
 
-    // 获取最新 Release 信息
+    // 获取最新 Release 信息，带重试机制
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .user_agent("ZAugment-UpdateChecker/1.0")
@@ -1023,55 +1023,79 @@ async fn check_for_updates() -> Result<UpdateCheckResult, String> {
             error_msg
         })?;
 
-    println!("正在请求 GitHub API...");
-    let response = client
-        .get("https://api.github.com/repos/Zheng-up/zAugment/releases/latest")
-        .header("Accept", "application/vnd.github.v3+json")
-        .send()
-        .await
-        .map_err(|e| {
-            let error_msg = format!("Failed to fetch release info: {}", e);
-            println!("网络请求错误: {}", error_msg);
-            error_msg
-        })?;
+    // 重试机制：最多重试3次，每次间隔递增
+    let mut last_error = String::new();
+    for attempt in 1..=3 {
+        println!("正在请求 GitHub API... (尝试 {}/3)", attempt);
 
-    println!("GitHub API 响应状态: {}", response.status());
-    if !response.status().is_success() {
-        let error_msg = format!("GitHub API request failed with status: {}", response.status());
-        println!("API 请求失败: {}", error_msg);
-        return Err(error_msg);
+        let response = client
+            .get("https://api.github.com/repos/Zheng-up/zAugment/releases/latest")
+            .header("Accept", "application/vnd.github.v3+json")
+            .send()
+            .await;
+
+        match response {
+            Ok(resp) => {
+                println!("GitHub API 响应状态: {}", resp.status());
+
+                if resp.status().is_success() {
+                    // 成功响应，继续处理
+                    let release: GitHubRelease = resp
+                        .json()
+                        .await
+                        .map_err(|e| {
+                            let error_msg = format!("Failed to parse release JSON: {}", e);
+                            println!("JSON 解析错误: {}", error_msg);
+                            error_msg
+                        })?;
+
+                    let latest_version = release.tag_name.trim_start_matches('v');
+                    println!("最新版本: {}, 当前版本: {}", latest_version, current_version);
+
+                    let has_update = is_newer_version(latest_version, current_version);
+                    println!("是否有更新: {}", has_update);
+
+                    // 获取适合当前平台的下载链接
+                    let (download_url, asset_name) = get_platform_download_url(&release.assets);
+                    println!("下载链接: {}, 文件名: {}", download_url, asset_name);
+
+                    let result = UpdateCheckResult {
+                        has_update,
+                        current_version: current_version.to_string(),
+                        latest_version: latest_version.to_string(),
+                        release_notes: parse_release_notes(&release.body),
+                        download_url,
+                        asset_name,
+                    };
+
+                    println!("检查更新完成: {:?}", result);
+                    return Ok(result);
+                } else if resp.status() == 403 {
+                    // API 速率限制
+                    last_error = format!("GitHub API 速率限制，请稍后重试 (状态码: {})", resp.status());
+                    println!("API 速率限制: {}", last_error);
+                } else {
+                    // 其他错误
+                    last_error = format!("GitHub API 请求失败，状态码: {}", resp.status());
+                    println!("API 请求失败: {}", last_error);
+                }
+            }
+            Err(e) => {
+                last_error = format!("网络请求失败: {}", e);
+                println!("网络请求错误: {}", last_error);
+            }
+        }
+
+        // 如果不是最后一次尝试，等待后重试
+        if attempt < 3 {
+            let delay = std::time::Duration::from_secs(attempt * 2); // 2s, 4s
+            println!("等待 {}s 后重试...", delay.as_secs());
+            tokio::time::sleep(delay).await;
+        }
     }
 
-    let release: GitHubRelease = response
-        .json()
-        .await
-        .map_err(|e| {
-            let error_msg = format!("Failed to parse release JSON: {}", e);
-            println!("JSON 解析错误: {}", error_msg);
-            error_msg
-        })?;
-
-    let latest_version = release.tag_name.trim_start_matches('v');
-    println!("最新版本: {}, 当前版本: {}", latest_version, current_version);
-
-    let has_update = is_newer_version(latest_version, current_version);
-    println!("是否有更新: {}", has_update);
-
-    // 获取适合当前平台的下载链接
-    let (download_url, asset_name) = get_platform_download_url(&release.assets);
-    println!("下载链接: {}, 文件名: {}", download_url, asset_name);
-
-    let result = UpdateCheckResult {
-        has_update,
-        current_version: current_version.to_string(),
-        latest_version: latest_version.to_string(),
-        release_notes: parse_release_notes(&release.body),
-        download_url,
-        asset_name,
-    };
-
-    println!("检查更新完成: {:?}", result);
-    Ok(result)
+    // 所有重试都失败了
+    Err(format!("检查更新失败: {}", last_error))
 }
 
 // 版本比较函数
@@ -1163,7 +1187,9 @@ fn parse_release_notes(body: &str) -> String {
 
         // 在更新内容部分内，收集列表项和空行
         if in_update_content {
-            if trimmed.starts_with("- ") || trimmed.starts_with("* ") || trimmed.is_empty() {
+            if trimmed.starts_with("- ") || trimmed.starts_with("* ") ||
+               trimmed.chars().next().map_or(false, |c| c.is_ascii_digit()) ||
+               trimmed.is_empty() {
                 result.push(line);
             }
         }
