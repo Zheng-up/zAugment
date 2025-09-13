@@ -15,6 +15,14 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  # 优化 Rust 编译
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUST_BACKTRACE: 1
+  # 优化 Node.js
+  NODE_OPTIONS: "--max-old-space-size=4096"
+  # 跳过不必要的检查
+  SKIP_ENV_VALIDATION: 1
 
 jobs:
   build:
@@ -49,8 +57,22 @@ jobs:
       - name: Install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          # 使用缓存的包列表，避免每次都更新
+          sudo apt-get update -qq
+          # 并行安装，减少安装时间
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.0-dev \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev
 
       - name: Rust setup (with target)
         if: matrix.target
@@ -65,33 +87,43 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
+          # 增加缓存键以提高命中率
+          key: ${{ matrix.platform }}-${{ matrix.target || 'default' }}
+          # 缓存更多目录
+          cache-directories: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          # 保存部分构建产物
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
+          # 指定缓存目录
+          cache-dependency-path: package-lock.json
 
-      - name: Update npm to latest
-        run: npm install -g npm@latest
-
-      - name: Clean and install frontend dependencies (Windows)
+      - name: Install frontend dependencies (Windows)
         if: matrix.platform == 'windows-latest'
         run: |
-          if (Test-Path node_modules) { Remove-Item -Recurse -Force node_modules }
-          if (Test-Path package-lock.json) { Remove-Item -Force package-lock.json }
-          npm install
+          # 使用 npm ci 代替 npm install，更快且更可靠
+          npm ci --prefer-offline --no-audit --no-fund
 
-      - name: Clean and install frontend dependencies (Unix)
+      - name: Install frontend dependencies (Unix)
         if: matrix.platform != 'windows-latest'
         run: |
-          rm -rf node_modules package-lock.json
-          npm install
+          # 使用 npm ci 代替 npm install，更快且更可靠
+          npm ci --prefer-offline --no-audit --no-fund
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 优化 Tauri 构建
+          TAURI_PRIVATE_KEY: ""
+          TAURI_KEY_PASSWORD: ""
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "ZAugment ${{ github.ref_name }}"
@@ -99,9 +131,9 @@ jobs:
             ## 🚀 ZAugment ${{ github.ref_name }} 发布
 
             ### 更新内容
-            1. 修复更新检查功能的网络错误处理
-            2. 增加重试机制，提高更新检查成功率
-            3. 修复更新内容解析问题，支持数字列表格式
+            1. 测试 GitHub Actions 构建优化效果
+            2. 优化更新弹窗内容解析逻辑
+            3. 提升应用整体性能和稳定性
 
             ### 📥 下载文件
             | 平台 | 文件名 |

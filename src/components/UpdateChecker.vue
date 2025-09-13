@@ -22,6 +22,7 @@
           </div>
         </div>
         <div class="release-notes-container">
+          <h3>更新内容:</h3>
           <div class="release-notes" v-html="formattedReleaseNotes"></div>
         </div>
       </div>
@@ -207,7 +208,7 @@ export default {
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 8px;
-  padding: 16px;
+  padding: 4px 16px 16px;
   margin: 8px 0;
 }
 
@@ -231,6 +232,7 @@ export default {
 }
 
 .release-notes {
+  margin-top: 10px;
   font-size: 14px;
   line-height: 1.6;
   color: #555;

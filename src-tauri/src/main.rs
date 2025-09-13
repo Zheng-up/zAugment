@@ -1175,9 +1175,8 @@ fn parse_release_notes(body: &str) -> String {
 
         // 检测更新内容部分开始
         if trimmed.starts_with("### 更新内容") || trimmed.starts_with("###更新内容") {
-            result.push(line);
             in_update_content = true;
-            continue;
+            continue; // 不包含标题行
         }
 
         // 如果遇到其他三级标题，停止收集
