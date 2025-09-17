@@ -1,0 +1,169 @@
+name: Build Multi-Platform
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  actions: write
+  pull-requests: write
+  issues: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-latest"
+            args: "--target aarch64-apple-darwin"
+            target: "aarch64-apple-darwin"
+            arch: "arm64"
+            platform_name: "macos-arm64"
+          - platform: "macos-latest"
+            args: "--target x86_64-apple-darwin"
+            target: "x86_64-apple-darwin"
+            arch: "x64"
+            platform_name: "macos-x64"
+          - platform: "ubuntu-22.04"
+            args: ""
+            arch: "x64"
+            platform_name: "linux-amd64"
+          - platform: "windows-latest"
+            args: ""
+            arch: "x64"
+            platform_name: "windows-x64"
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Rust setup (with target)
+        if: matrix.target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Rust setup (default)
+        if: ${{ !matrix.target }}
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Update npm to latest
+        run: npm install -g npm@latest
+
+      - name: Clean and install frontend dependencies (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: |
+          if (Test-Path node_modules) { Remove-Item -Recurse -Force node_modules }
+          if (Test-Path package-lock.json) { Remove-Item -Force package-lock.json }
+          npm install
+
+      - name: Clean and install frontend dependencies (Unix)
+        if: matrix.platform != 'windows-latest'
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
+
+      - name: Build the app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "ZAugment ${{ github.ref_name }}"
+          releaseBody: |
+            ## 🚀 ZAugment ${{ github.ref_name }} 发布
+
+            ### 更新内容
+            1. 修复token过期显示问题 和 账号状态检测超时问题 优化账号检测统计显示
+            2. 新增过期状态显示 更快的刷新账号状态
+            3. 优化账号列表排序（按创建时间排序，避免闪烁问题）
+            4. 优化账号列表去重（按邮箱去重）
+            5. 新增相同账号增加是否覆盖更新提醒弹窗（用于更新token信息）
+            6. 优化提示 减少不必要的提示
+
+            ### 📥 下载文件
+            | 平台 | 文件名 |
+            |------|--------|
+            | **Windows** | `ZAugment_${{ github.ref_name }}_x64-setup.exe` |
+            | **macOS (Intel)** | `ZAugment_${{ github.ref_name }}_x64.dmg` |
+            | **macOS (Apple Silicon)** | `ZAugment_${{ github.ref_name }}_aarch64.dmg` |
+            | **Linux (Ubuntu/Debian)** | `ZAugment_${{ github.ref_name }}_amd64.deb` |
+            | **Linux (CentOS/RHEL)** | `ZAugment-${{ github.ref_name }}-1.x86_64.rpm` |
+
+            ### 🔧 安装方法
+            **Windows:** 下载 `.exe` 文件双击安装，如遇警告点击"更多信息" → "仍要运行"
+
+            **macOS:** 下载对应芯片的 `.dmg` 文件拖拽到应用程序文件夹，如遇安装包已损坏运行：
+            sudo xattr -rd com.apple.quarantine /Applications/ZAugment.app
+
+            **Linux:**
+            # Ubuntu/Debian
+            sudo dpkg -i ZAugment_${{ github.ref_name }}_amd64.deb
+            # CentOS/RHEL/Fedora
+            sudo rpm -i ZAugment-${{ github.ref_name }}-1.x86_64.rpm
+
+
+            ---
+            **🔒 安全说明**: 如遇安全软件误报属正常现象
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+          includeUpdaterJson: false
+
+      - name: Upload artifacts (macOS)
+        if: matrix.platform == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-${{ matrix.arch }}-build
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*
+            !src-tauri/target/${{ matrix.target }}/release/bundle/**/.*
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload artifacts (Windows)
+        if: matrix.platform == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-${{ matrix.arch }}-build
+          path: |
+            src-tauri/target/release/bundle/**/*
+            !src-tauri/target/release/bundle/**/.*
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload artifacts (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-${{ matrix.arch }}-build
+          path: |
+            src-tauri/target/release/bundle/**/*
+            !src-tauri/target/release/bundle/**/.*
+          retention-days: 30
+          if-no-files-found: warn
