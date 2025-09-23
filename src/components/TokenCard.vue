@@ -1012,19 +1012,19 @@ const handleEditorClick = async (editorType) => {
       });
 
       // 延迟调用 Balance 插件，确保主插件先完成配置
-      setTimeout(async () => {
-        try {
-          await invoke("open_editor_with_protocol", {
-            protocolUrl: protocolUrls.balanceUrl,
-          });
-          console.log(`Balance plugin called for ${editorName}`);
-        } catch (error) {
-          console.error(
-            `Failed to call Balance plugin for ${editorName}:`,
-            error
-          );
-        }
-      }, 1000);
+      // setTimeout(async () => {
+      //   try {
+      //     await invoke("open_editor_with_protocol", {
+      //       protocolUrl: protocolUrls.balanceUrl,
+      //     });
+      //     console.log(`Balance plugin called for ${editorName}`);
+      //   } catch (error) {
+      //     console.error(
+      //       `Failed to call Balance plugin for ${editorName}:`,
+      //       error
+      //     );
+      //   }
+      // }, 1000);
 
       emit("copy-success", `正在打开 ${editorName}...`, "success");
     }
