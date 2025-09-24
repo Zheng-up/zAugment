@@ -144,8 +144,8 @@
                   <div class="input-with-integrated-button">
                     <input
                       type="text"
-                      readonly
-                      placeholder="点击生成按钮生成授权URL进行注册"
+                      v-model="authUrl"
+                      placeholder="点击生成按钮生成授权URL进行注册，或直接输入URL"
                       class="generate-input"
                     />
                     <button
@@ -186,12 +186,7 @@
                 <!-- 生成后的状态 -->
                 <div v-if="authUrl" class="generated-section">
                   <div class="input-with-integrated-button">
-                    <input
-                      type="text"
-                      :value="authUrl"
-                      readonly
-                      ref="authUrlInput"
-                    />
+                    <input type="text" v-model="authUrl" ref="authUrlInput" />
                     <button
                       @click="copyAuthUrl"
                       class="integrated-btn primary"
