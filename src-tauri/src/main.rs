@@ -2663,6 +2663,25 @@ fn get_editor_process_names(editor_type: &str) -> Vec<String> {
 }
 
 #[tauri::command]
+async fn check_editor_processes(editor_type: String) -> Result<Vec<String>, String> {
+    let process_names = get_editor_process_names(&editor_type);
+    let mut system = System::new_all();
+    system.refresh_all();
+
+    let mut running_processes = Vec::new();
+
+    // 收集所有匹配的进程
+    for process in system.processes().values() {
+        let process_name = process.name();
+        if process_names.iter().any(|name| process_name.contains(name)) {
+            running_processes.push(format!("{} (PID: {})", process_name, process.pid()));
+        }
+    }
+
+    Ok(running_processes)
+}
+
+#[tauri::command]
 async fn close_editor_processes(editor_type: String) -> Result<String, String> {
     let process_names = get_editor_process_names(&editor_type);
     let mut system = System::new_all();
@@ -2678,107 +2697,6 @@ async fn close_editor_processes(editor_type: String) -> Result<String, String> {
         if process_names.iter().any(|name| process_name.contains(name)) {
             process_pids.push((process.pid(), process_name.to_string()));
         }
-    }
-
-    if process_pids.is_empty() {
-        // 获取编辑器显示名称
-        let editor_display_name = match editor_type.as_str() {
-            "vscode" => "VS Code",
-            "cursor" => "Cursor",
-            "kiro" => "Kiro",
-            "trae" => "Trae",
-            "windsurf" => "Windsurf",
-            "qoder" => "Qoder",
-            "vscodium" => "VSCodium",
-            "codebuddy" => "CodeBuddy",
-            "idea" => "IntelliJ IDEA",
-            "pycharm" => "PyCharm",
-            "goland" => "GoLand",
-            "rustrover" => "RustRover",
-            "webstorm" => "WebStorm",
-            "phpstorm" => "PhpStorm",
-            "clion" => "CLion",
-            "datagrip" => "DataGrip",
-            "rider" => "Rider",
-            "rubymine" => "RubyMine",
-            "aqua" => "Aqua",
-            "androidstudio" => "Android Studio",
-            _ => &editor_type,
-        };
-        return Ok(format!("关闭进程: 未发现运行中的 {} 进程", editor_display_name));
-    }
-
-    // 使用Windows API温和地关闭进程
-    #[cfg(target_os = "windows")]
-    {
-        use std::process::Command;
-
-        for (pid, process_name) in &process_pids {
-            // 使用taskkill命令温和地关闭进程
-            let output = Command::new("taskkill")
-                .args(&["/PID", &pid.to_string(), "/T"]) // /T 关闭进程树
-                .output();
-
-            match output {
-                Ok(result) => {
-                    if result.status.success() {
-                        closed_count += 1;
-                        println!("已关闭进程: {} (PID: {})", process_name, pid);
-                    } else {
-                        // 如果温和关闭失败，尝试强制关闭
-                        let force_output = Command::new("taskkill")
-                            .args(&["/PID", &pid.to_string(), "/F", "/T"])
-                            .output();
-
-                        match force_output {
-                            Ok(force_result) => {
-                                if force_result.status.success() {
-                                    closed_count += 1;
-                                    println!("强制关闭进程: {} (PID: {})", process_name, pid);
-                                } else {
-                                    failed_processes.push(format!("{} (PID: {})", process_name, pid));
-                                }
-                            }
-                            Err(_) => {
-                                failed_processes.push(format!("{} (PID: {})", process_name, pid));
-                            }
-                        }
-                    }
-                }
-                Err(_) => {
-                    failed_processes.push(format!("{} (PID: {})", process_name, pid));
-                }
-            }
-        }
-    }
-
-    // 非Windows系统使用原来的方法
-    #[cfg(not(target_os = "windows"))]
-    {
-        system.refresh_all();
-        for process in system.processes().values() {
-            let process_name = process.name();
-            if process_names.iter().any(|name| process_name.contains(name)) {
-                match process.kill() {
-                    true => {
-                        closed_count += 1;
-                        println!("已关闭进程: {} (PID: {})", process_name, process.pid());
-                    },
-                    false => {
-                        failed_processes.push(format!("{} (PID: {})", process_name, process.pid()));
-                    }
-                }
-            }
-        }
-    }
-
-    if !failed_processes.is_empty() {
-        return Err(format!("部分进程关闭失败，请重新运行"));
-    }
-
-    if closed_count > 0 {
-        // 等待进程完全关闭
-        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
     }
 
     // 获取编辑器显示名称
@@ -2806,11 +2724,182 @@ async fn close_editor_processes(editor_type: String) -> Result<String, String> {
         _ => &editor_type,
     };
 
-    if closed_count > 0 {
-        Ok(format!("关闭进程: 成功关闭 {} 个 {} 进程", closed_count, editor_display_name))
-    } else {
-        Ok(format!("关闭进程: 未发现运行中的 {} 进程", editor_display_name))
+    if process_pids.is_empty() {
+        return Ok(format!("关闭进程: 未发现运行中的 {} 进程", editor_display_name));
     }
+
+    // 使用Windows API温和地关闭进程
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+
+        for (pid, process_name) in &process_pids {
+            println!("尝试关闭进程: {} (PID: {})", process_name, pid);
+
+            // 第一步：使用温和的方式关闭进程
+            let output = Command::new("taskkill")
+                .args(&["/PID", &pid.to_string(), "/T"]) // /T 关闭进程树
+                .output();
+
+            let mut process_closed = false;
+
+            match output {
+                Ok(result) => {
+                    if result.status.success() {
+                        closed_count += 1;
+                        process_closed = true;
+                        println!("温和关闭成功: {} (PID: {})", process_name, pid);
+                    } else {
+                        println!("温和关闭失败，尝试强制关闭: {} (PID: {})", process_name, pid);
+                    }
+                }
+                Err(e) => {
+                    println!("温和关闭命令执行失败: {}, 尝试强制关闭", e);
+                }
+            }
+
+            // 如果温和关闭失败，尝试强制关闭
+            if !process_closed {
+                let force_output = Command::new("taskkill")
+                    .args(&["/PID", &pid.to_string(), "/F", "/T"])
+                    .output();
+
+                match force_output {
+                    Ok(force_result) => {
+                        if force_result.status.success() {
+                            closed_count += 1;
+                            process_closed = true;
+                            println!("强制关闭成功: {} (PID: {})", process_name, pid);
+                        } else {
+                            let stderr = String::from_utf8_lossy(&force_result.stderr);
+                            println!("强制关闭失败: {} (PID: {}), 错误: {}", process_name, pid, stderr);
+                        }
+                    }
+                    Err(e) => {
+                        println!("强制关闭命令执行失败: {} (PID: {}), 错误: {}", process_name, pid, e);
+                    }
+                }
+            }
+
+            // 如果进程仍然没有关闭，记录到失败列表
+            if !process_closed {
+                failed_processes.push(format!("{} (PID: {})", process_name, pid));
+            }
+        }
+    }
+
+    // 非Windows系统使用SIGTERM和SIGKILL的组合方式
+    #[cfg(not(target_os = "windows"))]
+    {
+        use std::process::Command;
+
+        for (pid, process_name) in &process_pids {
+            println!("尝试关闭进程: {} (PID: {})", process_name, pid);
+            let mut process_closed = false;
+
+            // 第一步：使用SIGTERM温和关闭
+            let term_output = Command::new("kill")
+                .args(&["-TERM", &pid.to_string()])
+                .output();
+
+            match term_output {
+                Ok(result) => {
+                    if result.status.success() {
+                        println!("发送SIGTERM信号成功: {} (PID: {})", process_name, pid);
+                        // 等待进程响应SIGTERM
+                        tokio::time::sleep(tokio::time::Duration::from_millis(2000)).await;
+
+                        // 检查进程是否还存在
+                        let check_output = Command::new("kill")
+                            .args(&["-0", &pid.to_string()])
+                            .output();
+
+                        if let Ok(check_result) = check_output {
+                            if !check_result.status.success() {
+                                // 进程已经不存在了
+                                closed_count += 1;
+                                process_closed = true;
+                                println!("SIGTERM关闭成功: {} (PID: {})", process_name, pid);
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("发送SIGTERM失败: {} (PID: {}), 错误: {}", process_name, pid, e);
+                }
+            }
+
+            // 如果SIGTERM失败，使用SIGKILL强制关闭
+            if !process_closed {
+                println!("SIGTERM无效，尝试SIGKILL强制关闭: {} (PID: {})", process_name, pid);
+                let kill_output = Command::new("kill")
+                    .args(&["-KILL", &pid.to_string()])
+                    .output();
+
+                match kill_output {
+                    Ok(result) => {
+                        if result.status.success() {
+                            closed_count += 1;
+                            process_closed = true;
+                            println!("SIGKILL关闭成功: {} (PID: {})", process_name, pid);
+                        } else {
+                            let stderr = String::from_utf8_lossy(&result.stderr);
+                            println!("SIGKILL失败: {} (PID: {}), 错误: {}", process_name, pid, stderr);
+                        }
+                    }
+                    Err(e) => {
+                        println!("SIGKILL命令执行失败: {} (PID: {}), 错误: {}", process_name, pid, e);
+                    }
+                }
+            }
+
+            // 如果进程仍然没有关闭，记录到失败列表
+            if !process_closed {
+                failed_processes.push(format!("{} (PID: {})", process_name, pid));
+            }
+        }
+    }
+
+    // 等待所有进程完全关闭
+    if closed_count > 0 {
+        println!("等待进程完全关闭...");
+        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
+
+        // 再次检查是否还有残留进程
+        system.refresh_all();
+        let mut remaining_processes = Vec::new();
+        for process in system.processes().values() {
+            let process_name = process.name();
+            if process_names.iter().any(|name| process_name.contains(name)) {
+                remaining_processes.push(format!("{} (PID: {})", process_name, process.pid()));
+            }
+        }
+
+        if !remaining_processes.is_empty() {
+            println!("警告: 发现残留进程: {:?}", remaining_processes);
+            // 将残留进程添加到失败列表，但不阻止继续执行
+            for remaining in remaining_processes {
+                if !failed_processes.contains(&remaining) {
+                    failed_processes.push(remaining);
+                }
+            }
+        }
+    }
+
+    // 构建结果消息
+    let mut result_message = if closed_count > 0 {
+        format!("关闭进程: 成功关闭 {} 个 {} 进程", closed_count, editor_display_name)
+    } else {
+        format!("关闭进程: 未发现运行中的 {} 进程", editor_display_name)
+    };
+
+    // 如果有失败的进程，添加警告信息但不返回错误
+    if !failed_processes.is_empty() {
+        result_message.push_str(&format!(" (警告: {} 个进程可能未完全关闭)", failed_processes.len()));
+        println!("部分进程关闭失败: {:?}", failed_processes);
+    }
+
+    Ok(result_message)
 }
 
 #[tauri::command]
@@ -3354,6 +3443,7 @@ fn main() {
             get_window_size,
 
             // 编辑器重置功能命令
+            check_editor_processes,
             close_editor_processes,
             clean_editor_database,
             reset_editor_telemetry

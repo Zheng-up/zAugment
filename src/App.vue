@@ -16,7 +16,7 @@
 
         <nav class="sidebar-nav">
           <button
-            @click="currentView = 'token-generator'"
+            @click="handleNavClick('token-generator')"
             :class="['nav-item', { active: currentView === 'token-generator' }]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -26,20 +26,8 @@
             </svg>
             <span>Aug注册</span>
           </button>
-          <!-- 邮箱管理功能 -->
           <button
-            @click="currentView = 'email-manager'"
-            :class="['nav-item', { active: currentView === 'email-manager' }]"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"
-              />
-            </svg>
-            <span>邮箱管理</span>
-          </button>
-          <button
-            @click="currentView = 'token-list'"
+            @click="handleNavClick('token-list')"
             :class="['nav-item', { active: currentView === 'token-list' }]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -49,9 +37,21 @@
             </svg>
             <span>账号管理</span>
           </button>
+          <!-- 邮箱管理功能 -->
+          <button
+            @click="handleNavClick('email-manager')"
+            :class="['nav-item', { active: currentView === 'email-manager' }]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"
+              />
+            </svg>
+            <span>邮箱管理</span>
+          </button>
 
           <button
-            @click="currentView = 'settings'"
+            @click="handleNavClick('settings')"
             :class="['nav-item', { active: currentView === 'settings' }]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -1435,7 +1435,7 @@
     <!-- 编辑器重置弹窗 -->
     <EditorResetModal
       :visible="showEditorResetModal"
-      @close="showEditorResetModal = false"
+      @close="handleEditorResetModalClose"
       @reset-complete="handleEditorResetComplete"
     />
 
@@ -1839,6 +1839,7 @@ watch(currentView, (newView) => {
   showPortalDialog.value = false;
   showDeleteConfirm.value = false;
   showForceConfirm.value = false;
+  showEditorResetModal.value = false;
   showPlatformSelector.value = false;
   showSyncHistoryModal.value = false;
   showTokenFormModal.value = false;
@@ -3068,6 +3069,18 @@ const handleAddTokenFromForm = async (tokenData) => {
   }
 };
 
+// 处理侧边栏导航点击
+const handleNavClick = (view) => {
+  currentView.value = view;
+  // 关闭编辑器重置弹窗并重置其状态
+  showEditorResetModal.value = false;
+};
+
+// 处理编辑器重置弹窗关闭
+const handleEditorResetModalClose = () => {
+  showEditorResetModal.value = false;
+};
+
 // 处理编辑器重置完成
 const handleEditorResetComplete = (result) => {
   if (result.success) {
@@ -3076,15 +3089,47 @@ const handleEditorResetComplete = (result) => {
       // 显示每个步骤的结果
       result.details.forEach((detail, index) => {
         setTimeout(() => {
-          showStatus(detail, "success");
-        }, index * 1000); // 每个步骤间隔1秒显示
+          // 根据步骤结果的类型选择不同的状态
+          if (detail.includes("⚠️")) {
+            showStatus(detail, "warning");
+          } else if (detail.includes("✅")) {
+            showStatus(detail, "success");
+          } else {
+            showStatus(detail, "info");
+          }
+        }, index * 1200); // 每个步骤间隔1.2秒显示
       });
+
+      // 显示总结消息
+      setTimeout(() => {
+        if (result.hasWarnings) {
+          showStatus(
+            `${result.editor} 重置完成，但有部分警告。如果编辑器仍有问题，请手动关闭编辑器后重试。`,
+            "warning"
+          );
+        } else {
+          showStatus(`${result.editor} 重置成功完成！`, "success");
+        }
+      }, result.details.length * 1200 + 500);
     } else {
       // 如果没有详细信息，显示简单成功消息
-      showStatus(`${result.editor} 重置成功！`, "success");
+      if (result.hasWarnings) {
+        showStatus(`${result.editor} 重置完成，但有警告`, "warning");
+      } else {
+        showStatus(`${result.editor} 重置成功！`, "success");
+      }
     }
   } else {
     showStatus(`${result.editor} 重置失败: ${result.error}`, "error");
+
+    // 如果有详细信息，也显示出来
+    if (result.details && result.details.length > 0) {
+      result.details.forEach((detail, index) => {
+        setTimeout(() => {
+          showStatus(detail, "error");
+        }, (index + 1) * 1000);
+      });
+    }
   }
 };
 

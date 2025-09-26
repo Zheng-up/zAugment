@@ -6,27 +6,23 @@
     @close="handleClose"
   >
     <div class="editor-reset-content">
-      <div class="warning-section">
-        <div class="warning-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M12 2L1 21H23L12 2M12 6L19.53 19H4.47L12 6M11 10V14H13V10H11M11 16V18H13V16H11Z"
-            />
-          </svg>
-        </div>
-        <div class="warning-text">
-          <h4>重要提醒 此操作将会：</h4>
-
-          <ul>
-            <li>关闭选中的编辑器进程</li>
-            <li>清理 Augment 相关的数据</li>
-            <li>重置编辑器的遥测标识</li>
-          </ul>
-        </div>
-      </div>
-
       <div class="editor-selection">
-        <h4>选择要重置的编辑器：</h4>
+        <div class="warning-section">
+          <div class="warning-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 2L1 21H23L12 2M12 6L19.53 19H4.47L12 6M11 10V14H13V10H11M11 16V18H13V16H11Z"
+              />
+            </svg>
+          </div>
+          <div class="warning-text">
+            <h4>重要提醒 此操作将会：</h4>
+            <p>
+              关闭选中的编辑器进程，清理 Augment
+              相关的数据，重置编辑器的遥测标识
+            </p>
+          </div>
+        </div>
         <div class="editor-grid">
           <!-- VSCode 系列 -->
           <div class="editor-category">
@@ -43,7 +39,7 @@
               </svg>
               VSCode 系列
             </h4>
-            <div class="editor-options vscode-grid">
+            <div class="vscode-grid">
               <button
                 @click="selectEditor('vscode')"
                 class="editor-option vscode-option"
@@ -199,7 +195,7 @@
               </svg>
               JetBrains 系列
             </h4>
-            <div class="editor-options jetbrains-grid">
+            <div class="jetbrains-grid">
               <button
                 @click="selectEditor('idea')"
                 class="editor-option idea-option"
@@ -425,11 +421,10 @@
           class="btn secondary"
           :disabled="isProcessing"
         >
-          {{ processResult ? "关闭" : "取消" }}
+          关闭
         </button>
         <button
-          v-if="!processResult"
-          @click="startReset"
+          @click="checkAndStartReset"
           class="btn danger"
           :disabled="!selectedEditor || isProcessing"
         >
@@ -442,7 +437,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import ModalContainer from "./ModalContainer.vue";
 
@@ -508,6 +503,22 @@ const resetState = () => {
   processResult.value = null;
 };
 
+// 监听 visible 属性变化，当弹窗关闭时重置状态
+watch(
+  () => props.visible,
+  (newVisible, oldVisible) => {
+    // 当弹窗从显示变为隐藏时，重置状态
+    if (oldVisible && !newVisible) {
+      resetState();
+    }
+  }
+);
+
+const checkAndStartReset = async () => {
+  if (!selectedEditor.value) return;
+  await startReset();
+};
+
 const startReset = async () => {
   if (!selectedEditor.value) return;
 
@@ -517,66 +528,113 @@ const startReset = async () => {
   // 用于收集所有步骤的详细结果
   const stepResults = [];
 
+  // 用于跟踪是否有警告
+  let hasWarnings = false;
+
   try {
     // 步骤1: 关闭编辑器进程
     console.log("=== 开始步骤1: 关闭编辑器进程 ===");
     currentStep.value = "正在关闭编辑器进程...";
-    const closeResult = await invoke("close_editor_processes", {
-      editorType: selectedEditor.value,
-    });
-    console.log("关闭进程结果:", closeResult);
-    stepResults.push(`✅ 步骤1: ${closeResult}`);
+
+    try {
+      const closeResult = await invoke("close_editor_processes", {
+        editorType: selectedEditor.value,
+      });
+      console.log("关闭进程结果:", closeResult);
+
+      // 检查是否有警告信息
+      if (closeResult.includes("警告")) {
+        hasWarnings = true;
+        stepResults.push(`⚠️ 步骤1: ${closeResult}`);
+      } else {
+        stepResults.push(`✅ 步骤1: ${closeResult}`);
+      }
+    } catch (closeError) {
+      console.warn("关闭进程时出现错误:", closeError);
+      stepResults.push(`⚠️ 步骤1: 关闭进程时出现问题，但将继续执行后续步骤`);
+      hasWarnings = true;
+    }
 
     // 等待一段时间确保进程完全关闭
-    console.log("等待2秒确保进程完全关闭...");
+    console.log("等待3秒确保进程完全关闭...");
     currentStep.value = "等待进程完全关闭...";
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 3000));
 
     // 步骤2: 清理数据库
     console.log("=== 开始步骤2: 清理数据库 ===");
     currentStep.value = "正在清理 Augment 数据...";
-    const cleanResult = await invoke("clean_editor_database", {
-      editorType: selectedEditor.value,
-      keyword: "augment",
-    });
-    console.log("清理数据库结果:", cleanResult);
-    stepResults.push(`✅ 步骤2: ${cleanResult}`);
+
+    try {
+      const cleanResult = await invoke("clean_editor_database", {
+        editorType: selectedEditor.value,
+        keyword: "augment",
+      });
+      console.log("清理数据库结果:", cleanResult);
+      stepResults.push(`✅ 步骤2: ${cleanResult}`);
+    } catch (cleanError) {
+      console.warn("清理数据库时出现错误:", cleanError);
+      stepResults.push(
+        `⚠️ 步骤2: 数据库清理时出现问题: ${cleanError.message || cleanError}`
+      );
+      hasWarnings = true;
+    }
 
     // 步骤3: 修改遥测ID
     console.log("=== 开始步骤3: 重置遥测ID ===");
     currentStep.value = "正在重置遥测标识...";
-    const resetResult = await invoke("reset_editor_telemetry", {
-      editorType: selectedEditor.value,
-    });
-    console.log("重置遥测结果:", resetResult);
-    stepResults.push(`✅ 步骤3: ${resetResult}`);
+
+    try {
+      const resetResult = await invoke("reset_editor_telemetry", {
+        editorType: selectedEditor.value,
+      });
+      console.log("重置遥测结果:", resetResult);
+      stepResults.push(`✅ 步骤3: ${resetResult}`);
+    } catch (resetError) {
+      console.warn("重置遥测时出现错误:", resetError);
+      stepResults.push(
+        `⚠️ 步骤3: 遥测重置时出现问题: ${resetError.message || resetError}`
+      );
+      hasWarnings = true;
+    }
+
+    // 设置处理结果
+    processResult.value = {
+      success: true,
+      hasWarnings: hasWarnings,
+      message: hasWarnings
+        ? "重置完成，但部分步骤有警告，请查看详细信息"
+        : "重置成功完成！",
+      details: stepResults,
+    };
 
     // 发送重置完成事件
     emit("reset-complete", {
       editor: selectedEditor.value,
       success: true,
+      hasWarnings: hasWarnings,
       details: stepResults, // 传递详细步骤结果
     });
-
-    // 等待1秒后自动关闭弹窗
-    setTimeout(() => {
-      emit("close");
-    }, 1000);
   } catch (error) {
-    console.error("重置失败:", error);
+    console.error("重置过程中发生严重错误:", error);
     processResult.value = {
       success: false,
       message: `重置失败: ${error.message || error}`,
+      details: stepResults,
     };
 
+    // 发送重置失败事件
     emit("reset-complete", {
       editor: selectedEditor.value,
       success: false,
       error: error.message || error,
+      details: stepResults,
     });
   } finally {
-    isProcessing.value = false;
-    currentStep.value = "";
+    // 无论成功失败，都在1秒后关闭弹窗并重置状态
+    setTimeout(() => {
+      resetState();
+      emit("close");
+    }, 1000);
   }
 };
 </script>
@@ -591,6 +649,7 @@ const startReset = async () => {
 
 .warning-section {
   display: flex;
+  align-items: center;
   gap: 16px;
   padding: 20px;
   background: linear-gradient(
@@ -647,13 +706,13 @@ const startReset = async () => {
 .editor-grid {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
 }
 
 .editor-category {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .category-title {
@@ -672,31 +731,25 @@ const startReset = async () => {
   color: #3b82f6;
 }
 
-.editor-options {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
 .vscode-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
 }
 
 .jetbrains-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
 }
 
 .editor-option {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 20px;
+  gap: 8px;
+  padding: 12px;
   border: 2px solid rgba(226, 232, 240, 0.4);
-  border-radius: 16px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.8);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -735,9 +788,9 @@ const startReset = async () => {
 }
 
 .editor-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -761,8 +814,8 @@ const startReset = async () => {
 }
 
 .editor-icon img {
-  width: 36px;
-  height: 36px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
   transition: transform 0.3s ease;
 }
@@ -779,7 +832,7 @@ const startReset = async () => {
 }
 
 .editor-name {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: #1e293b;
   transition: color 0.3s ease;
@@ -930,5 +983,60 @@ const startReset = async () => {
   100% {
     transform: rotate(360deg);
   }
+}
+
+/* 进程确认对话框样式 */
+.process-confirm-content {
+  padding: 20px 0;
+}
+
+.process-confirm-content .warning-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+}
+
+.process-confirm-content .warning-icon {
+  color: #ffc107;
+  flex-shrink: 0;
+}
+
+.process-confirm-content .warning-text {
+  flex: 1;
+}
+
+.process-confirm-content .warning-text p {
+  margin: 0 0 16px 0;
+  color: #333;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.running-processes {
+  margin-top: 16px;
+}
+
+.running-processes h4 {
+  margin: 0 0 8px 0;
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.running-processes ul {
+  margin: 0;
+  padding-left: 20px;
+  list-style-type: disc;
+}
+
+.running-processes li {
+  margin: 4px 0;
+  color: #666;
+  font-size: 13px;
+  font-family: "Consolas", "Monaco", "Courier New", monospace;
 }
 </style>

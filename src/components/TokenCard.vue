@@ -193,7 +193,7 @@
             </svg>
             VSCode 系列
           </h4>
-          <div class="editor-options vscode-grid">
+          <div class="vscode-grid">
             <button
               @click="handleEditorClick('vscode')"
               class="editor-option vscode-option"
@@ -336,7 +336,7 @@
             </svg>
             JetBrains 系列
           </h4>
-          <div class="editor-options jetbrains-grid">
+          <div class="jetbrains-grid">
             <button
               @click="handleEditorClick('idea')"
               class="editor-option idea-option"
@@ -2050,13 +2050,13 @@ defineExpose({
 .editor-grid {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
 }
 
 .editor-category {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .category-title {
@@ -2133,26 +2133,20 @@ defineExpose({
   border-bottom: none;
 }
 
-.editor-options {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
 .vscode-grid,
 .jetbrains-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
 }
 
 .editor-option {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 20px;
+  gap: 8px;
+  padding: 12px;
   border: 2px solid rgba(226, 232, 240, 0.4);
-  border-radius: 16px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.8);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -2194,12 +2188,12 @@ defineExpose({
 
 .editor-icon {
   flex-shrink: 0;
-  width: 56px;
-  height: 56px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 16px;
+  border-radius: 8px;
   background: linear-gradient(
     135deg,
     rgba(248, 250, 252, 0.9) 0%,
@@ -2221,8 +2215,8 @@ defineExpose({
 }
 
 .editor-icon img {
-  width: 36px;
-  height: 36px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
   transition: transform 0.3s ease;
 }
@@ -2275,7 +2269,7 @@ defineExpose({
 }
 
 .editor-name {
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 600;
   color: #1e293b;
   transition: color 0.3s ease;
