@@ -12,8 +12,27 @@
           @click.stop
         >
           <!-- 头部 -->
-          <div v-if="showHeader" class="modal-header">
-            <h3 class="modal-title">{{ title }}</h3>
+          <div
+            v-if="showHeader"
+            class="modal-header"
+            :class="{ 'has-tabs': hasTabs }"
+          >
+            <!-- 单标题模式 -->
+            <h3 v-if="!hasTabs" class="modal-title">{{ title }}</h3>
+
+            <!-- 多标题（Tab）模式 -->
+            <div v-if="hasTabs" class="modal-tabs">
+              <button
+                v-for="tab in tabs"
+                :key="tab.key"
+                @click="handleTabChange(tab.key)"
+                class="modal-tab-button"
+                :class="{ active: activeTab === tab.key }"
+              >
+                {{ tab.title }}
+              </button>
+            </div>
+
             <button
               v-if="showCloseButton"
               class="modal-close-btn"
@@ -63,6 +82,16 @@ const props = defineProps({
     type: String,
     default: "",
   },
+  // 新增：多标题支持
+  tabs: {
+    type: Array,
+    default: () => [],
+    // 格式: [{ key: 'tab1', title: '标题1' }, { key: 'tab2', title: '标题2' }]
+  },
+  activeTab: {
+    type: String,
+    default: "",
+  },
   size: {
     type: String,
     default: "medium", // small, medium, large, auto
@@ -90,7 +119,22 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["close", "overlay-click"]);
+const emit = defineEmits(["close", "overlay-click", "tab-change"]);
+
+// 计算属性
+const hasTabs = computed(() => props.tabs && props.tabs.length > 0);
+const currentTitle = computed(() => {
+  if (hasTabs.value && props.activeTab) {
+    const activeTabObj = props.tabs.find((tab) => tab.key === props.activeTab);
+    return activeTabObj ? activeTabObj.title : props.title;
+  }
+  return props.title;
+});
+
+// 处理tab切换
+const handleTabChange = (tabKey) => {
+  emit("tab-change", tabKey);
+};
 
 // 处理遮罩层点击
 const handleOverlayClick = () => {
@@ -193,11 +237,51 @@ const handleEscKey = (e) => {
   flex-shrink: 0;
 }
 
+.modal-header.has-tabs {
+  padding: 16px 32px 0 32px;
+  border-bottom: none;
+  background: transparent;
+}
+
 .modal-title {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
   color: #1e293b;
+}
+
+/* Tab 样式 - 简化版 */
+.modal-tabs {
+  display: flex;
+  background: rgba(248, 250, 252, 0.6);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  width: auto;
+  margin-right: 16px;
+}
+
+.modal-tab-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: transparent;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.modal-tab-button:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.7);
+  color: #374151;
+}
+
+.modal-tab-button.active {
+  background: #3b82f6;
+  color: white;
 }
 
 .modal-close-btn {
@@ -233,6 +317,12 @@ const handleEscKey = (e) => {
   padding-bottom: 0;
 }
 
+/* 有tabs时的内容区域样式调整 */
+.modal-header.has-tabs + .modal-body {
+  padding-top: 24px;
+  border-top: 1px solid rgba(226, 232, 240, 0.3);
+}
+
 /* 弹窗页脚 */
 .modal-footer {
   padding: 20px 32px;
@@ -266,12 +356,30 @@ const handleEscKey = (e) => {
     padding: 20px 24px;
   }
 
+  .modal-header.has-tabs {
+    padding: 12px 24px 0 24px;
+  }
+
   .modal-title {
     font-size: 18px;
   }
 
+  .modal-tabs {
+    margin-right: 12px;
+  }
+
+  .modal-tab-button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
   .modal-body {
     padding: 24px;
+  }
+
+  .modal-header.has-tabs + .modal-body {
+    padding-top: 20px;
+    margin-top: 12px;
   }
 }
 

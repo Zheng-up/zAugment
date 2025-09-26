@@ -2,7 +2,7 @@
   <ModalContainer
     :visible="visible"
     title="重置 Augment 配置"
-    size="large"
+    size="medium"
     @close="handleClose"
   >
     <div class="editor-reset-content">
@@ -17,10 +17,7 @@
           </div>
           <div class="warning-text">
             <h4>重要提醒 此操作将会：</h4>
-            <p>
-              关闭选中的编辑器进程，清理 Augment
-              相关的数据，重置编辑器的遥测标识
-            </p>
+            <p>关闭编辑器进程，清理 Augment 数据，重置遥测标识</p>
           </div>
         </div>
         <div class="editor-grid">
@@ -644,6 +641,7 @@ const startReset = async () => {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  max-height: 50vh;
   padding: 8px 0;
 }
 
@@ -733,14 +731,14 @@ const startReset = async () => {
 
 .vscode-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 
 .jetbrains-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 
 .editor-option {
@@ -933,38 +931,89 @@ const startReset = async () => {
 }
 
 .btn {
-  padding: 10px 20px;
+  padding: 12px 20px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   gap: 8px;
+  position: relative;
+  overflow: hidden;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn:hover::before {
+  left: 100%;
 }
 
 .btn.secondary {
-  background: #f3f4f6;
-  color: #374151;
+  background: linear-gradient(
+    135deg,
+    rgba(156, 163, 175, 0.1) 0%,
+    rgba(107, 114, 128, 0.05) 100%
+  );
+  color: #6b7280;
+  border: 1px solid rgba(156, 163, 175, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .btn.secondary:hover:not(:disabled) {
-  background: #e5e7eb;
+  background: linear-gradient(
+    135deg,
+    rgba(156, 163, 175, 0.15) 0%,
+    rgba(107, 114, 128, 0.1) 100%
+  );
+  border-color: rgba(107, 114, 128, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
 }
 
 .btn.danger {
-  background: #ef4444;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.25);
 }
 
 .btn.danger:hover:not(:disabled) {
-  background: #dc2626;
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.35);
 }
 
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn svg {
+  transition: transform 0.25s ease;
+}
+
+.btn:hover:not(:disabled) svg {
+  transform: scale(1.1);
 }
 
 .loading-spinner {
@@ -1038,5 +1087,20 @@ const startReset = async () => {
   color: #666;
   font-size: 13px;
   font-family: "Consolas", "Monaco", "Courier New", monospace;
+}
+
+/* 响应式样式 */
+@media (max-width: 768px) {
+  .vscode-grid,
+  .jetbrains-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .vscode-grid,
+  .jetbrains-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

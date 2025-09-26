@@ -77,7 +77,6 @@
               :token="token"
               @delete="$emit('delete-token', $event)"
               @copy-success="handleCopySuccess"
-              @open-portal="$emit('open-portal', $event)"
               @edit="$emit('edit-token', $event)"
               @token-updated="$emit('token-updated', $event)"
             />
@@ -119,7 +118,7 @@ const emit = defineEmits([
   "delete-token",
   "edit-token",
   "copy-success",
-  "open-portal",
+
   "token-updated",
   "add-new-token",
   "auto-check-completed",

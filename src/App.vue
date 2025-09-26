@@ -79,7 +79,7 @@
             <div class="header-right">
               <button
                 @click="showEditorResetModal = true"
-                class="reset-augment-btn-header"
+                class="btn-header-unified danger"
                 title="重置编辑器中的Augment配置"
               >
                 <svg
@@ -96,7 +96,7 @@
               </button>
               <button
                 @click="showPluginModal = true"
-                class="plugin-download-btn-header"
+                class="btn-header-unified special"
               >
                 <svg
                   width="16"
@@ -147,6 +147,10 @@
                       v-model="authUrl"
                       placeholder="点击生成按钮生成授权URL进行注册，或直接输入URL"
                       class="generate-input"
+                      autocomplete="off"
+                      autocapitalize="off"
+                      autocorrect="off"
+                      spellcheck="false"
                     />
                     <button
                       @click="generateAuthUrl"
@@ -186,7 +190,15 @@
                 <!-- 生成后的状态 -->
                 <div v-if="authUrl" class="generated-section">
                   <div class="input-with-integrated-button">
-                    <input type="text" v-model="authUrl" ref="authUrlInput" />
+                    <input
+                      type="text"
+                      v-model="authUrl"
+                      ref="authUrlInput"
+                      autocomplete="off"
+                      autocapitalize="off"
+                      autocorrect="off"
+                      spellcheck="false"
+                    />
                     <button
                       @click="copyAuthUrl"
                       class="integrated-btn primary"
@@ -264,6 +276,10 @@
                         readonly
                         :disabled="!tokenResult"
                         ref="accessTokenInput"
+                        autocomplete="off"
+                        autocapitalize="off"
+                        autocorrect="off"
+                        spellcheck="false"
                       />
                       <button
                         @click="copyAccessToken"
@@ -432,7 +448,11 @@
             <div class="header-right">
               <button
                 @click="smartRefresh"
-                :class="['btn-header', 'secondary', { loading: isRefreshing }]"
+                :class="[
+                  'btn-header-unified',
+                  'secondary',
+                  { loading: isRefreshing },
+                ]"
                 :disabled="isRefreshing"
               >
                 <svg
@@ -449,21 +469,10 @@
                 <div v-else class="loading-spinner-small"></div>
                 {{ isRefreshing ? "刷新中" : "刷新" }}
               </button>
-              <button @click="handleImportTokens" class="btn-header secondary">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path
-                    d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"
-                  />
-                </svg>
-                导入账号
-              </button>
-
-              <button @click="handleAddNewToken" class="btn-header primary">
+              <button
+                @click="handleAddNewToken"
+                class="btn-header-unified primary"
+              >
                 <svg
                   width="16"
                   height="16"
@@ -472,7 +481,24 @@
                 >
                   <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
                 </svg>
-                新增账号
+                新增
+              </button>
+              <button
+                @click="handleAccountManager"
+                class="btn-header-unified secondary"
+                title="导入/导出账号数据"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path
+                    d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z M12,19L8,15H10.5V12H13.5V15H16L12,19Z"
+                  />
+                </svg>
+                导入/导出
               </button>
             </div>
           </div>
@@ -491,7 +517,6 @@
                 @save-changes="saveTokensToFile"
                 @add-new-token="handleAddNewToken"
                 @copy-success="showStatus"
-                @open-portal="handleOpenPortal"
                 @token-updated="handleTokenUpdated"
               />
             </div>
@@ -516,23 +541,9 @@
             <div class="header-right">
               <div class="outlook-manager-actions">
                 <button
-                  @click="handleAddAccount"
-                  class="btn-header-action primary"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                  </svg>
-                  添加账户
-                </button>
-                <button
                   @click="handleRefreshAllStatuses"
                   :disabled="isRefreshingStatuses"
-                  class="btn-header-action secondary"
+                  class="btn-header-unified secondary"
                 >
                   <svg
                     width="16"
@@ -544,7 +555,21 @@
                       d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"
                     />
                   </svg>
-                  {{ isRefreshingStatuses ? "刷新中..." : "刷新状态" }}
+                  {{ isRefreshingStatuses ? "刷新中..." : "刷新" }}
+                </button>
+                <button
+                  @click="handleAddAccount"
+                  class="btn-header-unified primary"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                  </svg>
+                  新增
                 </button>
               </div>
             </div>
@@ -574,7 +599,7 @@
             <div class="header-right">
               <button
                 @click="showAppreciationModal = true"
-                class="btn-header appreciation"
+                class="btn-header-unified appreciation"
               >
                 <svg
                   width="16"
@@ -781,14 +806,41 @@
                         </div>
                         <div class="input-group">
                           <label class="input-label">密码</label>
-                          <input
-                            type="password"
-                            v-model="webdavConfigs[selectedPreset].password"
-                            class="webdav-input"
-                            :placeholder="
-                              getCurrentPreset.passwordPlaceholder || '输入密码'
-                            "
-                          />
+                          <div class="password-input-wrapper">
+                            <input
+                              :type="showWebdavPassword ? 'text' : 'password'"
+                              v-model="webdavConfigs[selectedPreset].password"
+                              class="webdav-input password-input"
+                              :placeholder="
+                                getCurrentPreset.passwordPlaceholder ||
+                                '输入密码'
+                              "
+                            />
+                            <button
+                              type="button"
+                              @click="showWebdavPassword = !showWebdavPassword"
+                              class="password-toggle-btn"
+                              :title="
+                                showWebdavPassword ? '隐藏密码' : '显示密码'
+                              "
+                            >
+                              <svg
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                              >
+                                <path
+                                  v-if="!showWebdavPassword"
+                                  d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
+                                />
+                                <path
+                                  v-else
+                                  d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1176,70 +1228,6 @@
       <!-- 更新检测组件 -->
       <UpdateChecker ref="updateChecker" @show-status="showStatus" />
 
-      <!-- Portal打开方式选择对话框 -->
-      <ModalContainer
-        :visible="showPortalDialog"
-        title="选择打开方式"
-        size="small"
-        @close="showPortalDialog = false"
-      >
-        <div class="portal-options">
-          <button @click="copyPortalUrl" class="portal-option copy">
-            <div class="option-icon">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path
-                  d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
-                />
-              </svg>
-            </div>
-            <div class="option-info">
-              <span class="option-name">复制链接</span>
-              <span class="option-desc">将View usage链接复制到剪贴板</span>
-            </div>
-          </button>
-          <button @click="openPortalExternal" class="portal-option external">
-            <div class="option-icon">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path
-                  d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"
-                />
-              </svg>
-            </div>
-            <div class="option-info">
-              <span class="option-name">外部浏览器</span>
-              <span class="option-desc">在默认浏览器中打开View usage</span>
-            </div>
-          </button>
-          <button @click="openPortalInternal" class="portal-option internal">
-            <div class="option-icon">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path
-                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-                />
-              </svg>
-            </div>
-            <div class="option-info">
-              <span class="option-name">内置浏览器</span>
-              <span class="option-desc">在应用内置浏览器中打开</span>
-            </div>
-          </button>
-        </div>
-      </ModalContainer>
       <!-- 删除确认对话框 -->
       <ModalContainer
         :visible="showDeleteConfirm"
@@ -1461,7 +1449,6 @@
           <img :src="appreciationQR" alt="赞赏码" class="appreciation-qr" />
         </div>
         <div class="appreciation-text">
-          <p>您的支持是我们持续改进的动力！</p>
           <p>感谢每一位用户的理解与支持 🙏</p>
         </div>
       </div>
@@ -1588,7 +1575,7 @@
     <ModalContainer
       :visible="showSyncHistoryModal"
       title="同步历史记录"
-      size="large"
+      size="medium"
       @close="showSyncHistoryModal = false"
     >
       <div class="sync-history-content">
@@ -1706,12 +1693,16 @@
       </div>
     </ModalContainer>
 
-    <!-- 导入账号弹窗 -->
-    <ImportTokensModal
-      :visible="showImportModal"
-      @close="showImportModal = false"
-      @import="handleTokensImport"
-      @import-error="handleImportError"
+    <!-- 账号管理弹窗 (导入/导出) -->
+    <AccountManagerModal
+      :visible="showAccountManagerModal"
+      :tokens="tokens"
+      :initial-tab="accountManagerTab"
+      @close="handleAccountManagerClose"
+      @import="handleAccountManagerImport"
+      @import-error="handleAccountManagerImportError"
+      @export-clipboard="handleAccountManagerExportClipboard"
+      @export-file="handleAccountManagerExportFile"
     />
 
     <!-- 重复账号确认对话框 -->
@@ -1804,7 +1795,7 @@ import TokenList from "./components/TokenList.vue";
 import TokenForm from "./components/TokenForm.vue";
 import OutlookManager from "./components/OutlookManager.vue";
 import ModalContainer from "./components/ModalContainer.vue";
-import ImportTokensModal from "./components/ImportTokensModal.vue";
+import AccountManagerModal from "./components/AccountManagerModal.vue";
 import CustomTitleBar from "./components/CustomTitleBar.vue";
 import UpdateChecker from "./components/UpdateChecker.vue";
 import EditorResetModal from "./components/EditorResetModal.vue";
@@ -1836,7 +1827,7 @@ const hasInitializedEmailManagement = ref(false); // 是否已初始化邮箱管
 watch(currentView, (newView) => {
   showPluginModal.value = false;
   showPluginHomeDialog.value = false;
-  showPortalDialog.value = false;
+
   showDeleteConfirm.value = false;
   showForceConfirm.value = false;
   showEditorResetModal.value = false;
@@ -2028,6 +2019,9 @@ const currentVersion = ref("获取中...");
 
 // 更新检查相关状态
 const isCheckingUpdates = ref(false);
+
+// WebDAV密码显示状态
+const showWebdavPassword = ref(false);
 
 // WebDAV云同步相关状态 - 为每个平台单独存储配置
 const webdavConfigs = ref({
@@ -2227,10 +2221,6 @@ const authUrlInput = ref(null);
 const accessTokenInput = ref(null);
 const tenantUrlInput = ref(null);
 
-// Portal dialog
-const showPortalDialog = ref(false);
-const currentPortalToken = ref(null);
-
 // Delete confirmation dialog
 const showDeleteConfirm = ref(false);
 const tokenToDelete = ref(null);
@@ -2246,7 +2236,6 @@ const showTokenFormModal = ref(false);
 const editingToken = ref(null);
 
 // Import tokens dialog
-const showImportModal = ref(false);
 
 // Force sync confirmation dialog
 const showForceConfirm = ref(false);
@@ -3074,6 +3063,8 @@ const handleNavClick = (view) => {
   currentView.value = view;
   // 关闭编辑器重置弹窗并重置其状态
   showEditorResetModal.value = false;
+  // 关闭账号管理弹窗
+  showAccountManagerModal.value = false;
 };
 
 // 处理编辑器重置弹窗关闭
@@ -3653,17 +3644,30 @@ const refreshAllAccountData = async (manageState = true) => {
   }
 };
 
-// Portal dialog methods
-const handleOpenPortal = (token) => {
-  currentPortalToken.value = token;
-  showPortalDialog.value = true;
-};
-
 // 键盘事件处理
 const handleKeydown = (event) => {
-  if (event.key === "Escape" && showPortalDialog.value) {
-    showPortalDialog.value = false;
-  }
+  // 可以在这里添加其他键盘事件处理
+};
+
+// 禁用所有输入框自动填充的函数
+const disableAutocompleteForAllInputs = () => {
+  // 获取所有输入框、文本域和选择框
+  const inputs = document.querySelectorAll("input, textarea, select");
+
+  inputs.forEach((input) => {
+    // 添加禁用自动填充的属性
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("autocapitalize", "off");
+    input.setAttribute("autocorrect", "off");
+    input.setAttribute("spellcheck", "false");
+
+    // 对于特定类型的输入框，添加额外的属性
+    if (input.type === "password") {
+      input.setAttribute("autocomplete", "new-password");
+    } else if (input.type === "email") {
+      input.setAttribute("autocomplete", "off");
+    }
+  });
 };
 
 // 监听键盘事件
@@ -3676,17 +3680,58 @@ onMounted(() => {
     return false;
   });
 
-  // 禁用F12开发者工具
-  document.addEventListener("keydown", (e) => {
-    if (
-      e.key === "F12" ||
-      (e.ctrlKey && e.shiftKey && e.key === "I") ||
-      (e.ctrlKey && e.shiftKey && e.key === "C") ||
-      (e.ctrlKey && e.key === "u")
-    ) {
-      e.preventDefault();
-      return false;
-    }
+  // // 禁用F12开发者工具
+  // document.addEventListener("keydown", (e) => {
+  //   if (
+  //     e.key === "F12" ||
+  //     (e.ctrlKey && e.shiftKey && e.key === "I") ||
+  //     (e.ctrlKey && e.shiftKey && e.key === "C") ||
+  //     (e.ctrlKey && e.key === "u")
+  //   ) {
+  //     e.preventDefault();
+  //     return false;
+  //   }
+  // });
+
+  // 禁用所有输入框的自动填充
+  disableAutocompleteForAllInputs();
+
+  // 监听DOM变化，为新添加的输入框也禁用自动填充
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === "childList") {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // 检查新添加的节点是否是输入框
+            if (node.matches && node.matches("input, textarea, select")) {
+              const input = node;
+              input.setAttribute("autocomplete", "off");
+              input.setAttribute("autocapitalize", "off");
+              input.setAttribute("autocorrect", "off");
+              input.setAttribute("spellcheck", "false");
+            }
+            // 检查新添加的节点内部是否包含输入框
+            const inputs =
+              node.querySelectorAll &&
+              node.querySelectorAll("input, textarea, select");
+            if (inputs) {
+              inputs.forEach((input) => {
+                input.setAttribute("autocomplete", "off");
+                input.setAttribute("autocapitalize", "off");
+                input.setAttribute("autocorrect", "off");
+                input.setAttribute("spellcheck", "false");
+              });
+            }
+          }
+        });
+      }
+    });
+  });
+
+  // 开始观察DOM变化
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
   });
 });
 
@@ -3706,47 +3751,6 @@ onUnmounted(() => {
   // 清理应用关闭事件监听器
   window.removeEventListener("beforeunload", syncBeforeClose);
 });
-
-const copyPortalUrl = async () => {
-  showPortalDialog.value = false;
-  if (!currentPortalToken.value?.portal_url) return;
-
-  const success = await copyToClipboard(currentPortalToken.value.portal_url);
-  showStatus(
-    success ? "Portal链接已复制到剪贴板!" : "复制Portal链接失败",
-    success ? "success" : "error"
-  );
-};
-
-const openPortalExternal = async () => {
-  showPortalDialog.value = false;
-  if (!currentPortalToken.value?.portal_url) return;
-
-  try {
-    await invoke("open_url", { url: currentPortalToken.value.portal_url });
-  } catch (error) {
-    console.error("Failed to open portal externally:", error);
-    showStatus("打开Portal失败", "error");
-  }
-};
-
-const openPortalInternal = async () => {
-  showPortalDialog.value = false;
-  if (!currentPortalToken.value?.portal_url) return;
-
-  try {
-    const displayUrl = currentPortalToken.value.tenant_url
-      .replace(/^https?:\/\//, "")
-      .replace(/\/$/, "");
-    await invoke("open_internal_browser", {
-      url: currentPortalToken.value.portal_url,
-      title: "Portal - " + displayUrl,
-    });
-  } catch (error) {
-    console.error("Failed to open portal internally:", error);
-    showStatus("打开Portal失败", "error");
-  }
-};
 
 // External links dialog methods
 
@@ -3791,9 +3795,75 @@ const handleAddNewToken = () => {
   showTokenForm(); // 使用现有的方法
 };
 
-// 导入账号相关方法
+// 账号管理相关方法
+const showAccountManagerModal = ref(false);
+const accountManagerTab = ref("import"); // 'import' 或 'export'
+
+const handleAccountManager = () => {
+  showAccountManagerModal.value = true;
+  accountManagerTab.value = "import"; // 默认显示导入tab
+};
+
 const handleImportTokens = () => {
-  showImportModal.value = true;
+  accountManagerTab.value = "import";
+  showAccountManagerModal.value = true;
+};
+
+const handleExportTokens = () => {
+  accountManagerTab.value = "export";
+  showAccountManagerModal.value = true;
+};
+
+// 账号管理弹框处理方法
+const handleAccountManagerClose = () => {
+  showAccountManagerModal.value = false;
+};
+
+const handleAccountManagerImport = async (importedTokens) => {
+  // 复用现有的导入逻辑
+  await handleTokensImport(importedTokens);
+};
+
+const handleAccountManagerImportError = (errorMessage) => {
+  showStatus(errorMessage, "error");
+};
+
+const handleAccountManagerExportClipboard = async ({ data, count }) => {
+  try {
+    const success = await copyToClipboard(data);
+    if (success) {
+      showStatus(`已将 ${count} 个账号数据复制到剪贴板`, "success");
+    } else {
+      showStatus("复制到剪贴板失败", "error");
+    }
+  } catch (error) {
+    showStatus(`导出失败: ${error}`, "error");
+  }
+};
+
+const handleAccountManagerExportFile = async ({ data, count }) => {
+  try {
+    // 生成默认文件名
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    const defaultFilename = `ZAugment-${month}月${day}号.json`;
+
+    // 打开文件保存对话框
+    const filePath = await invoke("save_file_dialog", { defaultFilename });
+
+    if (filePath) {
+      // 写入文件
+      await invoke("write_file_content", {
+        filePath,
+        content: data,
+      });
+
+      showStatus(`已将 ${count} 个账号数据导出到: ${filePath}`, "success");
+    }
+  } catch (error) {
+    showStatus(`导出失败: ${error}`, "error");
+  }
 };
 
 const handleTokensImport = async (importedTokens) => {
@@ -6491,151 +6561,6 @@ textarea.unified-input {
   overflow-y: auto;
 }
 
-.portal-options {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.portal-option {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px;
-  border: 2px solid rgba(226, 232, 240, 0.4);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.8);
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  text-align: left;
-  width: 100%;
-  position: relative;
-  font-family: inherit;
-  font-size: inherit;
-  text-decoration: none;
-  color: inherit;
-  box-sizing: border-box;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.portal-option:hover {
-  border-color: rgba(59, 130, 246, 0.4);
-  background: rgba(248, 250, 252, 0.95);
-  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.08),
-    0 0 0 1px rgba(59, 130, 246, 0.05);
-  transform: translateY(-2px);
-}
-
-.portal-option:active {
-  background: #f1f5f9;
-  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.08);
-}
-
-.portal-option:focus {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
-}
-
-.portal-option .option-icon {
-  flex-shrink: 0;
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 16px;
-  background: linear-gradient(
-    135deg,
-    rgba(248, 250, 252, 0.9) 0%,
-    rgba(241, 245, 249, 0.7) 100%
-  );
-  border: 1px solid rgba(226, 232, 240, 0.5);
-  backdrop-filter: blur(8px);
-  transition: all 0.3s ease;
-}
-
-.portal-option:hover .option-icon {
-  background: linear-gradient(
-    135deg,
-    rgba(59, 130, 246, 0.1) 0%,
-    rgba(147, 197, 253, 0.05) 100%
-  );
-  border-color: rgba(59, 130, 246, 0.2);
-  transform: scale(1.05);
-}
-
-.portal-option .option-icon svg {
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
-  transition: transform 0.3s ease;
-}
-
-.portal-option:hover .option-icon svg {
-  transform: scale(1.1);
-}
-
-.portal-option .option-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.portal-option .option-name {
-  font-size: 17px;
-  font-weight: 600;
-  color: #1e293b;
-  transition: color 0.3s ease;
-  margin-bottom: 4px;
-}
-
-.portal-option .option-desc {
-  font-size: 14px;
-  color: #64748b;
-  transition: color 0.3s ease;
-}
-
-.portal-option:hover .option-name {
-  color: #3b82f6;
-}
-
-.portal-option:hover .option-desc {
-  color: #475569;
-}
-
-/* Portal选项特定样式 */
-.portal-option.copy .option-icon {
-  background: linear-gradient(
-    135deg,
-    rgba(59, 130, 246, 0.1) 0%,
-    rgba(147, 197, 253, 0.05) 100%
-  );
-  border-color: rgba(59, 130, 246, 0.2);
-  color: #3b82f6;
-}
-
-.portal-option.external .option-icon {
-  background: linear-gradient(
-    135deg,
-    rgba(16, 185, 129, 0.1) 0%,
-    rgba(5, 150, 105, 0.05) 100%
-  );
-  border-color: rgba(16, 185, 129, 0.2);
-  color: #10b981;
-}
-
-.portal-option.internal .option-icon {
-  background: linear-gradient(
-    135deg,
-    rgba(139, 92, 246, 0.1) 0%,
-    rgba(168, 85, 247, 0.05) 100%
-  );
-  border-color: rgba(139, 92, 246, 0.2);
-  color: #8b5cf6;
-}
-
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -6839,29 +6764,6 @@ textarea.unified-input {
 
 .portal-modal .modal-content {
   padding: 16px 20px 20px;
-}
-
-.portal-option {
-  padding: 16px;
-  gap: 12px;
-}
-
-.portal-option .option-icon {
-  width: 48px;
-  height: 48px;
-}
-
-.portal-option .option-icon svg {
-  width: 24px;
-  height: 24px;
-}
-
-.portal-option .option-name {
-  font-size: 15px;
-}
-
-.portal-option .option-desc {
-  font-size: 13px;
 }
 
 .field-container {
@@ -8120,7 +8022,7 @@ textarea.unified-input {
   backdrop-filter: blur(8px);
   font-size: 14px;
   color: #1e293b;
-  height: 44px;
+  height: 47px;
 }
 
 .platform-selector-btn-compact:hover {
@@ -8350,6 +8252,7 @@ textarea.unified-input {
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(5px);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  height: 47px;
 }
 
 .webdav-input:focus {
@@ -8357,6 +8260,119 @@ textarea.unified-input {
   border-color: #3b82f6;
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* 密码输入框容器 - 提供相对定位上下文 */
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* 为密码输入框内的按钮留出空间 */
+.password-input-wrapper .password-input {
+  padding-right: 50px !important;
+}
+
+/* 密码输入框 - 确保与其他输入框样式一致，为按钮留出空间 */
+.password-input {
+  /* 完全继承webdav-input的基础样式，确保高度一致 */
+  padding: 12px 16px !important;
+  border: 2px solid rgba(226, 232, 240, 0.6) !important;
+  border-radius: 10px !important;
+  font-size: 14px !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(5px) !important;
+  width: 100%;
+  box-sizing: border-box !important;
+
+  /* 只对边框和背景应用过渡效果，避免type切换时的动画 */
+  transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+
+  /* 强制统一样式，避免type切换时的样式差异 */
+  font-family: inherit !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-align: left !important;
+  color: inherit !important;
+  -webkit-text-security: none !important;
+
+  /* 禁用浏览器默认的type切换动画 */
+  -webkit-transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  -moz-transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* 当type为password时，确保样式一致 */
+.password-input[type="password"] {
+  font-family: inherit !important;
+  -webkit-text-security: disc !important;
+  /* 禁用密码字段的默认动画 */
+  animation: none !important;
+  -webkit-animation: none !important;
+  -moz-animation: none !important;
+  -o-animation: none !important;
+  -ms-animation: none !important;
+}
+
+/* 当type为text时，确保样式一致 */
+.password-input[type="text"] {
+  font-family: inherit !important;
+  -webkit-text-security: none !important;
+  /* 禁用文本字段的默认动画 */
+  animation: none !important;
+  -webkit-animation: none !important;
+  -moz-animation: none !important;
+  -o-animation: none !important;
+  -ms-animation: none !important;
+}
+
+/* 密码输入框焦点状态 */
+.password-input:focus {
+  outline: none !important;
+  border-color: #3b82f6 !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+}
+
+/* 密码切换按钮 - 绝对定位在输入框内部右侧 */
+.password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  color: #6b7280;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  width: 24px;
+  height: 24px;
+}
+
+.password-toggle-btn:hover {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.password-toggle-btn:active {
+  transform: translateY(-50%) scale(0.9);
+}
+
+.password-toggle-btn svg {
+  transition: all 0.2s ease;
 }
 
 .webdav-actions {
@@ -9098,80 +9114,97 @@ textarea.unified-input {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 10px;
-  border: 1px solid;
-  border-radius: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   text-decoration: none;
   white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.webdav-unified-actions button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.webdav-unified-actions button:hover::before {
+  left: 100%;
 }
 
 .webdav-unified-actions .btn-test-connection {
-  background: linear-gradient(135deg, #10b981, #059669);
-  border-color: #059669;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
+  box-shadow: 0 2px 12px rgba(16, 185, 129, 0.25);
 }
 
 .webdav-unified-actions .btn-test-connection:hover:not(:disabled) {
-  background: linear-gradient(135deg, #059669, #047857);
-  border-color: #047857;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
 }
 
 .webdav-unified-actions .btn-save-config {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  border-color: #2563eb;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.25);
 }
 
 .webdav-unified-actions .btn-save-config:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  border-color: #1d4ed8;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
 }
 
 .webdav-unified-actions .btn-upload {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  border-color: #d97706;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   color: white;
+  box-shadow: 0 2px 12px rgba(245, 158, 11, 0.25);
 }
 
 .webdav-unified-actions .btn-upload:hover:not(:disabled) {
-  background: linear-gradient(135deg, #d97706, #b45309);
-  border-color: #b45309;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.35);
 }
 
 .webdav-unified-actions .btn-download {
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-  border-color: #7c3aed;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
   color: white;
+  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.25);
 }
 
 .webdav-unified-actions .btn-download:hover:not(:disabled) {
-  background: linear-gradient(135deg, #7c3aed, #6d28d9);
-  border-color: #6d28d9;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.35);
 }
 
 .webdav-unified-actions .btn-history {
-  background: linear-gradient(135deg, #6b7280, #4b5563);
-  border-color: #4b5563;
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
   color: white;
+  box-shadow: 0 2px 12px rgba(107, 114, 128, 0.25);
 }
 
 .webdav-unified-actions .btn-history:hover:not(:disabled) {
-  background: linear-gradient(135deg, #4b5563, #374151);
-  border-color: #374151;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(107, 114, 128, 0.35);
 }
 
 .webdav-unified-actions button:disabled {
@@ -9179,6 +9212,14 @@ textarea.unified-input {
   cursor: not-allowed;
   transform: none !important;
   box-shadow: none !important;
+}
+
+.webdav-unified-actions button svg {
+  transition: transform 0.25s ease;
+}
+
+.webdav-unified-actions button:hover:not(:disabled) svg {
+  transform: scale(1.1);
 }
 
 /* 赞赏弹窗样式 */
@@ -9283,7 +9324,7 @@ textarea.unified-input {
   }
 
   .appreciation-qr-container {
-    margin: 16px 0;
+    margin: 10px 0;
     padding: 16px;
   }
 
@@ -9788,6 +9829,134 @@ textarea.unified-input {
   background: transparent;
 }
 
+/* 统一的头部按钮样式 */
+.btn-header-unified {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 40px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-header-unified::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn-header-unified:hover::before {
+  left: 100%;
+}
+
+.btn-header-unified.primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  color: white;
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.25);
+}
+
+.btn-header-unified.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
+}
+
+.btn-header-unified.secondary {
+  background: linear-gradient(
+    135deg,
+    rgba(241, 245, 249, 0.9) 0%,
+    rgba(226, 232, 240, 0.8) 100%
+  );
+  color: #475569;
+  border: 1px solid rgba(203, 213, 225, 0.6);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.btn-header-unified.secondary:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    rgba(226, 232, 240, 0.95) 0%,
+    rgba(203, 213, 225, 0.9) 100%
+  );
+  border-color: rgba(148, 163, 184, 0.8);
+  transform: translateY(-2px);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-header-unified.danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.25);
+}
+
+.btn-header-unified.danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.35);
+}
+
+.btn-header-unified.special {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.25);
+}
+
+.btn-header-unified.special:hover:not(:disabled) {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.35);
+}
+
+.btn-header-unified.appreciation {
+  background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+  color: white;
+  box-shadow: 0 2px 12px rgba(236, 72, 153, 0.25);
+}
+
+.btn-header-unified.appreciation:hover:not(:disabled) {
+  background: linear-gradient(135deg, #db2777 0%, #be185d 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(236, 72, 153, 0.35);
+}
+
+.btn-header-unified:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-header-unified.loading {
+  opacity: 0.8;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn-header-unified svg {
+  transition: transform 0.25s ease;
+}
+
+.btn-header-unified:hover:not(:disabled) svg {
+  transform: scale(1.1);
+}
+
 /* Header按钮样式增强 */
 .btn-header.primary {
   background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
@@ -9992,6 +10161,49 @@ textarea,
   user-select: text;
 }
 
+/* 禁用所有输入框的浏览器自动填充功能 */
+input,
+textarea,
+select {
+  /* 禁用浏览器自动填充背景色 */
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  box-shadow: 0 0 0 1000px transparent inset !important;
+  /* 禁用浏览器自动填充文字颜色 */
+  -webkit-text-fill-color: inherit !important;
+}
+
+/* 针对 Webkit 浏览器的自动填充样式重置 */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:active,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus,
+select:-webkit-autofill:active {
+  /* 重置自动填充的背景色 */
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  /* 保持原有文字颜色 */
+  -webkit-text-fill-color: inherit !important;
+  /* 禁用过渡动画 */
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+
+/* 全局禁用输入框自动完成下拉列表 */
+input::-webkit-contacts-auto-fill-button,
+input::-webkit-credentials-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+  height: 0;
+  width: 0;
+  margin: 0;
+}
+
 /* 禁用右键菜单的额外保护 */
 body {
   -webkit-touch-callout: none;
@@ -10018,6 +10230,213 @@ body {
   display: inline-block;
   margin: 0 2px;
   box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
+}
+
+/* 统一的弹窗按钮样式 */
+.dialog-btn-unified {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 44px;
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+}
+
+.dialog-btn-unified::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.dialog-btn-unified:hover::before {
+  left: 100%;
+}
+
+.dialog-btn-unified.primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.25);
+}
+
+.dialog-btn-unified.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
+}
+
+.dialog-btn-unified.secondary {
+  background: linear-gradient(
+    135deg,
+    rgba(241, 245, 249, 0.9) 0%,
+    rgba(226, 232, 240, 0.8) 100%
+  );
+  color: #475569;
+  border: 1px solid rgba(203, 213, 225, 0.6);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.dialog-btn-unified.secondary:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    rgba(226, 232, 240, 0.95) 0%,
+    rgba(203, 213, 225, 0.9) 100%
+  );
+  border-color: rgba(148, 163, 184, 0.8);
+  transform: translateY(-2px);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+}
+
+.dialog-btn-unified.success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 2px 12px rgba(16, 185, 129, 0.25);
+}
+
+.dialog-btn-unified.success:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
+}
+
+.dialog-btn-unified.warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  box-shadow: 0 2px 12px rgba(245, 158, 11, 0.25);
+}
+
+.dialog-btn-unified.warning:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.35);
+}
+
+.dialog-btn-unified.danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.25);
+}
+
+.dialog-btn-unified.danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.35);
+}
+
+.dialog-btn-unified.cancel {
+  background: linear-gradient(
+    135deg,
+    rgba(156, 163, 175, 0.1) 0%,
+    rgba(107, 114, 128, 0.05) 100%
+  );
+  color: #6b7280;
+  border: 1px solid rgba(156, 163, 175, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.dialog-btn-unified.cancel:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    rgba(156, 163, 175, 0.15) 0%,
+    rgba(107, 114, 128, 0.1) 100%
+  );
+  border-color: rgba(107, 114, 128, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+}
+
+.dialog-btn-unified:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.dialog-btn-unified svg {
+  transition: transform 0.25s ease;
+}
+
+.dialog-btn-unified:hover:not(:disabled) svg {
+  transform: scale(1.1);
+}
+
+/* 全局统一弹窗按钮样式 - 覆盖所有组件 */
+.btn-modal-unified,
+.btn {
+  padding: 12px 20px !important;
+  border: none !important;
+  border-radius: 10px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: auto !important;
+  justify-content: center !important;
+  min-height: 44px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  letter-spacing: -0.01em !important;
+}
+
+.btn-modal-unified::before,
+.btn::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: -100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  ) !important;
+  transition: left 0.5s !important;
+}
+
+.btn-modal-unified:hover::before,
+.btn:hover::before {
+  left: 100% !important;
+}
+
+.btn-modal-unified:disabled,
+.btn:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-modal-unified svg,
+.btn svg {
+  transition: transform 0.25s ease !important;
+}
+
+.btn-modal-unified:hover:not(:disabled) svg,
+.btn:hover:not(:disabled) svg {
+  transform: scale(1.1) !important;
 }
 
 .duplicate-confirm-footer {

@@ -2,7 +2,7 @@
   <ModalContainer
     :visible="visible"
     title="导入账号"
-    size="large"
+    size="medium"
     @close="handleClose"
   >
     <div class="import-modal-content">
@@ -26,7 +26,7 @@
                   d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"
                 />
               </svg>
-              从本地文件导入
+              本地导入
             </button>
             <button
               @click="fillExample"
@@ -44,7 +44,7 @@
                   d="M19,3H5C3.9,3 3,3.9 3,5V19C3.9,19 5,19 5,19H19C20.1,19 21,18.1 21,17V5C21,3.9 20.1,3 19,3M19,17H5V5H19V17Z"
                 />
               </svg>
-              填入示例数据
+              填入示例
             </button>
           </div>
         </div>
@@ -80,7 +80,7 @@
     </div>
 
     <template #footer>
-      <div class="import-footer">
+      <div class="modal-actions">
         <button
           @click="handleClose"
           class="btn secondary"
@@ -494,8 +494,9 @@ const handleImportFromText = async () => {
   line-height: 1.4;
 }
 
-.import-footer {
+.modal-actions {
   display: flex;
+  justify-content: flex-end;
   gap: 12px;
 }
 
@@ -503,17 +504,39 @@ const handleImportFromText = async () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 14px 24px;
+  padding: 12px 20px;
   border: none;
-  border-radius: 12px;
-  font-size: 15px;
+  border-radius: 10px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  flex: 1;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: auto;
   justify-content: center;
-  min-height: 48px;
+  min-height: 44px;
   letter-spacing: -0.01em;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn:hover::before {
+  left: 100%;
 }
 
 .btn:disabled {
@@ -523,30 +546,40 @@ const handleImportFromText = async () => {
 }
 
 .btn.secondary {
-  background: rgba(248, 250, 252, 0.8);
+  background: linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 0.9) 0%,
+    rgba(241, 245, 249, 0.8) 100%
+  );
   color: #64748b;
   border: 2px solid rgba(226, 232, 240, 0.5);
   backdrop-filter: blur(10px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .btn.secondary:hover:not(:disabled) {
-  background: rgba(241, 245, 249, 0.9);
+  background: linear-gradient(
+    135deg,
+    rgba(241, 245, 249, 0.95) 0%,
+    rgba(226, 232, 240, 0.9) 100%
+  );
   border-color: rgba(203, 213, 225, 0.7);
   color: #475569;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .btn.primary {
   background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
   color: white;
   border: 2px solid transparent;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.25);
 }
 
 .btn.primary:hover:not(:disabled) {
   background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
 }
 
 .loading-spinner {

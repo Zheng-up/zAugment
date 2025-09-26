@@ -218,7 +218,7 @@
   <ModalContainer
     :visible="showAddAccountModal"
     title="添加outlook邮箱"
-    size="large"
+    size="medium"
     @close="showAddAccountModal = false"
   >
     <div class="add-account-modal-content">
@@ -258,7 +258,7 @@
         <label>账户信息:</label>
         <textarea
           v-model="accountInput"
-          rows="4"
+          rows="3"
           :placeholder="getInputPlaceholder()"
           class="form-textarea"
         ></textarea>
@@ -450,11 +450,11 @@ const cleanExpiredStatuses = () => {
 
 // 获取输入提示文本
 const getInputPlaceholder = () => {
-  return `支持单个或批量添加，每行一个账户 示例：\nexample@outlook.com----password----${
+  return `支持单个或批量添加，每行一个账户 示例：\nxxx@outlook.com----password----${
     selectedFormat.value === "format1"
       ? "client_id----refresh_token"
       : "refresh_token----client_id"
-  }\nexample2@outlook.com----password----${
+  }\nxxx@outlook.com----password----${
     selectedFormat.value === "format1"
       ? "client_id----refresh_token"
       : "refresh_token----client_id"
@@ -1165,7 +1165,7 @@ onMounted(async () => {
 
 .form-textarea {
   width: 100%;
-  padding: 14px 16px;
+  padding: 8px 6px;
   border: 1px solid rgba(226, 232, 240, 0.8);
   border-radius: 10px;
   font-size: 14px;
@@ -2059,43 +2059,89 @@ onMounted(async () => {
 }
 
 .btn {
-  padding: 10px 20px;
+  padding: 12px 20px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  position: relative;
+  overflow: hidden;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn:hover::before {
+  left: 100%;
 }
 
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 .btn.secondary {
-  background: rgba(107, 114, 128, 0.1);
-  color: #4b5563;
-  border: 1px solid rgba(107, 114, 128, 0.2);
+  background: linear-gradient(
+    135deg,
+    rgba(156, 163, 175, 0.1) 0%,
+    rgba(107, 114, 128, 0.05) 100%
+  );
+  color: #6b7280;
+  border: 1px solid rgba(156, 163, 175, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.btn.secondary:hover {
-  background: rgba(107, 114, 128, 0.15);
-  transform: translateY(-1px);
+.btn.secondary:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    rgba(156, 163, 175, 0.15) 0%,
+    rgba(107, 114, 128, 0.1) 100%
+  );
+  border-color: rgba(107, 114, 128, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
 }
 
 .btn.danger {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
-  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.25);
 }
 
-.btn.danger:hover {
+.btn.danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.3);
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.35);
+}
+
+.btn svg {
+  transition: transform 0.25s ease;
+}
+
+.btn:hover:not(:disabled) svg {
+  transform: scale(1.1);
 }
 .info-hint {
   display: flex;

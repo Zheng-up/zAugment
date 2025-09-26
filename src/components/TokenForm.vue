@@ -7,75 +7,90 @@
     @close="handleCancel"
   >
     <div class="token-form-content">
-      <div class="form-body">
-        <form @submit.prevent="handleSubmit">
-          <div class="form-group">
-            <label for="tenantUrl">租户URL *</label>
-            <input
-              id="tenantUrl"
-              v-model="formData.tenantUrl"
-              type="url"
-              placeholder="https://example.augmentcode.com/"
-              required
-              :disabled="isLoading"
-            />
-            <div v-if="errors.tenantUrl" class="error-message">
-              {{ errors.tenantUrl }}
-            </div>
+      <form @submit.prevent="handleSubmit">
+        <div class="form-group">
+          <label for="tenantUrl">租户URL *</label>
+          <input
+            id="tenantUrl"
+            v-model="formData.tenantUrl"
+            type="url"
+            placeholder="https://example.augmentcode.com/"
+            required
+            :disabled="isLoading"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+          />
+          <div v-if="errors.tenantUrl" class="error-message">
+            {{ errors.tenantUrl }}
           </div>
+        </div>
 
-          <div class="form-group">
-            <label for="accessToken">Token *</label>
-            <input
-              id="accessToken"
-              v-model="formData.accessToken"
-              type="text"
-              placeholder="请输入Token..."
-              required
-              :disabled="isLoading"
-            />
-            <div v-if="errors.accessToken" class="error-message">
-              {{ errors.accessToken }}
-            </div>
+        <div class="form-group">
+          <label for="accessToken">Token *</label>
+          <input
+            id="accessToken"
+            v-model="formData.accessToken"
+            type="text"
+            placeholder="请输入Token..."
+            required
+            :disabled="isLoading"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+          />
+          <div v-if="errors.accessToken" class="error-message">
+            {{ errors.accessToken }}
           </div>
+        </div>
 
-          <div class="form-group">
-            <label for="portalUrl">View usage URL (可选)</label>
-            <input
-              id="portalUrl"
-              v-model="formData.portalUrl"
-              type="url"
-              placeholder="https://portal.withorb.com/view?token=xxx"
-              :disabled="isLoading"
-            />
-            <div class="help-text">用于查看账户余额和过期时间</div>
-            <div v-if="errors.portalUrl" class="error-message">
-              {{ errors.portalUrl }}
-            </div>
+        <div class="form-group">
+          <label for="portalUrl">View usage URL (可选)</label>
+          <input
+            id="portalUrl"
+            v-model="formData.portalUrl"
+            type="url"
+            placeholder="https://portal.withorb.com/view?token=xxx"
+            :disabled="isLoading"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+          />
+          <div class="help-text">用于查看账户余额和过期时间</div>
+          <div v-if="errors.portalUrl" class="error-message">
+            {{ errors.portalUrl }}
           </div>
+        </div>
 
-          <div class="form-group">
-            <label for="emailNote">邮箱备注 (可选)</label>
-            <input
-              id="emailNote"
-              v-model="formData.emailNote"
-              type="text"
-              placeholder="如有View usage URL将自动获取，也可手动输入"
-              :disabled="isLoading"
-            />
-            <div class="help-text">
-              如果填写了View usage
-              URL，系统会自动从API获取邮箱信息；也可手动输入邮箱备注
-            </div>
-            <div v-if="errors.emailNote" class="error-message">
-              {{ errors.emailNote }}
-            </div>
+        <div class="form-group">
+          <label for="emailNote">邮箱备注 (可选)</label>
+          <input
+            id="emailNote"
+            v-model="formData.emailNote"
+            type="text"
+            placeholder="如有View usage URL将自动获取，也可手动输入"
+            :disabled="isLoading"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+          />
+          <div class="help-text">
+            如果填写了View usage
+            URL，系统会自动从API获取邮箱信息；也可手动输入邮箱备注
           </div>
-        </form>
-      </div>
+          <div v-if="errors.emailNote" class="error-message">
+            {{ errors.emailNote }}
+          </div>
+        </div>
+      </form>
+    </div>
 
-      <!-- 固定页脚 -->
-      <div class="form-footer">
+    <template #footer>
+      <div class="modal-actions">
         <button
           type="button"
           @click="handleCancel"
@@ -90,10 +105,10 @@
           :disabled="isLoading || !isFormValid"
         >
           <span v-if="isLoading" class="loading-spinner"></span>
-          {{ isLoading ? "保存中..." : isEditing ? "更新" : "保存" }}
+          {{ isLoading ? "保存中..." : isEditing ? "更新账号" : "添加账号" }}
         </button>
       </div>
-    </div>
+    </template>
   </ModalContainer>
 </template>
 
@@ -321,24 +336,6 @@ const handleCancel = () => {
   max-height: 58vh;
 }
 
-.form-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 0 20px 0;
-}
-
-/* 固定页脚样式 */
-.form-footer {
-  display: flex;
-  gap: 12px;
-  padding: 20px 0 0 0;
-  border-top: 1px solid rgba(226, 232, 240, 0.3);
-  background: rgba(248, 250, 252, 0.5);
-  margin: 0 -32px -32px -32px;
-  padding: 20px 32px;
-  flex-shrink: 0;
-}
-
 .form-group {
   margin-bottom: 24px;
 }
@@ -402,30 +399,49 @@ const handleCancel = () => {
   font-weight: 500;
 }
 
-.form-actions {
+.modal-actions {
   display: flex;
-  gap: 16px;
   justify-content: flex-end;
-  margin-top: 32px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(226, 232, 240, 0.5);
+  gap: 12px;
 }
 
 .btn {
-  padding: 14px 24px;
+  padding: 12px 20px;
   border: none;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 600;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
-  min-width: 100px;
+  min-width: auto;
   justify-content: center;
   letter-spacing: -0.01em;
+  position: relative;
+  overflow: hidden;
+  min-height: 44px;
+}
+
+.btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn:hover::before {
+  left: 100%;
 }
 
 .btn:disabled {
@@ -437,27 +453,37 @@ const handleCancel = () => {
 .btn.primary {
   background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
   color: white;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.25);
 }
 
 .btn.primary:hover:not(:disabled) {
   background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
 }
 
 .btn.secondary {
-  background: rgba(248, 250, 252, 0.8);
+  background: linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 0.9) 0%,
+    rgba(241, 245, 249, 0.8) 100%
+  );
   color: #64748b;
   border: 2px solid rgba(226, 232, 240, 0.5);
   backdrop-filter: blur(10px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .btn.secondary:hover:not(:disabled) {
-  background: rgba(241, 245, 249, 0.9);
+  background: linear-gradient(
+    135deg,
+    rgba(241, 245, 249, 0.95) 0%,
+    rgba(226, 232, 240, 0.9) 100%
+  );
   border-color: rgba(203, 213, 225, 0.7);
   color: #475569;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .loading-spinner {

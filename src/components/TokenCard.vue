@@ -58,12 +58,11 @@
             </div>
           </div>
           <!-- 第二行：Portal信息 -->
-          <template v-if="token.portal_url">
-            <div class="meta-row portal-row">
+          <div class="meta-row portal-row">
+            <template v-if="token.portal_url">
               <!-- 优先显示Portal数据，无论是来自本地缓存还是网络请求 -->
               <template v-if="portalInfo.data">
                 <span
-                  v-if="portalInfo.data.expiry_date"
                   class="portal-meta expiry"
                   :style="getExpiryStyle(portalInfo.data.expiry_date)"
                   >剩余：{{
@@ -77,12 +76,21 @@
                 >
               </template>
               <!-- 如果没有数据且正在加载，显示加载状态 -->
-              <span v-else-if="isLoadingPortalInfo" class="portal-meta loading"
-                >加载中...</span
-              >
-              <!-- 不显示错误信息，静默处理所有错误 -->
-            </div>
-          </template>
+              <template v-else-if="isLoadingPortalInfo">
+                <span class="portal-meta loading">加载中...</span>
+              </template>
+              <!-- 如果有portal_url但获取失败，显示未知信息 -->
+              <template v-else>
+                <span class="portal-meta expiry unknown">剩余：未知</span>
+                <span class="portal-meta balance unknown">额度：未知</span>
+              </template>
+            </template>
+            <!-- 如果没有portal_url，显示未知信息 -->
+            <template v-else>
+              <span class="portal-meta expiry unknown">剩余：未知</span>
+              <span class="portal-meta balance unknown">额度：未知</span>
+            </template>
+          </div>
         </div>
       </div>
 
@@ -99,24 +107,7 @@
             height="18"
           />
         </button>
-        <button @click="copyToken" class="btn-action copy" title="复制Token">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
-            />
-          </svg>
-        </button>
-        <button
-          @click="copyTenantUrl"
-          class="btn-action link"
-          title="复制租户URL"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"
-            />
-          </svg>
-        </button>
+
         <button
           @click="checkAccountStatus"
           :class="['btn-action', 'status-check', { loading: isCheckingStatus }]"
@@ -137,17 +128,17 @@
           <div v-else class="loading-spinner"></div>
         </button>
         <button
-          v-if="token.portal_url"
-          @click="$emit('open-portal', token)"
-          class="btn-action portal"
-          title="打开View usage"
+          @click="copyAccountInfo"
+          class="btn-action copy"
+          title="复制账号信息"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path
-              d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"
+              d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
             />
           </svg>
         </button>
+
         <button
           @click="$emit('edit', token)"
           class="btn-action edit"
@@ -174,7 +165,7 @@
   <ModalContainer
     :visible="showEditorModal"
     title="选择编辑器登录"
-    size="large"
+    size="medium"
     @close="showEditorModal = false"
   >
     <div class="editor-modal-content">
@@ -577,13 +568,7 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits([
-  "delete",
-  "copy-success",
-  "open-portal",
-  "edit",
-  "token-updated",
-]);
+const emit = defineEmits(["delete", "copy-success", "edit", "token-updated"]);
 
 // Reactive data
 const isLoadingPortalInfo = ref(false);
@@ -630,12 +615,6 @@ const displayUrl = computed(() => {
   }
 });
 
-const maskedToken = computed(() => {
-  const token = props.token.access_token;
-  if (token.length <= 20) return token;
-  return token.substring(0, 10) + "..." + token.substring(token.length - 10);
-});
-
 const maskedEmail = computed(() => {
   const email = props.token.email_note;
   if (!email || !email.includes("@")) return email;
@@ -678,6 +657,25 @@ const formatDate = (dateString) => {
   });
 };
 
+// 复制账号信息
+const copyAccountInfo = async () => {
+  const accountInfo = {
+    tenant_url: props.token.tenant_url,
+    access_token: props.token.access_token,
+    portal_url: props.token.portal_url || "",
+    email_note: props.token.email_note || "",
+  };
+
+  const jsonString = JSON.stringify(accountInfo, null, 2);
+  const success = await copyToClipboard(jsonString);
+
+  if (success) {
+    emit("copy-success", "账号信息已复制到剪贴板!", "success");
+  } else {
+    emit("copy-success", "复制账号信息失败", "error");
+  }
+};
+
 const deleteToken = () => {
   // 直接发出删除事件，让父组件处理确认逻辑
   emit("delete", props.token.id);
@@ -697,26 +695,6 @@ const copyToClipboard = async (text) => {
     document.execCommand("copy");
     document.body.removeChild(textArea);
     return true;
-  }
-};
-
-// 复制Token
-const copyToken = async () => {
-  const success = await copyToClipboard(props.token.access_token);
-  if (success) {
-    emit("copy-success", "Token已复制到剪贴板!", "success");
-  } else {
-    emit("copy-success", "复制Token失败", "error");
-  }
-};
-
-// 复制租户URL
-const copyTenantUrl = async () => {
-  const success = await copyToClipboard(props.token.tenant_url);
-  if (success) {
-    emit("copy-success", "租户URL已复制到剪贴板!", "success");
-  } else {
-    emit("copy-success", "复制租户URL失败", "error");
   }
 };
 
@@ -1260,7 +1238,7 @@ const formatExpiryDate = (dateString) => {
     const diffMs = expiry.getTime() - now.getTime();
 
     if (diffMs <= 0) {
-      return "已过期";
+      return "0天00时00分";
     }
 
     const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -1279,7 +1257,12 @@ const formatExpiryDate = (dateString) => {
 
 // 过期时间样式：根据剩余时间显示不同颜色（浅色背景 + 深色文字）
 const getExpiryStyle = (dateString) => {
-  if (!dateString) return {};
+  if (!dateString)
+    return {
+      background: "rgba(239, 68, 68, 0.15)",
+      borderColor: "rgba(239, 68, 68, 0.3)",
+      color: "#b91c1c",
+    };
 
   const now = new Date();
   const expiry = new Date(dateString);
@@ -1846,6 +1829,22 @@ defineExpose({
   font-weight: 700;
 }
 
+.portal-meta.unknown {
+  /* 未知状态：灰色系 */
+  background: rgba(148, 163, 184, 0.15) !important;
+  border: 1px solid rgba(148, 163, 184, 0.3) !important;
+  color: #475569 !important;
+  font-weight: 600;
+}
+
+.portal-meta.zero {
+  /* 零额度：红色系 */
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #b91c1c;
+  font-weight: 700;
+}
+
 .actions {
   display: flex;
   flex-direction: row;
@@ -1951,20 +1950,6 @@ defineExpose({
   color: #dc2626;
 }
 
-.btn-action.portal {
-  color: #8b5cf6;
-}
-
-.btn-action.portal:hover {
-  background: linear-gradient(
-    135deg,
-    rgba(139, 92, 246, 0.1),
-    rgba(168, 85, 247, 0.05)
-  );
-  border-color: rgba(139, 92, 246, 0.3);
-  color: #7c3aed;
-}
-
 .btn-action.edit {
   color: #10b981;
 }
@@ -2035,15 +2020,19 @@ defineExpose({
 
 /* 编辑器选择模态框内容样式 */
 .editor-modal-content {
-  max-height: 60vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-height: 50vh;
+
+  padding: 8px 0;
 }
 
 .modal-description {
-  margin-bottom: 24px;
   color: #666;
   text-align: center;
-  line-height: 1.5;
+  margin-top: -20px;
+  /* line-height: 1.5; */
 }
 
 /* 编辑器网格布局 */
@@ -2051,6 +2040,7 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 24px;
+  padding-bottom: 20px;
 }
 
 .editor-category {
@@ -2063,12 +2053,12 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 0;
   font-size: 18px;
   font-weight: 600;
   color: #1e293b;
-  padding-bottom: 8px;
-  border-bottom: 2px solid rgba(59, 130, 246, 0.1);
+  margin: 0;
+  padding: 16px 0 8px 0;
+  border-bottom: 2px solid rgba(226, 232, 240, 0.6);
 }
 
 .category-title svg {
@@ -2136,8 +2126,8 @@ defineExpose({
 .vscode-grid,
 .jetbrains-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 
 .editor-option {
@@ -2150,13 +2140,12 @@ defineExpose({
   background: rgba(255, 255, 255, 0.8);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  text-align: left;
-  width: 100%;
-  position: relative;
-  font-family: inherit;
-  font-size: inherit;
   text-decoration: none;
   color: inherit;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  font-size: inherit;
   box-sizing: border-box;
   backdrop-filter: blur(10px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -2211,7 +2200,6 @@ defineExpose({
     rgba(147, 197, 253, 0.05) 100%
   );
   border-color: rgba(59, 130, 246, 0.2);
-  transform: scale(1.05);
 }
 
 .editor-icon img {
@@ -2360,6 +2348,11 @@ defineExpose({
     font-size: 13px;
   }
 
+  .vscode-grid,
+  .jetbrains-grid {
+    grid-template-columns: 1fr;
+  }
+
   /* 模态框响应式样式 */
   .editor-modal {
     width: 95%;
@@ -2384,8 +2377,9 @@ defineExpose({
     padding-bottom: 20px;
   }
 
+  .vscode-grid,
   .jetbrains-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .editor-option {

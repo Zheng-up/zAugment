@@ -710,6 +710,107 @@ async fn get_window_size(app: tauri::AppHandle) -> Result<serde_json::Value, Str
 }
 
 #[tauri::command]
+async fn save_file_dialog(default_filename: String) -> Result<Option<String>, String> {
+    use std::process::Command;
+
+    #[cfg(target_os = "windows")]
+    {
+        let output = Command::new("powershell")
+            .args(&[
+                "-Command",
+                &format!(r#"
+                Add-Type -AssemblyName System.Windows.Forms
+                $saveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
+                $saveFileDialog.Filter = "JSON文件 (*.json)|*.json|所有文件 (*.*)|*.*"
+                $saveFileDialog.Title = "导出账号数据"
+                $saveFileDialog.FileName = "{}"
+                $saveFileDialog.DefaultExt = "json"
+                $result = $saveFileDialog.ShowDialog()
+                if ($result -eq [System.Windows.Forms.DialogResult]::OK) {{
+                    Write-Output $saveFileDialog.FileName
+                }}
+                "#, default_filename)
+            ])
+            .output();
+
+        match output {
+            Ok(output) => {
+                let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if path_str.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(path_str))
+                }
+            }
+            Err(e) => Err(format!("打开文件保存对话框失败: {}", e))
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let output = Command::new("osascript")
+            .args(&[
+                "-e",
+                &format!(r#"choose file name with prompt "导出账号数据" default name "{}""#, default_filename)
+            ])
+            .output();
+
+        match output {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let path = stdout.trim();
+                if path.is_empty() {
+                    Ok(None)
+                } else {
+                    let path = path.replace("alias ", "").replace(":", "/");
+                    let path = if path.starts_with("Macintosh HD") {
+                        path.replace("Macintosh HD", "")
+                    } else {
+                        path
+                    };
+                    Ok(Some(path))
+                }
+            }
+            Err(e) => Err(format!("打开文件保存对话框失败: {}", e))
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let output = Command::new("zenity")
+            .args(&[
+                "--file-selection",
+                "--save",
+                "--filename",
+                &default_filename,
+                "--title=导出账号数据"
+            ])
+            .output();
+
+        match output {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let path = stdout.trim();
+                if path.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(path.to_string()))
+                }
+            }
+            Err(e) => Err(format!("打开文件保存对话框失败: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
+async fn write_file_content(file_path: String, content: String) -> Result<(), String> {
+    use std::fs;
+    fs::write(&file_path, content)
+        .map_err(|e| format!("写入文件失败: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
 async fn select_file(_app: tauri::AppHandle, _filters: Vec<FileFilter>) -> Result<Option<String>, String> {
     use std::process::Command;
 
@@ -3372,6 +3473,9 @@ fn main() {
             // 新的简化命令
             save_tokens_json,
             load_tokens_json,
+            // 文件操作命令
+            save_file_dialog,
+            write_file_content,
             // 书签管理命令
             add_bookmark,
             update_bookmark,
