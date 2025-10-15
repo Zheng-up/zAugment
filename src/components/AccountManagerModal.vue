@@ -20,14 +20,6 @@
             >
               本地导入
             </button>
-            <button
-              @click="fillExample"
-              class="btn-export-control"
-              type="button"
-              :disabled="isProcessing"
-            >
-              填入示例
-            </button>
           </div>
         </div>
 
@@ -226,18 +218,6 @@ const jsonText = ref("");
 const isProcessing = ref(false);
 const selectedTokensForExport = ref(new Set());
 
-// 示例数据
-const exampleData = `{
-  "tenant_url": "租户URL",
-  "access_token": "Token",
-  "portal_url": "View usage URL"
-},
-{
-  "tenant_url": "租户URL",
-  "access_token": "Token",
-  "portal_url": "View usage URL"
-}`;
-
 // Computed
 const modalTabs = computed(() => [
   { key: "import", title: "导入账号" },
@@ -265,10 +245,6 @@ const handleClose = () => {
     activeTab.value = props.initialTab;
     emit("close");
   }
-};
-
-const fillExample = () => {
-  jsonText.value = exampleData;
 };
 
 const handleFileImport = () => {
@@ -440,7 +416,9 @@ const exportToClipboard = async () => {
       data: jsonString,
       count: selectedTokensForExport.value.size,
     });
-    handleClose();
+
+    // 清空选中状态，但不关闭弹窗（由父组件决定）
+    selectedTokensForExport.value = new Set();
   } catch (error) {
     emit("import-error", `导出失败: ${error}`);
   } finally {
@@ -464,7 +442,9 @@ const exportToFile = async () => {
       data: jsonString,
       count: selectedTokensForExport.value.size,
     });
-    handleClose();
+
+    // 清空选中状态，但不关闭弹窗（由父组件决定）
+    selectedTokensForExport.value = new Set();
   } catch (error) {
     emit("import-error", `导出失败: ${error}`);
   } finally {
@@ -634,10 +614,19 @@ const getTokenStatusClass = (token) => {
   font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
   font-size: 14px;
   line-height: 1.6;
-  resize: vertical;
+  resize: none; /* 禁用高度调节 */
+  overflow-y: auto; /* 允许垂直滚动 */
   transition: all 0.3s ease;
   background: rgba(248, 250, 252, 0.5);
   box-sizing: border-box;
+  /* 隐藏滚动条但保留滚动功能 */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* 隐藏 Webkit 浏览器（Chrome, Safari）的滚动条 */
+.json-textarea::-webkit-scrollbar {
+  display: none;
 }
 
 .json-textarea:focus {

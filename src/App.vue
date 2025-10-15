@@ -1044,27 +1044,52 @@
                       </button>
                     </div>
 
-                    <!-- 自动同步开关 -->
+                    <!-- 自动上传和自动下载开关 -->
                     <div class="auto-sync-toggle" v-if="isWebDAVConfigured">
-                      <label class="toggle-label">
-                        <input
-                          type="checkbox"
-                          v-model="autoSyncEnabled"
-                          @change="toggleAutoSync"
-                          class="toggle-checkbox"
-                        />
-                        <span class="toggle-slider"></span>
-                        <span class="toggle-text">
-                          {{
-                            autoSyncEnabled
-                              ? "自动同步已开启"
-                              : "自动同步已关闭"
-                          }}
-                        </span>
-                      </label>
-                      <span class="toggle-help">
-                        开启后，每2分钟自动同步到云端，关闭软件前也会自动同步
-                      </span>
+                      <div class="auto-sync-row">
+                        <!-- 自动上传开关 -->
+                        <div class="auto-sync-item">
+                          <label class="toggle-label">
+                            <input
+                              type="checkbox"
+                              v-model="autoUploadEnabled"
+                              @change="toggleAutoUpload"
+                              class="toggle-checkbox"
+                            />
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">
+                              {{
+                                autoUploadEnabled
+                                  ? "自动上传已开启"
+                                  : "自动上传已关闭"
+                              }}
+                            </span>
+                          </label>
+                        </div>
+
+                        <!-- 自动下载开关 -->
+                        <div class="auto-sync-item">
+                          <label class="toggle-label">
+                            <input
+                              type="checkbox"
+                              v-model="autoDownloadEnabled"
+                              @change="toggleAutoDownload"
+                              class="toggle-checkbox"
+                            />
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">
+                              {{
+                                autoDownloadEnabled
+                                  ? "自动下载已开启"
+                                  : "自动下载已关闭"
+                              }}
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                      <div class="toggle-help">
+                        开启后，每3分钟自动上传到云端或下载至本地，关闭软件前也会自动上传
+                      </div>
                     </div>
 
                     <!-- 操作状态指示器（覆盖式显示） - 已禁用，改为使用左下角状态提示 -->
@@ -1835,7 +1860,6 @@ watch(currentView, (newView) => {
   showSyncHistoryModal.value = false;
   showTokenFormModal.value = false;
   showAppreciationModal.value = false;
-  showImportModal.value = false;
 
   // 处理确认覆盖弹窗关闭
   if (showDuplicateConfirmModal.value) {
@@ -1939,10 +1963,10 @@ const handleDuplicateConfirm = async () => {
 };
 
 // 处理重复账号取消
-const handleDuplicateCancel = () => {
+const handleDuplicateCancel = async () => {
   showDuplicateConfirmModal.value = false;
   if (duplicateConfirmData.value.onCancel) {
-    duplicateConfirmData.value.onCancel();
+    await duplicateConfirmData.value.onCancel();
   }
   duplicateConfirmData.value = {
     existingToken: null,
@@ -2125,33 +2149,61 @@ const connectionStatus = ref(null);
 const syncStatus = ref(null);
 const isWebDAVConfigured = ref(false);
 
-// 自动同步相关状态
-const autoSyncEnabled = ref(false);
+// 自动上传和自动下载相关状态
+const autoUploadEnabled = ref(false);
+const autoDownloadEnabled = ref(false);
 
-// 保存自动同步状态到本地存储
-const saveAutoSyncState = () => {
+// 保存自动上传状态到本地存储
+const saveAutoUploadState = () => {
   try {
     localStorage.setItem(
-      "auto_sync_enabled",
-      JSON.stringify(autoSyncEnabled.value)
+      "auto_upload_enabled",
+      JSON.stringify(autoUploadEnabled.value)
     );
-    console.log("自动同步状态已保存:", autoSyncEnabled.value);
+    console.log("自动上传状态已保存:", autoUploadEnabled.value);
   } catch (error) {
-    console.error("保存自动同步状态失败:", error);
+    console.error("保存自动上传状态失败:", error);
   }
 };
 
-// 从本地存储加载自动同步状态
-const loadAutoSyncState = () => {
+// 保存自动下载状态到本地存储
+const saveAutoDownloadState = () => {
   try {
-    const saved = localStorage.getItem("auto_sync_enabled");
+    localStorage.setItem(
+      "auto_download_enabled",
+      JSON.stringify(autoDownloadEnabled.value)
+    );
+    console.log("自动下载状态已保存:", autoDownloadEnabled.value);
+  } catch (error) {
+    console.error("保存自动下载状态失败:", error);
+  }
+};
+
+// 从本地存储加载自动上传状态
+const loadAutoUploadState = () => {
+  try {
+    const saved = localStorage.getItem("auto_upload_enabled");
     if (saved !== null) {
-      autoSyncEnabled.value = JSON.parse(saved);
-      console.log("自动同步状态已恢复:", autoSyncEnabled.value);
+      autoUploadEnabled.value = JSON.parse(saved);
+      console.log("自动上传状态已恢复:", autoUploadEnabled.value);
     }
   } catch (error) {
-    console.error("加载自动同步状态失败:", error);
-    autoSyncEnabled.value = false; // 出错时默认为关闭
+    console.error("加载自动上传状态失败:", error);
+    autoUploadEnabled.value = false; // 出错时默认为关闭
+  }
+};
+
+// 从本地存储加载自动下载状态
+const loadAutoDownloadState = () => {
+  try {
+    const saved = localStorage.getItem("auto_download_enabled");
+    if (saved !== null) {
+      autoDownloadEnabled.value = JSON.parse(saved);
+      console.log("自动下载状态已恢复:", autoDownloadEnabled.value);
+    }
+  } catch (error) {
+    console.error("加载自动下载状态失败:", error);
+    autoDownloadEnabled.value = false; // 出错时默认为关闭
   }
 };
 
@@ -3269,7 +3321,7 @@ const checkBatchAccountStatus = async (tokenIds) => {
       ? "warning"
       : "success";
 
-  showStatus(`批量状态检测完成：${statusText}`, messageType);
+  showStatus(`导入账号状态检测完成：${statusText}`, messageType);
 };
 
 // 静默检测单个账号状态（不显示提示消息）
@@ -3745,8 +3797,9 @@ onUnmounted(() => {
     return false;
   });
 
-  // 清理自动同步定时器
-  stopAutoSync();
+  // 清理自动上传和自动下载定时器
+  stopAutoUpload();
+  stopAutoDownload();
 
   // 清理应用关闭事件监听器
   window.removeEventListener("beforeunload", syncBeforeClose);
@@ -3820,7 +3873,7 @@ const handleAccountManagerClose = () => {
 };
 
 const handleAccountManagerImport = async (importedTokens) => {
-  // 复用现有的导入逻辑
+  // 复用现有的导入逻辑（导入完成后会自动关闭弹窗）
   await handleTokensImport(importedTokens);
 };
 
@@ -3833,6 +3886,8 @@ const handleAccountManagerExportClipboard = async ({ data, count }) => {
     const success = await copyToClipboard(data);
     if (success) {
       showStatus(`已将 ${count} 个账号数据复制到剪贴板`, "success");
+      // 导出成功后关闭弹窗
+      showAccountManagerModal.value = false;
     } else {
       showStatus("复制到剪贴板失败", "error");
     }
@@ -3843,11 +3898,14 @@ const handleAccountManagerExportClipboard = async ({ data, count }) => {
 
 const handleAccountManagerExportFile = async ({ data, count }) => {
   try {
-    // 生成默认文件名
+    // 生成默认文件名：Zaugment yyyy-mm-dd hh:MM:ss.json
     const now = new Date();
-    const month = now.getMonth() + 1;
-    const day = now.getDate();
-    const defaultFilename = `ZAugment-${month}月${day}号.json`;
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const defaultFilename = `Zaugment ${year}-${month}-${day} ${hours}:${minutes}.json`;
 
     // 打开文件保存对话框
     const filePath = await invoke("save_file_dialog", { defaultFilename });
@@ -3860,6 +3918,8 @@ const handleAccountManagerExportFile = async ({ data, count }) => {
       });
 
       showStatus(`已将 ${count} 个账号数据导出到: ${filePath}`, "success");
+      // 导出成功后关闭弹窗
+      showAccountManagerModal.value = false;
     }
   } catch (error) {
     showStatus(`导出失败: ${error}`, "error");
@@ -3961,6 +4021,8 @@ const handleTokensImport = async (importedTokens) => {
 
   // 第二阶段：处理重复账号（显示确认弹框）
   if (duplicateTokens.length > 0) {
+    //关闭导入导出弹框
+    showAccountManagerModal.value = false;
     // 显示重复账号确认弹框
     await handleDuplicateTokensConfirm(
       duplicateTokens,
@@ -3978,6 +4040,8 @@ const handleTokensImport = async (importedTokens) => {
       emailFetchCount,
       newTokenIds
     );
+    //关闭导入导出弹框
+    showAccountManagerModal.value = false;
   }
 };
 
@@ -4108,7 +4172,7 @@ const completeImport = async (
   }
 
   // 关闭导入弹窗
-  showImportModal.value = false;
+  showAccountManagerModal.value = false;
 };
 
 const handleImportError = (errorMessage) => {
@@ -4509,68 +4573,135 @@ const updateSyncStatus = (
   }
 };
 
-// 自动同步相关函数
-let autoSyncInterval = null;
+// 自动上传和自动下载相关函数
+let autoUploadInterval = null;
+let autoDownloadInterval = null;
 
-const startAutoSync = () => {
+const startAutoUpload = () => {
   // 如果已经有定时器在运行，先清除
-  if (autoSyncInterval) {
-    clearInterval(autoSyncInterval);
+  if (autoUploadInterval) {
+    clearInterval(autoUploadInterval);
   }
 
-  // 立即执行一次同步
-  performAutoSync();
+  // 立即执行一次上传
+  performAutoUpload();
 
-  // 每2分钟执行一次自动同步
-  autoSyncInterval = setInterval(async () => {
-    performAutoSync();
-  }, 2 * 60 * 1000); // 2分钟 = 120000毫秒
+  // 每3分钟执行一次自动上传
+  autoUploadInterval = setInterval(async () => {
+    performAutoUpload();
+  }, 3 * 60 * 1000); // 3分钟 = 180000毫秒
 };
 
-const stopAutoSync = () => {
-  if (autoSyncInterval) {
-    clearInterval(autoSyncInterval);
-    autoSyncInterval = null;
+const stopAutoUpload = () => {
+  if (autoUploadInterval) {
+    clearInterval(autoUploadInterval);
+    autoUploadInterval = null;
   }
 };
 
-const performAutoSync = async () => {
-  if (autoSyncEnabled.value && isWebDAVConfigured.value && !isSyncing.value) {
+const performAutoUpload = async () => {
+  if (autoUploadEnabled.value && isWebDAVConfigured.value && !isSyncing.value) {
     try {
       await forceUploadToCloud();
-      console.log("自动同步完成");
+      console.log("自动上传完成");
     } catch (error) {
-      console.error("自动同步失败:", error);
+      console.error("自动上传失败:", error);
     }
   }
 };
 
-// 切换自动同步
-const toggleAutoSync = () => {
-  if (autoSyncEnabled.value) {
-    startAutoSync();
-    showStatus("自动同步已开启，每2分钟自动上传到云端", "success");
+const startAutoDownload = () => {
+  // 如果已经有定时器在运行，先清除
+  if (autoDownloadInterval) {
+    clearInterval(autoDownloadInterval);
+  }
+
+  // 立即执行一次下载
+  performAutoDownload();
+
+  // 每3分钟执行一次自动下载
+  autoDownloadInterval = setInterval(async () => {
+    performAutoDownload();
+  }, 3 * 60 * 1000); // 3分钟 = 180000毫秒
+};
+
+const stopAutoDownload = () => {
+  if (autoDownloadInterval) {
+    clearInterval(autoDownloadInterval);
+    autoDownloadInterval = null;
+  }
+};
+
+const performAutoDownload = async () => {
+  if (
+    autoDownloadEnabled.value &&
+    isWebDAVConfigured.value &&
+    !isSyncing.value
+  ) {
+    try {
+      await forceDownloadFromCloud();
+      console.log("自动下载完成");
+    } catch (error) {
+      console.error("自动下载失败:", error);
+    }
+  }
+};
+
+// 切换自动上传
+const toggleAutoUpload = () => {
+  // 互斥逻辑：如果自动下载已开启，阻止开启自动上传
+  if (autoUploadEnabled.value && autoDownloadEnabled.value) {
+    autoUploadEnabled.value = false;
+    showStatus("请先关闭自动下载，再开启自动上传", "warning");
+    return;
+  }
+
+  if (autoUploadEnabled.value) {
+    startAutoUpload();
+    showStatus("自动上传已开启，每3分钟自动上传到云端", "success");
   } else {
-    stopAutoSync();
-    showStatus("自动同步已关闭", "info");
+    stopAutoUpload();
+    showStatus("自动上传已关闭", "info");
   }
 
   // 保存状态到本地存储
-  saveAutoSyncState();
+  saveAutoUploadState();
+};
+
+// 切换自动下载
+const toggleAutoDownload = () => {
+  // 互斥逻辑：如果自动上传已开启，阻止开启自动下载
+  if (autoDownloadEnabled.value && autoUploadEnabled.value) {
+    autoDownloadEnabled.value = false;
+    showStatus("请先关闭自动上传，再开启自动下载", "warning");
+    return;
+  }
+
+  if (autoDownloadEnabled.value) {
+    startAutoDownload();
+    showStatus("自动下载已开启，每3分钟自动从云端下载一次", "success");
+  } else {
+    stopAutoDownload();
+    showStatus("自动下载已关闭", "info");
+  }
+
+  // 保存状态到本地存储
+  saveAutoDownloadState();
 };
 
 // 应用关闭前同步
 const syncBeforeClose = async () => {
+  // 只有自动上传开启时才在关闭前上传
   if (
-    autoSyncEnabled.value &&
+    autoUploadEnabled.value &&
     isWebDAVConfigured.value &&
     hasUnsavedChanges.value
   ) {
     try {
       await forceUploadToCloud();
-      console.log("关闭前同步完成");
+      console.log("关闭前上传完成");
     } catch (error) {
-      console.error("关闭前同步失败:", error);
+      console.error("关闭前上传失败:", error);
     }
   }
 };
@@ -4696,15 +4827,25 @@ onMounted(async () => {
     loadSyncHistory();
     console.log("同步历史加载成功");
 
-    // 加载自动同步状态
-    console.log("开始加载自动同步状态...");
-    loadAutoSyncState();
-    console.log("自动同步状态加载成功");
+    // 加载自动上传和自动下载状态
+    console.log("开始加载自动上传状态...");
+    loadAutoUploadState();
+    console.log("自动上传状态加载成功");
 
-    // 如果自动同步已开启且WebDAV已配置，启动定时器
-    if (autoSyncEnabled.value && isWebDAVConfigured.value) {
-      startAutoSync();
-      console.log("自动同步定时器已启动");
+    console.log("开始加载自动下载状态...");
+    loadAutoDownloadState();
+    console.log("自动下载状态加载成功");
+
+    // 如果自动上传已开启且WebDAV已配置，启动定时器
+    if (autoUploadEnabled.value && isWebDAVConfigured.value) {
+      startAutoUpload();
+      console.log("自动上传定时器已启动");
+    }
+
+    // 如果自动下载已开启且WebDAV已配置，启动定时器
+    if (autoDownloadEnabled.value && isWebDAVConfigured.value) {
+      startAutoDownload();
+      console.log("自动下载定时器已启动");
     }
 
     // 监听应用关闭事件
@@ -4713,15 +4854,22 @@ onMounted(async () => {
     // 启用WebDAV配置状态监听（在所有依赖准备好后）
     watch(isWebDAVConfigured, (newConfigured, oldConfigured) => {
       // 避免初始化时的触发，只在状态真正变化时执行
-      if (oldConfigured !== undefined && autoSyncEnabled.value) {
+      if (oldConfigured !== undefined) {
         if (newConfigured) {
-          // WebDAV已配置且自动同步开启，启动定时器
-          startAutoSync();
-          console.log("WebDAV配置完成，自动同步定时器已启动");
+          // WebDAV已配置，根据开关状态启动定时器
+          if (autoUploadEnabled.value) {
+            startAutoUpload();
+            console.log("WebDAV配置完成，自动上传定时器已启动");
+          }
+          if (autoDownloadEnabled.value) {
+            startAutoDownload();
+            console.log("WebDAV配置完成，自动下载定时器已启动");
+          }
         } else {
-          // WebDAV未配置，停止自动同步定时器
-          stopAutoSync();
-          console.log("WebDAV配置丢失，自动同步定时器已停止");
+          // WebDAV未配置，停止所有定时器
+          stopAutoUpload();
+          stopAutoDownload();
+          console.log("WebDAV配置丢失，所有定时器已停止");
         }
       }
     });
@@ -5232,47 +5380,40 @@ body {
   justify-content: center;
   gap: 4px;
   padding: 5px 8px;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
-  border: 1px solid;
 }
 
 .status-item.saved {
   background: #f0fdf4;
   color: #15803d;
-  border-color: #bbf7d0;
 }
 
 .status-item.unsaved {
   background: #fef3c7;
   color: #d97706;
-  border-color: #fde68a;
 }
 
 .status-item.banned {
   background: #fee2e2;
   color: #b91c1c;
-  border-color: #fecaca;
 }
 
 .status-item.invalid {
   background: #fef3c7;
   color: #a16207;
-  border-color: #fde68a;
 }
 
 .status-item.expired {
   background: #fed7aa;
   color: #c2410c;
-  border-color: #fdba74;
 }
 
 .status-item.unchecked {
   background: #f3f4f6;
   color: #6b7280;
-  border-color: #e5e7eb;
 }
 
 .status-label {
@@ -5351,14 +5492,12 @@ body {
 .token-generator-card,
 .view-content-card {
   background: transparent;
-  padding: 32px;
+  padding: 10px;
   position: relative;
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
-  /* 确保滚动时内容不贴边 */
-  padding-right: 38px; /* 32px内边距 + 6px滚动条宽度 */
 }
 
 /* 现代化滚动条样式 - 应用到所有内容卡片 */
@@ -5370,13 +5509,12 @@ body {
 .token-generator-card::-webkit-scrollbar-track,
 .view-content-card::-webkit-scrollbar-track {
   background: rgba(241, 245, 249, 0.3);
-  border-radius: 10px;
 }
 
 .token-generator-card::-webkit-scrollbar-thumb,
 .view-content-card::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
-  border-radius: 10px;
+
   transition: all 0.3s ease;
 }
 
@@ -5409,7 +5547,7 @@ body {
 /* 统一的步骤卡片设计 */
 .unified-steps-card {
   background: rgba(255, 255, 255, 0.95);
-  border-radius: 24px;
+  border-radius: 10px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(226, 232, 240, 0.4);
   overflow: hidden;
@@ -5418,7 +5556,7 @@ body {
 }
 
 .unified-steps-card:hover {
-  transform: translateY(-2px);
+  /* transform: translateY(-2px); */
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
   border-color: rgba(226, 232, 240, 0.6);
 }
@@ -8488,16 +8626,26 @@ textarea.unified-input {
   box-shadow: none;
 }
 
-/* 自动同步开关样式 */
+/* 自动上传和自动下载开关样式 */
 .auto-sync-toggle {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   margin-bottom: 20px;
   padding: 16px;
   background: rgba(255, 255, 255, 0.6);
   border-radius: 10px;
   border: 1px solid rgba(226, 232, 240, 0.5);
+}
+
+.auto-sync-row {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.auto-sync-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .toggle-label {
@@ -8552,7 +8700,7 @@ textarea.unified-input {
 .toggle-help {
   font-size: 12px;
   color: #64748b;
-  margin-left: 60px;
+  margin-top: 12px;
 }
 
 /* 同步状态指示器样式 */
@@ -10055,11 +10203,10 @@ textarea.unified-input {
   align-items: center;
   gap: 4px;
   padding: 5px 8px;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
-  border: 1px solid;
 }
 
 .account-count-badge::before {

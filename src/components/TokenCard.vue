@@ -24,71 +24,98 @@
 
     <div class="card-main">
       <div class="token-info">
-        <h3 class="tenant-name">{{ displayUrl }}</h3>
+        <div class="tenant-name-container">
+          <span
+            class="tenant-name"
+            :style="tenantNameStyle"
+            @click="openTagEditor"
+            title="标签"
+          >
+            {{ displayUrl }}
+          </span>
+          <span v-if="token.tag_text" class="tag-text" :style="tagTextStyle">
+            {{ token.tag_text }}
+          </span>
+        </div>
         <div class="token-meta">
           <!-- 第一行：创建日期和邮箱 -->
           <div class="meta-row">
             <span class="created-date">{{ formatDate(token.created_at) }}</span>
-            <div v-if="token.email_note" class="email-note-container">
-              <div
-                class="email-note-wrapper clickable"
-                @click="copyEmailNote"
-                title="点击复制邮箱"
+            <span
+              v-if="token.email_note"
+              class="email-note"
+              @click="copyEmailNote"
+              @mouseenter="showFullEmail = true"
+              @mouseleave="showFullEmail = false"
+              title="点击复制"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                class="email-icon"
               >
-                <span
-                  class="email-note"
-                  ref="emailNoteRef"
-                  @mouseenter="showTooltip"
-                  @mouseleave="hideTooltip"
-                >
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    class="email-icon"
-                  >
-                    <path
-                      d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"
-                    />
-                  </svg>
-                  {{ maskedEmail }}
-                </span>
-              </div>
-            </div>
+                <path
+                  d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"
+                />
+              </svg>
+              <span class="email-text">{{ displayEmail }}</span>
+            </span>
           </div>
           <!-- 第二行：Portal信息 -->
           <div class="meta-row portal-row">
             <template v-if="token.portal_url">
               <!-- 优先显示Portal数据，无论是来自本地缓存还是网络请求 -->
               <template v-if="portalInfo.data">
-                <span
-                  class="portal-meta expiry"
-                  :style="getExpiryStyle(portalInfo.data.expiry_date)"
-                  >剩余：{{
-                    formatExpiryDate(portalInfo.data.expiry_date)
-                  }}</span
-                >
-                <span
-                  class="portal-meta balance"
-                  :style="getBalanceStyle(portalInfo.data.credits_balance)"
-                  >额度：{{ portalInfo.data.credits_balance }}次</span
-                >
+                <span class="portal-meta" :style="metaStyle">
+                  <span class="portal-info-item expiry">
+                    剩余：<span
+                      class="portal-value"
+                      :style="getExpiryStyle(portalInfo.data.expiry_date)"
+                      >{{ formatExpiryDate(portalInfo.data.expiry_date) }}</span
+                    >
+                  </span>
+                  <span class="portal-separator">|</span>
+                  <span class="portal-info-item balance">
+                    额度：<span
+                      class="portal-value"
+                      :style="getBalanceStyle(portalInfo.data.credits_balance)"
+                      >{{ portalInfo.data.credits_balance }}次</span
+                    >
+                  </span>
+                </span>
               </template>
               <!-- 如果没有数据且正在加载，显示加载状态 -->
               <template v-else-if="isLoadingPortalInfo">
-                <span class="portal-meta loading">加载中...</span>
+                <span class="portal-meta loading" :style="metaStyle"
+                  >加载中...</span
+                >
               </template>
               <!-- 如果有portal_url但获取失败，显示未知信息 -->
               <template v-else>
-                <span class="portal-meta expiry unknown">剩余：未知</span>
-                <span class="portal-meta balance unknown">额度：未知</span>
+                <span class="portal-meta unknown" :style="metaStyle">
+                  <span class="portal-info-item"
+                    >剩余：<span class="portal-value">未知</span></span
+                  >
+                  <span class="portal-separator">|</span>
+                  <span class="portal-info-item"
+                    >额度：<span class="portal-value">未知</span></span
+                  >
+                </span>
               </template>
             </template>
             <!-- 如果没有portal_url，显示未知信息 -->
             <template v-else>
-              <span class="portal-meta expiry unknown">剩余：未知</span>
-              <span class="portal-meta balance unknown">额度：未知</span>
+              <span class="portal-meta unknown" :style="metaStyle">
+                <span class="portal-info-item"
+                  >剩余：<span class="portal-value">未知</span></span
+                >
+                <span class="portal-separator">|</span>
+                <span class="portal-info-item"
+                  >额度：<span class="portal-value">未知</span></span
+                >
+              </span>
             </template>
           </div>
         </div>
@@ -160,6 +187,15 @@
       </div>
     </div>
   </div>
+
+  <!-- 标签编辑弹窗 -->
+  <TagEditorModal
+    :visible="showTagEditor"
+    :initial-tag-text="token.tag_text || ''"
+    :initial-tag-color="token.tag_color || null"
+    @close="showTagEditor = false"
+    @confirm="handleTagConfirm"
+  />
 
   <!-- 编辑器选择模态框 -->
   <ModalContainer
@@ -525,26 +561,13 @@
       </div>
     </div>
   </ModalContainer>
-
-  <!-- Email Tooltip - 使用 Teleport 渲染到 body -->
-  <Teleport to="body">
-    <div
-      v-if="showEmailTooltip"
-      class="email-tooltip"
-      :style="tooltipStyle"
-      @mouseenter="onTooltipMouseEnter"
-      @mouseleave="onTooltipMouseLeave"
-    >
-      {{ token.email_note }}
-      <div class="tooltip-arrow"></div>
-    </div>
-  </Teleport>
 </template>
 
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import ModalContainer from "./ModalContainer.vue";
+import TagEditorModal from "./TagEditorModal.vue";
 
 // 防抖函数
 function debounce(func, wait) {
@@ -574,12 +597,19 @@ const emit = defineEmits(["delete", "copy-success", "edit", "token-updated"]);
 const isLoadingPortalInfo = ref(false);
 const portalInfo = ref({ data: null, error: null });
 const isCheckingStatus = ref(false);
-const showEmailTooltip = ref(false);
-const tooltipStyle = ref({});
-const emailNoteRef = ref(null);
 const showEditorModal = ref(false);
 const isModalClosing = ref(false);
-const tooltipHideTimer = ref(null);
+const showTagEditor = ref(false);
+const showFullEmail = ref(false);
+
+// 颜色映射
+const colorMap = {
+  red: "#b91c1c",
+  green: "#15803d",
+  yellow: "#a16207",
+  blue: "#3b82f6",
+  black: "#1f2937",
+};
 
 // 图标映射
 const editorIcons = {
@@ -617,9 +647,9 @@ const displayUrl = computed(() => {
 
 const maskedEmail = computed(() => {
   const email = props.token.email_note;
-  if (!email || !email.includes("@")) return email;
+  if (!email || !email.includes(".")) return email;
 
-  const [username, domain] = email.split("@");
+  const [username, domain] = email.split(".");
 
   // 如果用户名太短，直接返回原邮箱
   if (username.length <= 3) {
@@ -627,14 +657,14 @@ const maskedEmail = computed(() => {
   }
 
   let maskedUsername;
-  if (username.length <= 6) {
+  if (username.length <= 10) {
     // 短邮箱：保留前1-2个字符，其余用星号替换
     const keepChars = username.length <= 4 ? 1 : 2;
     const hiddenCount = username.length - keepChars;
     maskedUsername = username.substring(0, keepChars) + "*".repeat(hiddenCount);
   } else {
     // 长邮箱：保留前后各2-3个字符，中间用4个星号替换
-    const frontKeep = username.length >= 8 ? 3 : 2;
+    const frontKeep = username.length >= 8 ? 4 : 3;
     const backKeep = 2;
     maskedUsername =
       username.substring(0, frontKeep) +
@@ -642,7 +672,34 @@ const maskedEmail = computed(() => {
       username.substring(username.length - backKeep);
   }
 
-  return maskedUsername + "@" + domain;
+  return maskedUsername + "." + domain;
+});
+
+// 显示邮箱（根据悬浮状态决定显示完整或省略）
+const displayEmail = computed(() => {
+  return showFullEmail.value ? props.token.email_note : maskedEmail.value;
+});
+
+// 标签相关的计算属性
+const tenantNameStyle = computed(() => {
+  if (props.token.tag_color && colorMap[props.token.tag_color]) {
+    return {
+      color: colorMap[props.token.tag_color] + " !important",
+    };
+  }
+  return {};
+});
+
+const tagTextStyle = computed(() => {
+  if (props.token.tag_color && colorMap[props.token.tag_color]) {
+    const color = colorMap[props.token.tag_color];
+    return {
+      color: color,
+      backgroundColor: `${color}15`, // 15% 透明度
+      borderColor: `${color}40`, // 40% 透明度
+    };
+  }
+  return {};
 });
 
 // Methods
@@ -708,10 +765,37 @@ const copyEmailNote = async () => {
   }
 };
 
+// 打开标签编辑器
+const openTagEditor = () => {
+  showTagEditor.value = true;
+};
+
+// 处理标签确认
+const handleTagConfirm = async ({ tagText, tagColor }) => {
+  // 更新 token 对象
+  const updatedToken = {
+    ...props.token,
+    tag_text: tagText,
+    tag_color: tagColor,
+  };
+
+  // 发出更新事件，让父组件处理保存
+  emit("token-updated", updatedToken);
+
+  // 关闭弹窗
+  showTagEditor.value = false;
+
+  // 显示成功提示
+  emit("copy-success", "标签已保存", "success");
+};
+
 // 键盘事件处理
 const handleKeydown = (event) => {
   if (event.key === "Escape" && showEditorModal.value) {
     showEditorModal.value = false;
+  }
+  if (event.key === "Escape" && showTagEditor.value) {
+    showTagEditor.value = false;
   }
 };
 
@@ -1014,66 +1098,6 @@ const handleEditorClick = async (editorType) => {
   }
 };
 
-// Tooltip 处理函数
-const showTooltip = () => {
-  // 清除任何待执行的隐藏定时器
-  if (tooltipHideTimer.value) {
-    clearTimeout(tooltipHideTimer.value);
-    tooltipHideTimer.value = null;
-  }
-
-  if (!emailNoteRef.value) return;
-
-  const rect = emailNoteRef.value.getBoundingClientRect();
-  const tooltipWidth = 200; // 预估tooltip宽度
-
-  // 计算tooltip位置
-  let left = rect.left + rect.width / 2 - tooltipWidth / 2;
-  const top = rect.top - 40; // 在元素上方显示
-
-  // 确保tooltip不会超出屏幕边界
-  if (left < 10) {
-    left = 10;
-  } else if (left + tooltipWidth > window.innerWidth - 10) {
-    left = window.innerWidth - tooltipWidth - 10;
-  }
-
-  tooltipStyle.value = {
-    position: "fixed",
-    left: `${left}px`,
-    top: `${top}px`,
-    zIndex: 10000,
-  };
-
-  showEmailTooltip.value = true;
-};
-
-const hideTooltip = () => {
-  // 延迟隐藏，给用户时间移动到tooltip上
-  tooltipHideTimer.value = setTimeout(() => {
-    showEmailTooltip.value = false;
-    tooltipHideTimer.value = null;
-  }, 100); // 100ms延迟
-};
-
-// Tooltip鼠标事件处理
-const onTooltipMouseEnter = () => {
-  // 鼠标进入tooltip，取消隐藏
-  if (tooltipHideTimer.value) {
-    clearTimeout(tooltipHideTimer.value);
-    tooltipHideTimer.value = null;
-  }
-};
-
-const onTooltipMouseLeave = () => {
-  // 鼠标离开tooltip，立即隐藏
-  showEmailTooltip.value = false;
-  if (tooltipHideTimer.value) {
-    clearTimeout(tooltipHideTimer.value);
-    tooltipHideTimer.value = null;
-  }
-};
-
 const extractTokenFromPortalUrl = (portalUrl) => {
   try {
     const url = new URL(portalUrl);
@@ -1255,12 +1279,10 @@ const formatExpiryDate = (dateString) => {
   }
 };
 
-// 过期时间样式：根据剩余时间显示不同颜色（浅色背景 + 深色文字）
+// 过期时间样式：根据剩余时间显示不同颜色（只改变文字颜色）
 const getExpiryStyle = (dateString) => {
   if (!dateString)
     return {
-      background: "rgba(239, 68, 68, 0.15)",
-      borderColor: "rgba(239, 68, 68, 0.3)",
       color: "#b91c1c",
     };
 
@@ -1269,56 +1291,40 @@ const getExpiryStyle = (dateString) => {
   const diffMs = expiry.getTime() - now.getTime();
   const days = diffMs / (1000 * 60 * 60 * 24);
 
-  let background, borderColor, color;
+  let color;
 
   if (days > 3) {
-    // 剩余时间 > 3天：绿色系（浅绿背景 + 深绿文字）
-    background = "rgba(34, 197, 94, 0.15)"; // 浅绿背景，半透明
-    borderColor = "rgba(34, 197, 94, 0.3)"; // 绿色边框
-    color = "#15803d"; // 深绿文字
+    // 剩余时间 > 3天：深绿文字
+    color = "#15803d";
   } else if (days > 1) {
-    // 剩余时间 > 1天 且 ≤ 3天：黄色系（浅黄背景 + 深黄文字）
-    background = "rgba(245, 158, 11, 0.15)"; // 浅黄背景，半透明
-    borderColor = "rgba(245, 158, 11, 0.3)"; // 黄色边框
-    color = "#a16207"; // 深黄文字
+    // 剩余时间 > 1天 且 ≤ 3天：深黄文字
+    color = "#a16207";
   } else {
-    // 剩余时间 ≤ 1天：红色系（浅红背景 + 深红文字）
-    background = "rgba(239, 68, 68, 0.15)"; // 浅红背景，半透明
-    borderColor = "rgba(239, 68, 68, 0.3)"; // 红色边框
-    color = "#b91c1c"; // 深红文字
+    // 剩余时间 ≤ 1天：深红文字
+    color = "#b91c1c";
   }
 
   return {
-    background,
-    borderColor,
     color,
   };
 };
 
-// 剩余额度样式：根据额度数量显示不同颜色（浅色背景 + 深色文字）
+// 剩余额度样式：根据额度数量显示不同颜色（只改变文字颜色）
 const getBalanceStyle = (balance) => {
-  let background, borderColor, color;
+  let color;
 
   if (balance > 30) {
-    // 额度 > 30：绿色系（浅绿背景 + 深绿文字）
-    background = "rgba(34, 197, 94, 0.15)"; // 浅绿背景，半透明
-    borderColor = "rgba(34, 197, 94, 0.3)"; // 绿色边框
-    color = "#15803d"; // 深绿文字
+    // 额度 > 30：深绿文字
+    color = "#15803d";
   } else if (balance > 10) {
-    // 额度 > 10 且 ≤ 30：黄色系（浅黄背景 + 深黄文字）
-    background = "rgba(245, 158, 11, 0.15)"; // 浅黄背景，半透明
-    borderColor = "rgba(245, 158, 11, 0.3)"; // 黄色边框
-    color = "#a16207"; // 深黄文字
+    // 额度 > 10 且 ≤ 30：深黄文字
+    color = "#a16207";
   } else {
-    // 额度 ≤ 10：红色系（浅红背景 + 深红文字）
-    background = "rgba(239, 68, 68, 0.15)"; // 浅红背景，半透明
-    borderColor = "rgba(239, 68, 68, 0.3)"; // 红色边框
-    color = "#b91c1c"; // 深红文字
+    // 额度 ≤ 10：深红文字
+    color = "#b91c1c";
   }
 
   return {
-    background,
-    borderColor,
     color,
   };
 };
@@ -1544,10 +1550,6 @@ onMounted(() => {
 // 组件卸载时清理事件监听器和定时器
 onUnmounted(() => {
   document.removeEventListener("keydown", handleKeydown);
-  if (tooltipHideTimer.value) {
-    clearTimeout(tooltipHideTimer.value);
-    tooltipHideTimer.value = null;
-  }
 });
 
 // 暴露检查账号状态的方法
@@ -1588,8 +1590,8 @@ defineExpose({
 .status-badge {
   font-size: 10px;
   font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 20px;
+  padding: 4px 8px;
+  border-radius: 8px;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   border: none;
@@ -1639,17 +1641,39 @@ defineExpose({
   min-width: 0;
 }
 
-.tenant-name {
+.tenant-name-container {
   margin: 0 0 6px 0;
-  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tenant-name {
+  font-size: 16px;
   font-weight: 700;
-  background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
   word-break: break-all;
   line-height: 1.3;
   letter-spacing: -0.025em;
+  color: #1e293b;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  opacity: 0.75;
+}
+
+.tenant-name:hover {
+  opacity: 1;
+}
+
+.tag-text {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
 }
 
 .token-meta {
@@ -1662,7 +1686,7 @@ defineExpose({
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   flex-wrap: nowrap;
   min-height: 30px;
 }
@@ -1675,173 +1699,92 @@ defineExpose({
   font-size: 12px;
   color: #64748b;
   font-weight: 500;
-  background: rgba(248, 250, 252, 0.6);
+  background: rgba(247, 246, 246, 0.7);
+  border: 1px solid rgba(210, 215, 223, 0.4);
   padding: 3px 4px;
   border-radius: 8px;
-  border: 1px solid rgba(226, 232, 240, 0.3);
-}
-
-.email-note-container {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 20px;
-}
-
-.email-note-wrapper {
-  position: relative;
-  display: inline-block;
 }
 
 .email-note {
   font-size: 12px;
-  color: #4f46e5;
+  color: #64748b;
+  font-weight: 500;
+  background: rgba(247, 246, 246, 0.7);
+  border: 1px solid rgba(210, 215, 223, 0.4);
+  padding: 3px 4px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   gap: 4px;
-  background: linear-gradient(
-    135deg,
-    rgba(79, 70, 229, 0.08),
-    rgba(139, 92, 246, 0.04)
-  );
-  padding: 4px 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(79, 70, 229, 0.2);
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  user-select: none;
-  font-weight: 500;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 1px 3px rgba(79, 70, 229, 0.1);
+  transition: all 0.2s ease;
 }
 
 .email-note:hover {
-  background: linear-gradient(
-    135deg,
-    rgba(79, 70, 229, 0.12),
-    rgba(139, 92, 246, 0.06)
-  );
-  border-color: rgba(79, 70, 229, 0.3);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.15);
-  color: #3730a3;
+  color: #1e293b;
+  background: rgba(232, 234, 235, 0.8);
+  border-color: rgba(203, 213, 225, 0.5);
+  box-shadow: 0 1px 3px rgba(100, 116, 139, 0.08);
 }
 
 .email-icon {
   flex-shrink: 0;
   opacity: 0.7;
+  transition: opacity 0.3s ease;
 }
 
-.email-note-wrapper.clickable {
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.email-note-wrapper.clickable:hover .email-note {
-  color: #4f46e5;
-}
-
-.email-note-wrapper.clickable:hover .email-icon {
+.email-note:hover .email-icon {
   opacity: 1;
 }
 
-.email-note-wrapper.clickable:active {
-  transform: scale(0.98);
-}
-
-/* Email Tooltip 样式 */
-.email-tooltip {
-  background: rgba(15, 23, 42, 0.95);
-  color: white;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 500;
+.email-text {
+  display: inline-block;
   white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  animation: tooltipFadeIn 0.2s ease-out;
-  max-width: 300px;
-  word-break: break-all;
-  white-space: normal;
-}
-
-.tooltip-arrow {
-  position: absolute;
-  bottom: -5px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 5px solid rgba(15, 23, 42, 0.95);
-}
-
-@keyframes tooltipFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .portal-meta {
   font-size: 12px;
-  font-weight: 600;
-  padding: 4px 8px;
+  font-weight: 500;
+  background: rgba(247, 246, 246, 0.7);
+  border: 1px solid rgba(210, 215, 223, 0.4);
+  padding: 3px 8px;
   border-radius: 8px;
-
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  /* 移除 backdrop-filter，使用纯色背景 */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
 }
 
 .portal-meta.loading {
   color: #64748b;
   font-style: italic;
-  background: rgba(248, 250, 252, 0.6);
-  border-color: rgba(226, 232, 240, 0.3);
-}
-
-.portal-meta.error {
-  color: #dc2626;
-  background: linear-gradient(
-    135deg,
-    rgba(239, 68, 68, 0.08),
-    rgba(220, 38, 38, 0.04)
-  );
-  border-color: rgba(239, 68, 68, 0.2);
-}
-
-.portal-meta.expiry {
-  /* 样式由 getExpiryStyle 函数动态设置 */
-  font-weight: 600;
-}
-
-.portal-meta.balance {
-  /* 样式由 getBalanceStyle 函数动态设置 */
-  font-weight: 700;
 }
 
 .portal-meta.unknown {
-  /* 未知状态：灰色系 */
-  background: rgba(148, 163, 184, 0.15) !important;
-  border: 1px solid rgba(148, 163, 184, 0.3) !important;
-  color: #475569 !important;
+  color: #64748b;
+}
+
+.portal-separator {
+  color: rgba(100, 116, 139, 0.3);
+  font-weight: 400;
+}
+
+.portal-info-item {
+  white-space: nowrap;
+  color: #64748b; /* 和时间、邮箱的默认颜色一致 */
+}
+
+.portal-value {
+  /* 值的颜色由 getExpiryStyle 和 getBalanceStyle 动态设置 */
+  display: inline;
+}
+
+.portal-info-item.expiry .portal-value {
   font-weight: 600;
 }
 
-.portal-meta.zero {
-  /* 零额度：红色系 */
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #b91c1c;
+.portal-info-item.balance .portal-value {
   font-weight: 700;
 }
 
@@ -2270,17 +2213,70 @@ defineExpose({
 /* 响应式处理 */
 @media (max-width: 768px) {
   .token-card {
-    padding: 6px;
+    padding: 8px;
     min-height: 90px;
     margin: 4px 4px 2px;
   }
 
   .card-main {
-    gap: 10px;
+    gap: 8px;
+  }
+
+  .token-info {
+    min-width: 0;
+  }
+
+  .tenant-name-container {
+    margin: 0 0 4px 0;
+    gap: 4px;
   }
 
   .tenant-name {
     font-size: 14px;
+    line-height: 1.2;
+  }
+
+  .tag-text {
+    font-size: 9px;
+    padding: 1px 3px;
+  }
+
+  .token-meta {
+    gap: 3px;
+  }
+
+  .meta-row {
+    gap: 6px;
+    min-height: 24px;
+  }
+
+  .created-date {
+    font-size: 11px;
+  }
+
+  .email-note {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
+  .email-icon {
+    width: 10px;
+    height: 10px;
+  }
+
+  .portal-meta {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
+  .status-indicator {
+    top: 8px;
+    right: 8px;
+  }
+
+  .status-badge {
+    font-size: 10px;
+    padding: 2px 6px;
   }
 
   .actions {
@@ -2298,107 +2294,11 @@ defineExpose({
     width: 14px;
     height: 14px;
   }
-}
 
-@media (max-width: 480px) {
-  .token-card {
-    padding: 6px;
-    min-height: 85px;
-    margin: 4px 4px 2px;
-  }
-
-  .actions {
-    gap: 3px;
-    justify-content: center;
-  }
-
-  .btn-action {
-    padding: 6px;
-    min-width: 26px;
-    min-height: 26px;
-  }
-
-  .btn-action svg,
-  .btn-action img {
-    width: 12px;
-    height: 12px;
-  }
-
-  .token-meta {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
-  .meta-row {
-    gap: 6px;
-  }
-
-  .created-date {
-    font-size: 11px;
-    padding: 2px 4px;
-  }
-
-  .email-note {
-    font-size: 11px;
-    padding: 3px 6px;
-  }
-
-  .tenant-name {
-    font-size: 13px;
-  }
-
-  .vscode-grid,
-  .jetbrains-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* 模态框响应式样式 */
-  .editor-modal {
-    width: 95%;
-    margin: 16px;
-    max-height: 90vh;
-  }
-
-  .modal-header {
-    padding: 16px 20px 12px;
-  }
-
-  .modal-header h3 {
-    font-size: 16px;
-  }
-
-  .modal-content {
-    padding: 16px 20px 20px;
-  }
-
-  .editor-section {
-    margin-bottom: 20px;
-    padding-bottom: 20px;
-  }
-
-  .vscode-grid,
-  .jetbrains-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .editor-option {
-    padding: 12px;
-    gap: 12px;
-  }
-
-  .editor-icon {
-    width: 40px;
-    height: 40px;
-  }
-
-  .editor-icon img {
-    width: 28px;
-    height: 28px;
-  }
-
-  .editor-name {
-    font-size: 15px;
+  .loading-spinner {
+    width: 14px;
+    height: 14px;
+    border-width: 2px;
   }
 }
 </style>

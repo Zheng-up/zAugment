@@ -3,7 +3,7 @@
     :visible="true"
     :title="isEditing ? '编辑账号' : '添加账号'"
     size="medium"
-    :show-close-button="false"
+    :show-close-button="true"
     @close="handleCancel"
   >
     <div class="token-form-content">

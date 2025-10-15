@@ -338,7 +338,7 @@ onMounted(async () => {
 .token-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 24px;
+  gap: 10px;
   padding: 10px 0 0;
 }
 
@@ -362,14 +362,14 @@ onMounted(async () => {
 @media (max-width: 1200px) {
   .token-grid {
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 20px;
+    gap: 10px;
   }
 }
 
 @media (max-width: 768px) {
   .token-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 4px;
   }
 
   .empty-state,
@@ -380,16 +380,17 @@ onMounted(async () => {
 
 /* 统一账号管理卡片样式 */
 .unified-account-card {
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 20px;
-  border: 1px solid rgba(226, 232, 240, 0.5);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 10px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(226, 232, 240, 0.4);
   overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(20px);
 }
 
 .unified-account-card:hover {
-  transform: translateY(-2px);
+  /* transform: translateY(-2px); */
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
   border-color: rgba(226, 232, 240, 0.6);
 }
