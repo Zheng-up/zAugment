@@ -2535,7 +2535,7 @@ const removeStatusMessage = (id) => {
   }
 };
 
-// 立即移除消息（用于被新消息顶掉的情况）
+// 立即移除消息（新消息顶掉的情况）
 const removeStatusMessageImmediately = (id) => {
   const messageIndex = statusMessages.value.findIndex((msg) => msg.id === id);
   if (messageIndex !== -1) {
