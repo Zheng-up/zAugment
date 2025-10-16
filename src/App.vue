@@ -238,11 +238,20 @@
                   <div class="step-number">2</div>
                   <h3>通过授权URL获取需要的JSON数据</h3>
                 </div>
-                <textarea
+                <!-- <div class="field-container">
+                      <label>View usage URL:</label>
+                      <input
+                        type="text"
+                        v-model="portalUrl"
+                        placeholder="粘贴  View usage 页面地址栏 URL"
+                        class="field-input"
+                      />
+                    </div> -->
+                <input
                   v-model="authCode"
-                  placeholder="授权URL注册/登录按照流程完成后，点击 Copy to Clipboard 按钮，会自动复制需要的JSON数据，把获取到的JSON粘贴到这里"
-                  class="input-like-textarea"
-                ></textarea>
+                  placeholder="按照流程登录完成后，点击 Copy 按钮，复制需要的JSON数据，把获取到的JSON粘贴到这里"
+                  class="field-input"
+                />
 
                 <!-- 隐藏获取访问令牌按钮 -->
                 <div class="button-container" style="display: none">
@@ -365,7 +374,7 @@
                       <input
                         type="text"
                         v-model="portalUrl"
-                        placeholder="粘贴  View usage 页面地址栏 URL"
+                        placeholder="View usage 地址栏 URL"
                         class="field-input"
                       />
                     </div>
@@ -374,22 +383,9 @@
                       <input
                         type="text"
                         v-model="emailNote"
-                        placeholder="如有View usage URL将自动获取，也可手动输入"
+                        placeholder="如有 View usage URL 将自动获取 也可手动输入"
                         class="field-input"
                       />
-                      <div class="info-hint">
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                        >
-                          <path
-                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
-                          />
-                        </svg>
-                        如果填写了View usage URL，系统会自动从API获取邮箱信息
-                      </div>
                     </div>
                   </div>
 
@@ -7209,8 +7205,6 @@ textarea.unified-input {
 .generate-input {
   background: rgba(248, 250, 252, 0.8) !important;
   color: #94a3b8;
-  cursor: default;
-  font-style: italic;
 }
 
 .input-with-button .btn {
