@@ -268,20 +268,50 @@ const handleEscKey = (e) => {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   background: transparent;
   color: #64748b;
   white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.modal-tab-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.modal-tab-button:hover::before {
+  left: 100%;
 }
 
 .modal-tab-button:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.7);
-  color: #374151;
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.1) 0%,
+    rgba(79, 70, 229, 0.05) 100%
+  );
+  color: #4f46e5;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
 }
 
 .modal-tab-button.active {
-  background: #3b82f6;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: white;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
+  transform: translateY(-1px);
 }
 
 .modal-close-btn {

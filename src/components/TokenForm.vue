@@ -469,7 +469,7 @@ const handleCancel = () => {
     rgba(241, 245, 249, 0.8) 100%
   );
   color: #64748b;
-  border: 2px solid rgba(226, 232, 240, 0.5);
+  border: 1px solid rgba(226, 232, 240, 0.5);
   backdrop-filter: blur(10px);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }

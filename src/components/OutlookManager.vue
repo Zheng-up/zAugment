@@ -2110,8 +2110,30 @@ onMounted(async () => {
     rgba(107, 114, 128, 0.05) 100%
   );
   color: #6b7280;
-  border: 1px solid rgba(156, 163, 175, 0.3);
+  border: 1px solid rgba(156, 163, 175, 0.5);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn.secondary::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn.secondary:hover:not(:disabled)::before {
+  left: 100%;
 }
 
 .btn.secondary:hover:not(:disabled) {
@@ -2125,10 +2147,66 @@ onMounted(async () => {
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
 }
 
+.btn.primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn.primary::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn.primary:hover:not(:disabled)::before {
+  left: 100%;
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
+}
+
 .btn.danger {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
   box-shadow: 0 2px 12px rgba(239, 68, 68, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn.danger::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn.danger:hover:not(:disabled)::before {
+  left: 100%;
 }
 
 .btn.danger:hover:not(:disabled) {

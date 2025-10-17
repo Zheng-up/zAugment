@@ -11,6 +11,8 @@ pub struct TokenData {
     pub email_note: Option<String>,
     pub ban_status: Option<serde_json::Value>,
     pub portal_info: Option<serde_json::Value>,
+    pub auth_session: Option<String>,
+    pub suspensions: Option<serde_json::Value>,
 }
 
 impl TokenData {
@@ -31,6 +33,8 @@ impl TokenData {
             email_note,
             ban_status: None,
             portal_info: None,
+            auth_session: None,
+            suspensions: None,
         }
     }
 }
@@ -91,7 +95,11 @@ pub fn convert_legacy_token(legacy: &serde_json::Value) -> Result<TokenData, Box
     
     let ban_status = legacy.get("ban_status").cloned();
     let portal_info = legacy.get("portal_info").cloned();
-    
+    let auth_session = legacy.get("auth_session")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let suspensions = legacy.get("suspensions").cloned();
+
     Ok(TokenData {
         id,
         tenant_url,
@@ -101,6 +109,8 @@ pub fn convert_legacy_token(legacy: &serde_json::Value) -> Result<TokenData, Box
         email_note,
         ban_status,
         portal_info,
+        auth_session,
+        suspensions,
     })
 }
 
@@ -128,7 +138,15 @@ pub fn convert_to_legacy_format(token: &TokenData) -> serde_json::Value {
     if let Some(portal_info) = &token.portal_info {
         map.insert("portal_info".to_string(), portal_info.clone());
     }
-    
+
+    if let Some(auth_session) = &token.auth_session {
+        map.insert("auth_session".to_string(), serde_json::Value::String(auth_session.clone()));
+    }
+
+    if let Some(suspensions) = &token.suspensions {
+        map.insert("suspensions".to_string(), suspensions.clone());
+    }
+
     serde_json::Value::Object(map)
 }
 
@@ -162,17 +180,21 @@ mod tests {
             "access_token": "test_token",
             "created_at": "2023-01-01T00:00:00Z",
             "portal_url": "https://portal.example.com",
-            "email_note": "test note"
+            "email_note": "test note",
+            "auth_session": "test_session",
+            "suspensions": []
         });
-        
+
         let token = convert_legacy_token(&legacy_json).unwrap();
         assert_eq!(token.id, "test_id");
         assert_eq!(token.tenant_url, "https://example.com");
         assert_eq!(token.access_token, "test_token");
-        
+        assert_eq!(token.auth_session, Some("test_session".to_string()));
+
         let converted_back = convert_to_legacy_format(&token);
         assert_eq!(converted_back["id"], "test_id");
         assert_eq!(converted_back["tenant_url"], "https://example.com");
         assert_eq!(converted_back["access_token"], "test_token");
+        assert_eq!(converted_back["auth_session"], "test_session");
     }
 }

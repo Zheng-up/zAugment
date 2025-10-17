@@ -2,13 +2,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod augment_oauth;
+mod augment_user_info;
 mod bookmarks;
 mod http_server;
 mod outlook_manager;
 mod storage;
 mod webdav;
 
-use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, AugmentOAuthState, AugmentTokenResponse, AccountStatus};
+use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, extract_token_from_session, AugmentOAuthState, AugmentTokenResponse, AccountStatus};
+use augment_user_info::get_user_info;
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
 use outlook_manager::{OutlookManager, OutlookCredentials, EmailListResponse, EmailDetailsResponse, AccountStatus as OutlookAccountStatus};
@@ -17,13 +19,20 @@ use webdav::{WebDAVConfig, CloudSync, SecureWebDAVConfig, PasswordManager};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
-use tauri::{State, Manager, WebviewWindowBuilder, WebviewUrl};
+use tauri::{State, Manager, WebviewWindowBuilder, WebviewUrl, Emitter};
 use chrono;
 use std::fs;
-use std::process::Command;
-use rusqlite::{Connection, Result as SqliteResult};
 use uuid::Uuid;
 use sysinfo::{System, SystemExt, ProcessExt};
+use rusqlite::Connection;
+
+// Session 导入响应结构体
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TokenFromSessionResponse {
+    pub access_token: String,
+    pub tenant_url: String,
+    pub user_info: augment_user_info::CompleteUserInfo,
+}
 
 // 用户数据同步包结构
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -224,6 +233,25 @@ async fn check_account_status(token: String, tenant_url: String) -> Result<Accou
     check_account_ban_status(&token, &tenant_url)
         .await
         .map_err(|e| format!("Failed to check account status: {}", e))
+}
+
+#[tauri::command]
+async fn add_token_from_session(session: String, app: tauri::AppHandle) -> Result<TokenFromSessionResponse, String> {
+    // 1. 从 session 提取 token
+    let _ = app.emit("session-import-progress", "sessionImportExtractingToken");
+    let token_response = extract_token_from_session(&session).await?;
+
+    // 2. 获取用户信息
+    let _ = app.emit("session-import-progress", "sessionImportGettingUserInfo");
+    let user_info = get_user_info(&session).await?;
+
+    let _ = app.emit("session-import-progress", "sessionImportComplete");
+
+    Ok(TokenFromSessionResponse {
+        access_token: token_response.access_token,
+        tenant_url: token_response.tenant_url,
+        user_info,
+    })
 }
 
 #[tauri::command]
@@ -2498,7 +2526,7 @@ pub struct EditorInfo {
 
 /// 获取编辑器配置路径
 fn get_editor_paths(editor_type: &str) -> Result<(Option<PathBuf>, Option<PathBuf>), String> {
-    let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
+    let _home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
 
     match editor_type {
         "vscode" => {
@@ -3469,6 +3497,7 @@ fn main() {
             get_token,
             get_augment_token,
             check_account_status,
+            add_token_from_session,
             open_url,
             // 新的简化命令
             save_tokens_json,

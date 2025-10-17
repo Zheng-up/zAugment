@@ -154,17 +154,62 @@
           </svg>
           <div v-else class="loading-spinner"></div>
         </button>
-        <button
-          @click="copyAccountInfo"
-          class="btn-action copy"
-          title="复制账号信息"
+        <div
+          class="copy-button-container"
+          @mouseenter="startCopyMenuTimer"
+          @mouseleave="handleCopyMenuMouseLeave"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
-            />
-          </svg>
-        </button>
+          <button
+            @click="showCopyMenu = !showCopyMenu"
+            class="btn-action copy"
+            title="复制账号信息"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+              />
+            </svg>
+          </button>
+
+          <!-- 复制菜单 -->
+          <div
+            v-if="showCopyMenu"
+            class="copy-menu"
+            @mouseenter="clearCopyMenuTimer"
+            @mouseleave="handleCopyMenuMouseLeave"
+          >
+            <button @click="copyAccountInfoAsJson" class="copy-menu-item">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M7 5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h1v-2H7V7h1V5H7zm10 0v2h1v10h-1v2h1c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2h-1z"
+                />
+              </svg>
+              复制 JSON
+            </button>
+            <button
+              v-if="token.auth_session"
+              @click="copySessionValue"
+              class="copy-menu-item"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"
+                />
+              </svg>
+              复制 Session
+            </button>
+          </div>
+        </div>
 
         <button
           @click="$emit('edit', token)"
@@ -601,6 +646,10 @@ const showEditorModal = ref(false);
 const isModalClosing = ref(false);
 const showTagEditor = ref(false);
 const showFullEmail = ref(false);
+const showCopyMenu = ref(false);
+
+// 复制菜单计时器
+let copyMenuTimer = null;
 
 // 颜色映射
 const colorMap = {
@@ -714,8 +763,8 @@ const formatDate = (dateString) => {
   });
 };
 
-// 复制账号信息
-const copyAccountInfo = async () => {
+// 复制账号信息为 JSON
+const copyAccountInfoAsJson = async () => {
   const accountInfo = {
     tenant_url: props.token.tenant_url,
     access_token: props.token.access_token,
@@ -727,10 +776,34 @@ const copyAccountInfo = async () => {
   const success = await copyToClipboard(jsonString);
 
   if (success) {
-    emit("copy-success", "账号信息已复制到剪贴板!", "success");
+    emit("copy-success", "JSON信息已复制到剪贴板!", "success");
   } else {
-    emit("copy-success", "复制账号信息失败", "error");
+    emit("copy-success", "复制JSON信息到剪贴板失败", "error");
   }
+
+  showCopyMenu.value = false;
+};
+
+// 复制 Session 值
+const copySessionValue = async () => {
+  console.log("Token object:", props.token);
+  console.log("Auth session value:", props.token.auth_session);
+
+  if (!props.token.auth_session) {
+    emit("copy-success", "该账号没有 Session 信息", "error");
+    showCopyMenu.value = false;
+    return;
+  }
+
+  const success = await copyToClipboard(props.token.auth_session);
+
+  if (success) {
+    emit("copy-success", "Session信息已复制到剪贴板!", "success");
+  } else {
+    emit("copy-success", "复制 Session信息到剪贴板失败", "error");
+  }
+
+  showCopyMenu.value = false;
 };
 
 const deleteToken = () => {
@@ -797,6 +870,39 @@ const handleKeydown = (event) => {
   if (event.key === "Escape" && showTagEditor.value) {
     showTagEditor.value = false;
   }
+  if (event.key === "Escape" && showCopyMenu.value) {
+    showCopyMenu.value = false;
+  }
+};
+
+// 点击外部关闭菜单（已由 handleCardMouseLeave 处理）
+const handleClickOutside = (event) => {
+  // 菜单关闭由 handleCardMouseLeave 处理，这里保留以兼容其他事件
+};
+
+// 启动复制菜单计时器（悬浮0.3s后显示）
+const startCopyMenuTimer = () => {
+  clearCopyMenuTimer();
+  copyMenuTimer = setTimeout(() => {
+    showCopyMenu.value = true;
+  }, 300);
+};
+
+// 清除复制菜单计时器
+const clearCopyMenuTimer = () => {
+  if (copyMenuTimer) {
+    clearTimeout(copyMenuTimer);
+    copyMenuTimer = null;
+  }
+};
+
+// 处理复制菜单鼠标离开事件
+const handleCopyMenuMouseLeave = () => {
+  clearCopyMenuTimer();
+  // 设置延迟隐藏菜单，避免鼠标在按钮和菜单之间移动时闪烁
+  copyMenuTimer = setTimeout(() => {
+    showCopyMenu.value = false;
+  }, 100);
 };
 
 // 打开编辑器模态框
@@ -1545,11 +1651,15 @@ onMounted(() => {
 
   // 添加键盘事件监听器
   document.addEventListener("keydown", handleKeydown);
+  // 添加点击外部关闭菜单的监听器
+  document.addEventListener("click", handleClickOutside);
 });
 
 // 组件卸载时清理事件监听器和定时器
 onUnmounted(() => {
   document.removeEventListener("keydown", handleKeydown);
+  document.removeEventListener("click", handleClickOutside);
+  clearCopyMenuTimer();
 });
 
 // 暴露检查账号状态的方法
@@ -1863,6 +1973,96 @@ defineExpose({
   );
   border-color: rgba(99, 102, 241, 0.3);
   color: #4f46e5;
+}
+
+/* 复制按钮容器 */
+.copy-button-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* 复制菜单 */
+.copy-menu {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  min-width: 140px;
+  margin-bottom: 8px;
+  animation: slideUp 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 菜单项 */
+.copy-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.copy-menu-item:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.copy-menu-item:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+.copy-menu-item:not(:last-child) {
+  border-bottom: 1px solid rgba(226, 232, 240, 0.4);
+}
+
+.copy-menu-item:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.08),
+    rgba(139, 92, 246, 0.04)
+  );
+  color: #4f46e5;
+}
+
+.copy-menu-item:active {
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.12),
+    rgba(139, 92, 246, 0.08)
+  );
+}
+
+.copy-menu-item svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.copy-menu-item:hover svg {
+  opacity: 1;
 }
 
 .btn-action.link {

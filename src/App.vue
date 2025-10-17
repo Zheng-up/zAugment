@@ -24,7 +24,7 @@
                 d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
               />
             </svg>
-            <span>Aug注册</span>
+            <span>新增流程</span>
           </button>
           <button
             @click="handleNavClick('token-list')"
@@ -74,7 +74,7 @@
           <!-- 标题栏 -->
           <div class="token-generator-header">
             <div class="header-left">
-              <h2>Augment注册</h2>
+              <h2>新增流程</h2>
             </div>
             <div class="header-right">
               <button
@@ -115,94 +115,60 @@
           <div class="token-generator-card">
             <!-- 统一的步骤卡片 -->
             <div class="unified-steps-card">
-              <!-- Step 1: Generate Authorization URL -->
-              <div class="step-item">
-                <div class="step-header">
-                  <div class="step-number">1</div>
-                  <h3>生成授权URL</h3>
-                  <button
-                    v-if="authUrl"
-                    @click="resetAuthUrl"
-                    class="reset-btn"
-                    title="重置"
+              <!-- Tab Navigation -->
+              <div class="steps-tab-navigation">
+                <button
+                  :class="[
+                    'steps-tab-btn',
+                    { active: currentTokenTab === 'steps' },
+                  ]"
+                  @click="currentTokenTab = 'steps'"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
                   >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path
-                        d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
-                      />
-                    </svg>
-                  </button>
-                </div>
-
-                <!-- 生成前的状态 -->
-                <div v-if="!authUrl" class="generate-section">
-                  <div class="input-with-integrated-button">
-                    <input
-                      type="text"
-                      v-model="authUrl"
-                      placeholder="点击生成按钮生成授权URL进行注册，或直接输入URL"
-                      class="generate-input"
-                      autocomplete="off"
-                      autocapitalize="off"
-                      autocorrect="off"
-                      spellcheck="false"
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
                     />
-                    <button
-                      @click="generateAuthUrl"
-                      :class="[
-                        'integrated-btn',
-                        'primary',
-                        { loading: isGenerating },
-                      ]"
-                      :disabled="isGenerating"
-                    >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                      </svg>
-                      生成
-                    </button>
-                  </div>
-                  <div class="info-hint">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path
-                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
-                      />
-                    </svg>
-                    点击按钮生成新的授权URL，进入指纹浏览器进行注册
-                  </div>
-                </div>
-
-                <!-- 生成后的状态 -->
-                <div v-if="authUrl" class="generated-section">
-                  <div class="input-with-integrated-button">
-                    <input
-                      type="text"
-                      v-model="authUrl"
-                      ref="authUrlInput"
-                      autocomplete="off"
-                      autocapitalize="off"
-                      autocorrect="off"
-                      spellcheck="false"
+                  </svg>
+                  OAuth 流程
+                </button>
+                <button
+                  :class="[
+                    'steps-tab-btn',
+                    { active: currentTokenTab === 'session' },
+                  ]"
+                  @click="currentTokenTab = 'session'"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm0 4c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm6 12H6v-1.4c0-2 4-3.1 6-3.1s6 1.1 6 3.1V19z"
                     />
+                  </svg>
+                  Session 导入
+                </button>
+              </div>
+
+              <!-- OAuth Steps Content -->
+              <div v-if="currentTokenTab === 'steps'" class="steps-content">
+                <!-- Step 1: Generate Authorization URL -->
+                <div class="step-item">
+                  <div class="step-header">
+                    <div class="step-number">1</div>
+                    <h3>生成授权URL</h3>
                     <button
-                      @click="copyAuthUrl"
-                      class="integrated-btn primary"
-                      title="复制URL"
+                      v-if="authUrl"
+                      @click="resetAuthUrl"
+                      class="reset-btn"
+                      title="重置"
                     >
                       <svg
                         width="16"
@@ -211,34 +177,112 @@
                         fill="currentColor"
                       >
                         <path
-                          d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+                          d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
                         />
                       </svg>
-                      复制
                     </button>
                   </div>
-                  <div class="info-hint">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path
-                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+
+                  <!-- 生成前的状态 -->
+                  <div v-if="!authUrl" class="generate-section">
+                    <div class="input-with-integrated-button">
+                      <input
+                        type="text"
+                        v-model="authUrl"
+                        placeholder="点击生成按钮生成授权URL进行注册，或直接输入URL"
+                        class="generate-input"
+                        autocomplete="off"
+                        autocapitalize="off"
+                        autocorrect="off"
+                        spellcheck="false"
                       />
-                    </svg>
-                    点击按钮生成新的授权URL，进入指纹浏览器进行注册
+                      <button
+                        @click="generateAuthUrl"
+                        :class="[
+                          'integrated-btn',
+                          'primary',
+                          { loading: isGenerating },
+                        ]"
+                        :disabled="isGenerating"
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                        >
+                          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                        </svg>
+                        生成
+                      </button>
+                    </div>
+                    <div class="info-hint">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path
+                          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+                        />
+                      </svg>
+                      点击按钮生成新的授权URL，进入指纹浏览器进行注册
+                    </div>
+                  </div>
+
+                  <!-- 生成后的状态 -->
+                  <div v-if="authUrl" class="generated-section">
+                    <div class="input-with-integrated-button">
+                      <input
+                        type="text"
+                        v-model="authUrl"
+                        ref="authUrlInput"
+                        autocomplete="off"
+                        autocapitalize="off"
+                        autocorrect="off"
+                        spellcheck="false"
+                      />
+                      <button
+                        @click="copyAuthUrl"
+                        class="integrated-btn primary"
+                        title="复制URL"
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                        >
+                          <path
+                            d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+                          />
+                        </svg>
+                        复制
+                      </button>
+                    </div>
+                    <div class="info-hint">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path
+                          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+                        />
+                      </svg>
+                      点击按钮生成新的授权URL，进入指纹浏览器进行注册
+                    </div>
                   </div>
                 </div>
-              </div>
-              <!-- Step 2: Enter Authorization Code -->
-              <div class="step-item">
-                <div class="step-header">
-                  <div class="step-number">2</div>
-                  <h3>通过授权URL获取需要的JSON数据</h3>
-                </div>
-                <!-- <div class="field-container">
+                <!-- Step 2: Enter Authorization Code -->
+                <div class="step-item">
+                  <div class="step-header">
+                    <div class="step-number">2</div>
+                    <h3>通过授权URL获取需要的JSON数据</h3>
+                  </div>
+                  <!-- <div class="field-container">
                       <label>View usage URL:</label>
                       <input
                         type="text"
@@ -247,97 +291,114 @@
                         class="field-input"
                       />
                     </div> -->
-                <input
-                  v-model="authCode"
-                  placeholder="按照流程登录完成后，点击 Copy 按钮，复制需要的JSON数据，把获取到的JSON粘贴到这里"
-                  class="field-input"
-                />
+                  <input
+                    v-model="authCode"
+                    placeholder="按照流程登录完成后，点击 Copy 按钮，复制需要的JSON数据，把获取到的JSON粘贴到这里"
+                    class="field-input"
+                  />
 
-                <!-- 隐藏获取访问令牌按钮 -->
-                <div class="button-container" style="display: none">
-                  <button
-                    @click="getAccessToken"
-                    :class="['btn', 'primary', { loading: isGettingToken }]"
-                    :disabled="!canGetToken || isGettingToken"
-                  >
-                    获取访问令牌
-                  </button>
-                </div>
-              </div>
-
-              <!-- Step 3: Access Token -->
-              <div class="step-item">
-                <div class="step-header">
-                  <div class="step-number">3</div>
-                  <h3>获取 View usage URL</h3>
-                </div>
-                <div class="token-section">
-                  <!-- 隐藏访问令牌部分 -->
-                  <div class="result-container" style="display: none">
-                    <label>访问令牌:</label>
-                    <div class="token-container">
-                      <input
-                        type="text"
-                        :value="tokenResult?.access_token || ''"
-                        :placeholder="
-                          !tokenResult ? '请先完成步骤2获取访问令牌' : ''
-                        "
-                        readonly
-                        :disabled="!tokenResult"
-                        ref="accessTokenInput"
-                        autocomplete="off"
-                        autocapitalize="off"
-                        autocorrect="off"
-                        spellcheck="false"
-                      />
-                      <button
-                        @click="copyAccessToken"
-                        class="btn secondary"
-                        :disabled="!tokenResult"
-                      >
-                        复制
-                      </button>
-                    </div>
+                  <!-- 隐藏获取访问令牌按钮 -->
+                  <div class="button-container" style="display: none">
+                    <button
+                      @click="getAccessToken"
+                      :class="['btn', 'primary', { loading: isGettingToken }]"
+                      :disabled="!canGetToken || isGettingToken"
+                    >
+                      获取访问令牌
+                    </button>
                   </div>
-                  <!-- 隐藏租户URL部分 -->
-                  <div class="result-container" style="display: none">
-                    <label>租户URL:</label>
-                    <div class="token-container">
-                      <input
-                        type="text"
-                        :value="tokenResult?.tenant_url || ''"
-                        :placeholder="
-                          !tokenResult ? '请先完成步骤2获取访问令牌' : ''
-                        "
-                        readonly
-                        :disabled="!tokenResult"
-                        ref="tenantUrlInput"
-                      />
-                      <button
-                        @click="copyTenantUrl"
-                        class="btn secondary"
-                        :disabled="!tokenResult"
-                      >
-                        复制
-                      </button>
-                    </div>
-                  </div>
+                </div>
 
-                  <!-- Additional Fields -->
-                  <div class="additional-fields">
-                    <div class="result-container">
+                <!-- Step 3: Access Token -->
+                <div class="step-item">
+                  <div class="step-header">
+                    <div class="step-number">3</div>
+                    <h3>获取 View usage URL</h3>
+                  </div>
+                  <div class="token-section">
+                    <!-- 隐藏访问令牌部分 -->
+                    <div class="result-container" style="display: none">
+                      <label>访问令牌:</label>
                       <div class="token-container">
                         <input
                           type="text"
-                          value="https://app.augmentcode.com/account"
+                          :value="tokenResult?.access_token || ''"
+                          :placeholder="
+                            !tokenResult ? '请先完成步骤2获取访问令牌' : ''
+                          "
                           readonly
+                          :disabled="!tokenResult"
                           ref="accessTokenInput"
+                          autocomplete="off"
+                          autocapitalize="off"
+                          autocorrect="off"
+                          spellcheck="false"
                         />
                         <button
-                          @click="copyAccountUrl"
-                          class="integrated-btn primary"
-                          title="复制URL"
+                          @click="copyAccessToken"
+                          class="btn secondary"
+                          :disabled="!tokenResult"
                         >
+                          复制
+                        </button>
+                      </div>
+                    </div>
+                    <!-- 隐藏租户URL部分 -->
+                    <div class="result-container" style="display: none">
+                      <label>租户URL:</label>
+                      <div class="token-container">
+                        <input
+                          type="text"
+                          :value="tokenResult?.tenant_url || ''"
+                          :placeholder="
+                            !tokenResult ? '请先完成步骤2获取访问令牌' : ''
+                          "
+                          readonly
+                          :disabled="!tokenResult"
+                          ref="tenantUrlInput"
+                        />
+                        <button
+                          @click="copyTenantUrl"
+                          class="btn secondary"
+                          :disabled="!tokenResult"
+                        >
+                          复制
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Additional Fields -->
+                    <div class="additional-fields">
+                      <div class="result-container">
+                        <div class="token-container">
+                          <input
+                            type="text"
+                            value="https://app.augmentcode.com/account"
+                            readonly
+                            ref="accessTokenInput"
+                          />
+                          <button
+                            @click="copyAccountUrl"
+                            class="integrated-btn primary"
+                            title="复制URL"
+                          >
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path
+                                d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+                              />
+                            </svg>
+                            复制
+                          </button>
+                          <!-- <button @click="copyAccountUrl" class="btn secondary">
+                        复制
+                      </button> -->
+                        </div>
+                        <div class="info-hint">
                           <svg
                             width="16"
                             height="16"
@@ -345,64 +406,101 @@
                             fill="currentColor"
                           >
                             <path
-                              d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+                              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
                             />
                           </svg>
-                          复制
-                        </button>
-                        <!-- <button @click="copyAccountUrl" class="btn secondary">
-                        复制
-                      </button> -->
+                          复制URL 进入账号管理后台点击 View usage 进入新页面后
+                          复制地址栏URL
+                        </div>
                       </div>
-                      <div class="info-hint">
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                        >
-                          <path
-                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
-                          />
-                        </svg>
-                        复制URL 进入账号管理后台点击 View usage 进入新页面后
-                        复制地址栏URL
+                      <div class="field-container">
+                        <label>View usage URL:</label>
+                        <input
+                          type="text"
+                          v-model="portalUrl"
+                          placeholder="View usage 地址栏 URL"
+                          class="field-input"
+                        />
+                      </div>
+                      <div class="field-container">
+                        <label>邮箱账号:</label>
+                        <input
+                          type="text"
+                          v-model="emailNote"
+                          placeholder="如有 View usage URL 将自动获取 也可手动输入"
+                          class="field-input"
+                        />
                       </div>
                     </div>
-                    <div class="field-container">
-                      <label>View usage URL:</label>
-                      <input
-                        type="text"
-                        v-model="portalUrl"
-                        placeholder="View usage 地址栏 URL"
-                        class="field-input"
-                      />
+
+                    <div class="button-container">
+                      <button
+                        @click="saveTokenWithAutoFetch"
+                        :class="['btn', 'primary', { loading: isGettingToken }]"
+                        :disabled="!canGetToken || isGettingToken"
+                      >
+                        {{ isGettingToken ? "正在获取令牌..." : "保存账号" }}
+                      </button>
                     </div>
-                    <div class="field-container">
-                      <label>邮箱账号:</label>
-                      <input
-                        type="text"
-                        v-model="emailNote"
-                        placeholder="如有 View usage URL 将自动获取 也可手动输入"
-                        class="field-input"
-                      />
-                    </div>
+                    <!-- button-container -->
                   </div>
+                  <!-- save-section -->
+                </div>
+                <!-- step-item -->
+              </div>
+              <!-- steps-content -->
+
+              <!-- Session Import Content -->
+              <div
+                v-if="currentTokenTab === 'session'"
+                class="session-import-content"
+              >
+                <div class="session-section">
+                  <div class="session-header">
+                    <div class="step-number">1</div>
+                    <h3>通过 Session 导入 账号</h3>
+                    <button
+                      @click="showSessionHelpModal = true"
+                      class="help-btn"
+                      title="查看使用说明"
+                    >
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path
+                          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <textarea
+                    v-model="sessionInput"
+                    placeholder="在此粘贴 auth session..."
+                    rows="6"
+                    :disabled="isImportingSession"
+                    class="field-input"
+                  ></textarea>
 
                   <div class="button-container">
                     <button
-                      @click="saveTokenWithAutoFetch"
-                      :class="['btn', 'success', { loading: isGettingToken }]"
-                      :disabled="!canGetToken || isGettingToken"
+                      @click="importFromSession"
+                      class="btn primary"
+                      :disabled="!sessionInput.trim() || isImportingSession"
                     >
-                      {{ isGettingToken ? "正在获取令牌..." : "保存账号" }}
+                      {{
+                        isImportingSession
+                          ? sessionImportProgress
+                          : "导入 Session"
+                      }}
                     </button>
                   </div>
-                  <!-- button-container -->
                 </div>
-                <!-- save-section -->
               </div>
-              <!-- step-item -->
+              <!-- session-import-content -->
 
               <!-- unified-steps-card -->
             </div>
@@ -1252,38 +1350,36 @@
       <!-- 删除确认对话框 -->
       <ModalContainer
         :visible="showDeleteConfirm"
-        title="确认删除"
+        title="确认删除账号"
         size="small"
         @close="cancelDelete"
       >
-        <p
-          style="
-            margin-bottom: 24px;
-            color: #666;
-            text-align: center;
-            line-height: 1.5;
-          "
-        >
-          确定要删除这个账号吗？此操作无法撤销。
-        </p>
-        <div class="dialog-buttons">
-          <button @click="cancelDelete" class="dialog-btn cancel">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <div class="delete-confirm-content">
+          <div class="confirm-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
               <path
-                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+                d="M12,2C17.53,2 22,6.47 22,12C22,17.53 17.53,22 12,22C6.47,22 2,17.53 2,12C2,6.47 6.47,2 12,2M15.59,7L12,10.59L8.41,7L7,8.41L10.59,12L7,15.59L8.41,17L12,13.41L15.59,17L17,15.59L13.41,12L17,8.41L15.59,7Z"
               />
             </svg>
-            取消
-          </button>
-          <button @click="confirmDelete" class="dialog-btn delete">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
-              />
-            </svg>
-            删除
-          </button>
+          </div>
+          <h4>确认删除账号</h4>
+          <p>
+            确定要删除账号
+            <strong>{{
+              tokens.find((t) => t.id === tokenToDelete)?.email_note ||
+              tokens.find((t) => t.id === tokenToDelete)?.tenant_url ||
+              "此账号"
+            }}</strong>
+            吗？
+          </p>
         </div>
+
+        <template #footer>
+          <div class="modal-actions">
+            <button @click="cancelDelete" class="btn secondary">取消</button>
+            <button @click="confirmDelete" class="btn danger">确认删除</button>
+          </div>
+        </template>
       </ModalContainer>
 
       <!-- 改进的多条状态提示系统提示 -->
@@ -1447,6 +1543,74 @@
       @close="handleEditorResetModalClose"
       @reset-complete="handleEditorResetComplete"
     />
+
+    <!-- Session 导入帮助弹窗 -->
+    <ModalContainer
+      :visible="showSessionHelpModal"
+      title="Session 导入使用说明"
+      size="medium"
+      @close="showSessionHelpModal = false"
+    >
+      <div class="session-help-content">
+        <div class="help-step">
+          <div class="step-title">步骤 1: 登录 Augment</div>
+          <p>
+            在浏览器中登录你的 Augment 账户：
+            <code
+              class="copyable-code"
+              @click="copyToClipboard('https://login.augmentcode.com')"
+              title="点击复制"
+            >
+              <b>https://login.augmentcode.com</b>
+            </code>
+          </p>
+          <p>
+            然后访问：
+            <code
+              class="copyable-code"
+              @click="copyToClipboard('https://auth.augmentcode.com')"
+              title="点击复制"
+            >
+              <b>https://auth.augmentcode.com</b>
+            </code>
+          </p>
+        </div>
+
+        <div class="help-step">
+          <div class="step-title">步骤 2: 打开浏览器开发者工具</div>
+          <p>
+            按
+            <code> <b>F12</b> </code> 键或右键点击页面选择"检查"打开开发者工具
+          </p>
+        </div>
+
+        <div class="help-step">
+          <div class="step-title">步骤 3: 找到 Cookie</div>
+          <p>
+            在开发者工具中，点击
+            <code> <b>Application (应用)</b> </code> 标签页，然后在左侧展开
+            <code> <b>Cookies</b> </code>，选择
+            <code> <b>https://auth.augmentcode.com</b> </code>
+          </p>
+        </div>
+
+        <div class="help-step">
+          <div class="step-title">步骤 4: 复制 session 值</div>
+          <p>
+            在 Cookie 列表中找到名为 <code> <b>session</b> </code> 的项，双击其
+            <code> <b>Value (值)</b> </code> 列，复制完整的 session 值
+          </p>
+        </div>
+
+        <div class="help-step">
+          <div class="step-title">步骤 5: 粘贴到输入框</div>
+          <p>
+            将复制的 session 值粘贴到上方的输入框中，然后点击
+            <code> <b>导入 Session</b> </code> 按钮
+          </p>
+        </div>
+      </div>
+    </ModalContainer>
 
     <!-- 赞赏弹窗 -->
     <ModalContainer
@@ -1812,6 +1976,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import TokenList from "./components/TokenList.vue";
 import TokenForm from "./components/TokenForm.vue";
 import OutlookManager from "./components/OutlookManager.vue";
@@ -1828,6 +1993,12 @@ const isLoading = ref(false);
 const isRefreshing = ref(false); // 全局刷新状态
 const currentView = ref("token-generator"); // 当前视图状态
 
+// Token Generator 相关状态
+const currentTokenTab = ref("steps"); // Token Generator Tab 状态，默认为 OAuth 流程
+const sessionInput = ref(""); // Session 输入
+const isImportingSession = ref(false); // Session 导入中
+const sessionImportProgress = ref(""); // Session 导入进度
+
 // 邮箱管理相关状态
 const outlookImportFormat = ref("format2"); // 邮箱账户导入格式
 const isRefreshingStatuses = ref(false); // 批量刷新状态
@@ -1843,6 +2014,9 @@ const outlookAccountsStatus = ref({
   unknown: 0,
 }); // 邮箱账户状态统计
 const hasInitializedEmailManagement = ref(false); // 是否已初始化邮箱管理
+
+// Session 导入事件监听器清理函数
+let unlistenSessionProgress = null;
 
 // 监听视图切换，关闭所有弹窗
 watch(currentView, (newView) => {
@@ -1985,10 +2159,10 @@ const updateExistingToken = (existingToken, newTokenData) => {
       access_token: newTokenData.accessToken,
       portal_url: newTokenData.portalUrl,
       email_note: newTokenData.emailNote,
+      auth_session: newTokenData.authSession || existingToken.auth_session,
+      ban_status: newTokenData.banStatus || null,
+      portal_info: newTokenData.portalInfo || null,
       updated_at: new Date().toISOString(),
-      // 清除可能过时的状态信息
-      ban_status: null,
-      portal_info: null,
     };
     hasUnsavedChanges.value = true;
     recalcHeaderCounts();
@@ -2238,7 +2412,8 @@ const createNewToken = (
   tenantUrl,
   accessToken,
   portalUrl = null,
-  emailNote = null
+  emailNote = null,
+  authSession = null
 ) => {
   const now = new Date().toISOString();
   return {
@@ -2250,6 +2425,7 @@ const createNewToken = (
     ban_status: null,
     portal_info: null,
     email_note: emailNote,
+    auth_session: authSession,
   };
 };
 
@@ -2278,6 +2454,9 @@ const showPluginModal = ref(false);
 
 // Editor reset modal
 const showEditorResetModal = ref(false);
+
+// Session help modal
+const showSessionHelpModal = ref(false);
 
 // Token form dialog
 const showTokenFormModal = ref(false);
@@ -2485,6 +2664,100 @@ const showOperationStatus = (
 
 const hideOperationStatus = () => {
   currentOperationStatus.value.visible = false;
+};
+
+// Session 导入方法
+const importFromSession = async () => {
+  if (!sessionInput.value.trim()) {
+    showStatus("请输入 Session", "error");
+    return;
+  }
+
+  isImportingSession.value = true;
+  sessionImportProgress.value = "正在提取 access token...";
+
+  try {
+    const result = await invoke("add_token_from_session", {
+      session: sessionInput.value,
+    });
+
+    if (result && result.access_token) {
+      // 构建 portal_info 对象
+      const portalInfo = {
+        credits_balance: result.user_info?.credits_balance || 0,
+        expiry_date: result.user_info?.expiry_date || null,
+        is_active: result.user_info?.ban_status === "ACTIVE",
+      };
+
+      // 创建新的 token 对象
+      const newTokenData = {
+        accessToken: result.access_token,
+        tenantUrl: result.tenant_url || "",
+        portalUrl: result.user_info?.portal_url || "",
+        emailNote: result.user_info?.email_note || "",
+        authSession: sessionInput.value.trim(),
+        banStatus: result.user_info?.ban_status || "ACTIVE",
+        portalInfo: portalInfo,
+      };
+
+      // 检查重复账号
+      const existingToken = checkDuplicateAccount(newTokenData);
+
+      if (existingToken) {
+        // 显示重复账号确认对话框
+        showDuplicateConfirm(
+          existingToken,
+          newTokenData,
+          async () => {
+            // 确认覆盖
+            updateExistingToken(existingToken, newTokenData);
+            await saveTokensToFile();
+            showStatus("账号已更新", "success");
+            sessionInput.value = "";
+            sessionImportProgress.value = "账号已更新！";
+          },
+          () => {
+            // 取消覆盖
+            showStatus("已取消更新账号", "info");
+          }
+        );
+      } else {
+        // 新账号，直接保存
+        // 构建 portal_info 对象
+        const portalInfo = {
+          credits_balance: result.user_info?.credits_balance || 0,
+          expiry_date: result.user_info?.expiry_date || null,
+          is_active: result.user_info?.ban_status === "ACTIVE",
+        };
+
+        const newToken = {
+          id: `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          access_token: result.access_token,
+          tenant_url: result.tenant_url || "",
+          portal_url: result.user_info?.portal_url || "",
+          email_note: result.user_info?.email_note || "",
+          auth_session: sessionInput.value.trim(),
+          created_at: new Date().toISOString(),
+          ban_status: result.user_info?.ban_status || "ACTIVE",
+          portal_info: portalInfo,
+        };
+
+        insertTokenSorted(newToken);
+        hasUnsavedChanges.value = true;
+        await saveTokensToFile();
+        sessionImportProgress.value = "Session 导入成功！";
+        showStatus("Session 导入成功！", "success");
+        sessionInput.value = "";
+      }
+    } else {
+      showStatus("导入失败：无效的 Session", "error");
+    }
+  } catch (error) {
+    showStatus(`导入失败: ${error}`, "error");
+  } finally {
+    isImportingSession.value = false;
+    sessionImportProgress.value = "";
+  }
 };
 
 const showStatus = (message, type = "info") => {
@@ -2771,9 +3044,11 @@ const onTokenSaved = () => {
 const copyToClipboard = async (text) => {
   try {
     await navigator.clipboard.writeText(text);
+    showStatus("已复制到剪贴板！", "success");
     return true;
   } catch (error) {
     console.error("Failed to copy to clipboard:", error);
+    showStatus("复制失败，请重试", "error");
     return false;
   }
 };
@@ -3784,6 +4059,11 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  // 清理 Session 导入进度事件监听器
+  if (unlistenSessionProgress) {
+    unlistenSessionProgress();
+  }
+
   // 清理键盘事件监听器
   document.removeEventListener("keydown", handleKeydown);
 
@@ -4875,6 +5155,26 @@ onMounted(async () => {
     console.error("App.vue onMounted 错误:", error);
   }
 
+  // 监听 Session 导入进度事件
+  try {
+    unlistenSessionProgress = await listen(
+      "session-import-progress",
+      (event) => {
+        console.log("Progress event received:", event.payload);
+        // 后端发送的进度消息
+        const progressMap = {
+          sessionImportExtractingToken: "正在提取 access token...",
+          sessionImportGettingUserInfo: "正在获取用户信息...",
+          sessionImportComplete: "导入完成！",
+        };
+        sessionImportProgress.value =
+          progressMap[event.payload] || event.payload;
+      }
+    );
+  } catch (error) {
+    console.error("Failed to listen to session-import-progress:", error);
+  }
+
   // 应用启动完成后，异步初始化邮箱管理（不阻塞界面渲染）
 });
 </script>
@@ -5540,6 +5840,81 @@ body {
   border-color: rgba(226, 232, 240, 0.6);
 }
 
+/* Steps Tab Navigation - 悬浮在顶部，占满整行 */
+.steps-tab-navigation {
+  display: flex;
+  gap: 0;
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  padding: 8px 16px;
+  margin: 0;
+  border-radius: 0;
+  width: 100%;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.steps-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  flex: 1;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.steps-tab-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.steps-tab-btn:hover::before {
+  left: 100%;
+}
+
+.steps-tab-btn:hover:not(.active) {
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.1) 0%,
+    rgba(79, 70, 229, 0.05) 100%
+  );
+  color: #4f46e5;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+.steps-tab-btn.active {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
+  transform: translateY(-1px);
+}
+
 /* 统一的步骤卡片设计 */
 .unified-steps-card {
   background: rgba(255, 255, 255, 0.95);
@@ -5549,6 +5924,9 @@ body {
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(20px);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
 }
 
 .unified-steps-card:hover {
@@ -5557,14 +5935,280 @@ body {
   border-color: rgba(226, 232, 240, 0.6);
 }
 
+/* Steps Content Container */
+.steps-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 32px;
+}
+
+/* Session Import Content Container */
+.session-import-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 32px;
+}
+
+.session-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  .session-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+}
+
+.help-btn {
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.1) 0%,
+    rgba(79, 70, 229, 0.05) 100%
+  );
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  color: #6366f1;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.help-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.help-btn:hover::before {
+  left: 100%;
+}
+
+.help-btn:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.2) 0%,
+    rgba(79, 70, 229, 0.1) 100%
+  );
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #4f46e5;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+  transform: translateY(-1px);
+}
+
+.help-btn:active {
+  transform: translateY(0);
+}
+
+.session-help-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.help-step {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 0.8) 0%,
+    rgba(241, 245, 249, 0.8) 100%
+  );
+  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.4);
+  transition: all 0.2s ease;
+}
+
+.help-step:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 1) 0%,
+    rgba(241, 245, 249, 1) 100%
+  );
+  border-color: rgba(226, 232, 240, 0.6);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.step-title {
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-title::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  background: #3b82f6;
+  border-radius: 50%;
+}
+
+.help-step p {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.help-step p + p {
+  margin-top: 8px;
+}
+
+.help-step a {
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid transparent;
+}
+
+.help-step a:hover {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+.help-step code {
+  background: rgba(59, 130, 246, 0.1);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  font-size: 12px;
+  color: #2563eb;
+  font-weight: 500;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.copyable-code {
+  cursor: pointer !important;
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.15) 0%,
+    rgba(59, 130, 246, 0.08) 100%
+  ) !important;
+
+  border-radius: 6px !important;
+
+  transition: all 0.2s ease !important;
+  display: inline-block !important;
+  position: relative !important;
+}
+
+.copyable-code:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.25) 0%,
+    rgba(59, 130, 246, 0.15) 100%
+  ) !important;
+
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2) !important;
+  transform: translateY(-1px) !important;
+}
+
+.copyable-code:active {
+  transform: translateY(0) !important;
+}
+
+.copyable-code b {
+  font-weight: 600 !important;
+}
+
+.session-section h3 {
+  color: #1e293b;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.section-description {
+  color: #64748b;
+  font-size: 14px;
+  margin: 0;
+}
+
+.session-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.4);
+  border-radius: 8px;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  font-size: 13px;
+  color: #1e293b;
+  background: rgba(248, 250, 252, 0.5);
+  resize: none;
+  transition: all 0.3s ease;
+}
+
+.session-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.session-textarea:disabled {
+  background: rgba(226, 232, 240, 0.2);
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* Session Loading State */
+.session-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(59, 130, 246, 0.05);
+  border-radius: 8px;
+  color: #3b82f6;
+  font-size: 14px;
+}
+
+.session-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* 单个步骤项 */
 .step-item {
-  padding: 32px 32px 24px;
+  padding: 0 0 24px 0;
   position: relative;
 }
 
 .step-item:not(:last-child) {
   border-bottom: 1px solid rgba(226, 232, 240, 0.2);
+  padding-bottom: 24px;
 }
 
 /* 步骤标题区域 */
@@ -5891,20 +6535,104 @@ body {
 }
 
 .btn.secondary {
-  background: rgba(241, 245, 249, 0.8);
-  color: #475569;
-  border: 1px solid rgba(226, 232, 240, 0.6);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  background: linear-gradient(
+    135deg,
+    rgba(156, 163, 175, 0.1) 0%,
+    rgba(107, 114, 128, 0.05) 100%
+  ) !important;
+  color: #6b7280 !important;
+  border: 1px solid rgba(156, 163, 175, 0.5) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
   font-weight: 500;
   position: relative;
   overflow: hidden;
+  padding: 12px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.btn.secondary::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn.secondary:hover:not(:disabled)::before {
+  left: 100%;
 }
 
 .btn.secondary:hover:not(:disabled) {
-  background: rgba(226, 232, 240, 0.9);
-  border-color: rgba(203, 213, 225, 0.8);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  background: linear-gradient(
+    135deg,
+    rgba(156, 163, 175, 0.15) 0%,
+    rgba(107, 114, 128, 0.1) 100%
+  ) !important;
+  border-color: rgba(107, 114, 128, 0.6) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.btn.danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.25);
+  position: relative;
+  overflow: hidden;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.btn.danger::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn.danger:hover:not(:disabled)::before {
+  left: 100%;
+}
+
+.btn.danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.35);
 }
 
 .btn.success {
@@ -6811,8 +7539,30 @@ textarea.unified-input {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.dialog-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.dialog-btn:hover::before {
+  left: 100%;
 }
 
 .dialog-btn:hover {
@@ -6925,6 +7675,7 @@ textarea.unified-input {
   background: rgba(255, 255, 255, 0.8);
   transition: all 0.2s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  resize: none;
 }
 
 .field-input:focus {
@@ -7267,10 +8018,32 @@ textarea.unified-input {
   align-items: center;
   gap: 8px;
   white-space: nowrap;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 0;
   flex-shrink: 0;
   border-left: 1px solid rgba(226, 232, 240, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.integrated-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.integrated-btn:hover:not(:disabled)::before {
+  left: 100%;
 }
 
 .integrated-btn:hover:not(:disabled) {
@@ -7313,9 +8086,31 @@ textarea.unified-input {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   color: #64748b;
   padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.reset-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.reset-btn:hover::before {
+  left: 100%;
 }
 
 .reset-btn:hover {
@@ -7344,48 +8139,9 @@ textarea.unified-input {
   gap: 12px;
 }
 
-.dialog-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border: 2px solid transparent;
-  border-radius: 8px;
-  background: #f8f9fa;
-  color: #495057;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  justify-content: center;
+/* 删除确认弹窗中的 dialog-btn 特殊样式 */
+.delete-confirm .dialog-btn {
   flex: 1;
-}
-
-.dialog-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.dialog-btn.cancel {
-  background: #fce4ec;
-  color: #c2185b;
-  border-color: #f8bbd9;
-}
-
-.dialog-btn.cancel:hover {
-  background: #f8bbd9;
-  border-color: #f48fb1;
-}
-
-.dialog-btn.delete {
-  background: #ffebee;
-  color: #d32f2f;
-  border-color: #ffcdd2;
-}
-
-.dialog-btn.delete:hover {
-  background: #ffcdd2;
-  border-color: #ef9a9a;
 }
 
 /* 赞赏弹窗样式 */
@@ -7421,6 +8177,53 @@ textarea.unified-input {
   line-height: 1.5;
 }
 
+/* 删除确认弹窗样式 - 与邮箱管理样式统一 */
+.delete-confirm-content {
+  text-align: center;
+  padding: 10px;
+}
+
+.confirm-icon {
+  color: #dc2626;
+  margin: 0 20px;
+  filter: drop-shadow(0 2px 4px rgba(220, 38, 38, 0.1));
+  animation: iconPulse 2s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.delete-confirm-content h4 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.delete-confirm-content p {
+  margin: 0 0 12px 0;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.delete-confirm-content strong {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 /* 强制同步确认弹窗样式 */
 .force-confirm-content {
   text-align: center;
@@ -7450,9 +8253,14 @@ textarea.unified-input {
 .warning-details {
   margin: 24px 0;
   padding: 16px;
-  background: rgba(254, 243, 199, 0.3);
-  border-radius: 8px;
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: linear-gradient(
+    135deg,
+    rgba(254, 243, 199, 0.4) 0%,
+    rgba(254, 215, 170, 0.2) 100%
+  );
+  border-radius: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1);
 }
 
 .warning-item {
@@ -7462,11 +8270,14 @@ textarea.unified-input {
   margin: 8px 0;
   color: #92400e;
   font-size: 14px;
+  line-height: 1.5;
 }
 
 .warning-item svg {
   color: #f59e0b;
   flex-shrink: 0;
+  width: 18px;
+  height: 18px;
 }
 
 .force-confirm-footer {
@@ -7486,30 +8297,76 @@ textarea.unified-input {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   flex: 1;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
 }
 
 .btn-cancel {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: rgba(241, 245, 249, 0.8);
+  color: #475569;
+  border: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+.btn-cancel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
 }
 
 .btn-cancel:hover {
-  background: #e5e7eb;
-  color: #374151;
+  background: rgba(226, 232, 240, 0.9);
+  border-color: rgba(203, 213, 225, 0.8);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.btn-cancel:hover::before {
+  left: 100%;
 }
 
 .btn-confirm {
   background: linear-gradient(135deg, #ef4444, #dc2626);
   color: white;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);
+}
+
+.btn-confirm::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
 }
 
 .btn-confirm:hover {
   background: linear-gradient(135deg, #dc2626, #b91c1c);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35);
+}
+
+.btn-confirm:hover::before {
+  left: 100%;
 }
 
 /* 同步历史弹窗样式 */
@@ -7522,6 +8379,7 @@ textarea.unified-input {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-top: 6px;
   padding: 8px 16px;
   background: #fef2f2;
   color: #dc2626;
@@ -7529,13 +8387,36 @@ textarea.unified-input {
   border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-clear-history::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn-clear-history:hover::before {
+  left: 100%;
 }
 
 .btn-clear-history:hover {
   background: #fecaca;
   border-color: #f87171;
+  transform: translateY(-1px);
 }
 
 /* 平台选择弹窗样式 */
@@ -7624,6 +8505,24 @@ textarea.unified-input {
 .vscode-btn {
   background: linear-gradient(135deg, #007acc 0%, #005a9e 100%);
   color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.vscode-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
 }
 
 .vscode-btn:hover {
@@ -7631,14 +8530,40 @@ textarea.unified-input {
   transform: translateY(-1px);
 }
 
+.vscode-btn:hover::before {
+  left: 100%;
+}
+
 .jetbrains-btn {
   background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
   color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.jetbrains-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
 }
 
 .jetbrains-btn:hover {
   box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
   transform: translateY(-1px);
+}
+
+.jetbrains-btn:hover::before {
+  left: 100%;
 }
 
 /* 响应式设计 - 弹窗内容 */
@@ -7786,30 +8711,54 @@ textarea.unified-input {
 
 .btn-select-path {
   padding: 12px 20px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: white;
   border: none;
   border-radius: 10px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   gap: 8px;
   white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-select-path::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn-select-path:hover::before {
+  left: 100%;
 }
 
 .btn-select-path:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
 }
 
 .btn-select-path:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 
 .btn-open-folder {
@@ -7819,18 +8768,48 @@ textarea.unified-input {
   border: none;
   border-radius: 10px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 44px;
   height: 44px;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+  position: relative;
+  overflow: hidden;
 }
 
-.btn-open-folder:hover {
+.btn-open-folder::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn-open-folder:hover::before {
+  left: 100%;
+}
+
+.btn-open-folder:hover:not(:disabled) {
   background: linear-gradient(135deg, #059669 0%, #047857 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+}
+
+.btn-open-folder:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .setting-note {
@@ -7969,37 +8948,67 @@ textarea.unified-input {
 }
 
 .info-action-btn {
-  padding: 6px 8px;
+  padding: 8px 16px;
   border: none;
-  border-radius: 6px;
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
+  position: relative;
+  overflow: hidden;
 }
 
-.info-action-btn:hover {
-  background: rgba(59, 130, 246, 0.2);
+.info-action-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.info-action-btn:hover::before {
+  left: 100%;
+}
+
+.info-action-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
   transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
 }
 
 .info-action-btn.primary {
-  background: #1976d2;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: white;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
 }
 
 .info-action-btn.primary:hover:not(:disabled) {
-  background: #1565c0;
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
 }
 
 .info-action-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .loading-icon {
@@ -8575,7 +9584,33 @@ textarea.unified-input {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-sync::before,
+.btn-upload::before,
+.btn-download::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn-sync:hover:not(:disabled)::before,
+.btn-upload:hover:not(:disabled)::before,
+.btn-download:hover:not(:disabled)::before {
+  left: 100%;
 }
 
 .btn-sync {
@@ -9566,51 +10601,7 @@ textarea.unified-input {
   border-top: 1px solid rgba(226, 232, 240, 0.3);
 }
 
-.btn-cancel {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  background: rgba(148, 163, 184, 0.1);
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  border-radius: 8px;
-  color: #64748b;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-cancel:hover {
-  background: rgba(148, 163, 184, 0.15);
-  border-color: rgba(148, 163, 184, 0.4);
-  color: #475569;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(148, 163, 184, 0.2);
-}
-
-.btn-confirm {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  border: 1px solid #dc2626;
-  border-radius: 8px;
-  color: white;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
-}
-
-.btn-confirm:hover {
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  border-color: #b91c1c;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
-}
+/* 这些样式已在前面定义，此处保留以避免重复 */
 
 /* 响应式设计 */
 @media (max-width: 768px) {
@@ -10523,7 +11514,6 @@ body {
 .btn-modal-unified,
 .btn {
   padding: 12px 20px !important;
-  border: none !important;
   border-radius: 10px !important;
   font-size: 14px !important;
   font-weight: 500 !important;

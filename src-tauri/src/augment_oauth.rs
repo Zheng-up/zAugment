@@ -327,3 +327,96 @@ pub async fn check_account_ban_status(
         })
     }
 }
+
+/// 从 auth session 中提取 access token
+pub async fn extract_token_from_session(session: &str) -> Result<AugmentTokenResponse, String> {
+    use regex::Regex;
+
+    // 生成 PKCE 参数
+    let code_verifier = generate_random_string(32);
+    let code_challenge = base64_url_encode(&sha256_hash(code_verifier.as_bytes()));
+    let state = generate_random_string(42);
+    let client_id = CLIENT_ID;
+
+    // 使用 session 访问 terms-accept 获取 HTML
+    let terms_url = format!(
+        "{}/terms-accept?response_type=code&code_challenge={}&client_id={}&state={}&prompt=login",
+        AUTH_BASE_URL, code_challenge, client_id, state
+    );
+
+    let client = reqwest::Client::new();
+    let html_response = client
+        .get(&terms_url)
+        .header("Cookie", format!("session={}", session))
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch terms page: {}", e))?;
+
+    let html = html_response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read HTML response: {}", e))?;
+
+    // 使用正则表达式提取 code, state, tenant_url
+    let code_regex = Regex::new(r#"code:\s*"([^"]+)""#).unwrap();
+    let state_regex = Regex::new(r#"state:\s*"([^"]+)""#).unwrap();
+    let tenant_url_regex = Regex::new(r#"tenant_url:\s*"([^"]+)""#).unwrap();
+
+    let code = code_regex
+        .captures(&html)
+        .and_then(|cap| cap.get(1))
+        .map(|m| m.as_str())
+        .ok_or("SESSION_ERROR_OR_ACCOUNT_BANNED")?;
+
+    let parsed_state = state_regex
+        .captures(&html)
+        .and_then(|cap| cap.get(1))
+        .map(|m| m.as_str())
+        .ok_or("SESSION_ERROR_OR_ACCOUNT_BANNED")?;
+
+    let tenant_url = tenant_url_regex
+        .captures(&html)
+        .and_then(|cap| cap.get(1))
+        .map(|m| m.as_str())
+        .ok_or("SESSION_ERROR_OR_ACCOUNT_BANNED")?;
+
+    println!("Extracted - code: {}, state: {}, tenant_url: {}", code, parsed_state, tenant_url);
+
+    // 用授权码换 Token
+    let token_url = format!("{}token", tenant_url);
+    let token_payload = serde_json::json!({
+        "grant_type": "authorization_code",
+        "client_id": client_id,
+        "code_verifier": code_verifier,
+        "redirect_uri": "",
+        "code": code
+    });
+
+    let token_response = client
+        .post(&token_url)
+        .header("Content-Type", "application/json")
+        .json(&token_payload)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to exchange token: {}", e))?;
+
+    let token_data: TokenApiResponse = token_response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse token response: {}", e))?;
+
+    Ok(AugmentTokenResponse {
+        access_token: token_data.access_token,
+        tenant_url: tenant_url.to_string(),
+    })
+}
+
+/// 生成随机字符串
+fn generate_random_string(length: usize) -> String {
+    use rand::RngCore;
+    let mut rng = rand::thread_rng();
+    let mut random_bytes = vec![0u8; length];
+    rng.fill_bytes(&mut random_bytes);
+    base64_url_encode(&random_bytes)
+}
