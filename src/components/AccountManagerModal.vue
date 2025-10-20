@@ -11,21 +11,28 @@
     <div v-if="activeTab === 'import'" class="tab-content">
       <div class="import-section">
         <div class="section-header">
-          <h4>粘贴JSON数据或导入</h4>
+          <h4>粘贴 JSON 或 Session 数据</h4>
           <div class="header-buttons">
             <button
-              @click="handleFileImport"
+              @click="fillJsonTemplate"
               class="btn-export-control"
               :disabled="isProcessing"
             >
-              本地导入
+              填入JSON模板
+            </button>
+            <button
+              @click="fillSessionTemplate"
+              class="btn-export-control"
+              :disabled="isProcessing"
+            >
+              填入Session模板
             </button>
           </div>
         </div>
 
         <textarea
           v-model="jsonText"
-          placeholder="请粘贴JSON格式的账号数据..."
+          placeholder="请粘贴数据..."
           class="json-textarea"
           :disabled="isProcessing"
           rows="5"
@@ -34,25 +41,6 @@
           autocorrect="off"
           spellcheck="false"
         ></textarea>
-
-        <!-- 数据格式说明 -->
-        <div class="format-info">
-          <h5>数据格式示例：</h5>
-          <div class="format-example">
-            <pre><code>{
-    "tenant_url": "租户URL",
-    "access_token": "Token",
-    "portal_url": "View usage URL"
-}</code></pre>
-          </div>
-          <div class="format-notes">
-            <p><strong>必需字段：</strong> tenant_url, access_token</p>
-            <p>
-              <strong>支持格式：</strong> JSON数组
-              <code>[{},{},{}]</code> 或对象序列 <code>{},{},{}</code>
-            </p>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -66,6 +54,7 @@
             <div class="export-table-header">
               <div class="header-info-grid">
                 <div class="header-email-col">邮箱/租户</div>
+                <div class="header-tag-col">标签</div>
                 <div class="header-expiry-col">剩余时间</div>
                 <div class="header-balance-col">剩余额度</div>
                 <div class="header-status-col">状态</div>
@@ -82,7 +71,10 @@
                 :disabled="isProcessing"
               >
                 <div class="account-info-grid">
-                  <div class="account-email-col">
+                  <div
+                    class="account-email-col"
+                    :style="getEmailColStyle(token)"
+                  >
                     <span class="account-email">
                       {{ token.email_note || "无邮箱号" }}
                     </span>
@@ -93,6 +85,16 @@
                           : token.tenant_url
                       }}
                     </span>
+                  </div>
+                  <div class="account-tag-col">
+                    <span
+                      v-if="token.tag_text"
+                      class="tag-text"
+                      :style="getTagStyle(token)"
+                    >
+                      {{ token.tag_text }}
+                    </span>
+                    <span v-else class="tag-empty">-</span>
                   </div>
                   <div class="account-expiry-col">
                     {{ getTokenExpiryDisplay(token) }}
@@ -150,39 +152,30 @@
           </div>
           <div class="export-actions">
             <button
-              @click="exportToClipboard"
+              @click="exportJsonToClipboard"
               class="btn primary"
               :disabled="isProcessing || selectedTokensForExport.size === 0"
             >
-              {{ isProcessing ? "导出中..." : "导出到剪贴板" }}
+              {{ isProcessing ? "导出中..." : "导出JSON" }}
             </button>
 
             <button
-              @click="exportToFile"
+              @click="exportSessionToClipboard"
               class="btn secondary"
               :disabled="isProcessing || selectedTokensForExport.size === 0"
             >
-              {{ isProcessing ? "导出中..." : "导出到本地" }}
+              {{ isProcessing ? "导出中..." : "导出Session" }}
             </button>
           </div>
         </div>
       </div>
     </template>
   </ModalContainer>
-
-  <!-- 隐藏的文件输入 -->
-  <input
-    ref="fileInput"
-    type="file"
-    accept=".json"
-    style="display: none"
-    @change="handleFileSelected"
-    autocomplete="off"
-  />
 </template>
 
 <script setup>
 import { ref, computed } from "vue";
+import { invoke } from "@tauri-apps/api/core";
 import ModalContainer from "./ModalContainer.vue";
 
 // Props
@@ -208,12 +201,21 @@ const emit = defineEmits([
   "import",
   "import-error",
   "export-clipboard",
-  "export-file",
+  "export-session",
+  "request-tag-editor",
 ]);
+
+// 颜色映射（与 TokenCard.vue 保持一致）
+const colorMap = {
+  red: "#b91c1c",
+  green: "#15803d",
+  yellow: "#a16207",
+  blue: "#3b82f6",
+  black: "#1f2937",
+};
 
 // Refs
 const activeTab = ref(props.initialTab);
-const fileInput = ref(null);
 const jsonText = ref("");
 const isProcessing = ref(false);
 const selectedTokensForExport = ref(new Set());
@@ -247,29 +249,29 @@ const handleClose = () => {
   }
 };
 
-const handleFileImport = () => {
-  if (fileInput.value) {
-    fileInput.value.click();
-  }
-};
-
-const handleFileSelected = async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  try {
-    const text = await file.text();
-    jsonText.value = text;
-  } catch (error) {
-    console.error("读取文件失败:", error);
-  } finally {
-    if (fileInput.value) {
-      fileInput.value.value = "";
-    }
-  }
-};
-
 // 导入相关方法
+const fillJsonTemplate = () => {
+  const template = [
+    {
+      tenant_url: "tenant_url1",
+      access_token: "access_token1",
+      portal_url: "portal_url1（选填）",
+      email_note: "email_note1（选填）",
+    },
+    {
+      tenant_url: "tenant_url2",
+      access_token: "access_token2",
+      portal_url: "portal_url2（选填）",
+      email_note: "email_note2（选填）",
+    },
+  ];
+  jsonText.value = JSON.stringify(template, null, 2);
+};
+
+const fillSessionTemplate = () => {
+  const template = ["session1", "session2"];
+  jsonText.value = JSON.stringify(template, null, 2);
+};
 const handleImportFromText = async () => {
   if (!jsonText.value.trim()) return;
 
@@ -342,29 +344,151 @@ const handleImportFromText = async () => {
       importedData = [importedData];
     }
 
-    // 验证数据
-    const invalidItems = importedData.filter(
+    // 检测数据类型：JSON 格式（对象数组）或 Session 格式（字符串数组）
+    const isSessionFormat = importedData.every(
+      (item) => typeof item === "string"
+    );
+    const isJsonFormat = importedData.every(
       (item) =>
-        !item ||
-        typeof item !== "object" ||
-        !item.tenant_url ||
-        !item.access_token
+        item && typeof item === "object" && item.tenant_url && item.access_token
     );
 
-    if (invalidItems.length > 0) {
+    if (isSessionFormat) {
+      // Session 格式：在这里批量处理
+      await handleSessionImport(importedData);
+    } else if (isJsonFormat) {
+      // JSON 格式：验证后发送
+      emit("import", importedData);
+      jsonText.value = "";
+    } else {
+      // 混合或无效格式
       emit(
         "import-error",
-        `导入失败：发现 ${invalidItems.length} 个无效的账号数据，请检查必需字段 tenant_url 和 access_token`
+        "导入失败：数据格式不正确。请使用 JSON 格式（包含 tenant_url 和 access_token）或 Session 字符串数组"
       );
-      return;
     }
-
-    emit("import", importedData);
-    jsonText.value = "";
   } catch (error) {
-    emit("import-error", `JSON格式错误：${error.message}`);
+    emit("import-error", `格式错误：${error.message}`);
   } finally {
     isProcessing.value = false;
+  }
+};
+
+// Session 批量导入处理（并行处理）
+const handleSessionImport = async (sessions) => {
+  if (!Array.isArray(sessions) || sessions.length === 0) {
+    emit("import-error", "没有有效的 Session 数据");
+    return;
+  }
+
+  // 验证所有 Session 格式
+  const invalidSessions = [];
+  sessions.forEach((session, index) => {
+    if (session && typeof session === "string") {
+      const trimmedSession = session.trim();
+      if (!trimmedSession.startsWith(".eJx")) {
+        invalidSessions.push({
+          index: index + 1,
+          session: trimmedSession.substring(0, 50) + "...",
+        });
+      }
+    }
+  });
+
+  // 如果有格式错误的 Session，报错并中止
+  if (invalidSessions.length > 0) {
+    const errorDetails = invalidSessions
+      .map((item) => `第 ${item.index} 个 Session: ${item.session}`)
+      .join("\n");
+    emit("import-error", `Session 格式错误！请检查格式是否正确。`);
+    return;
+  }
+
+  console.log(`开始并行处理 ${sessions.length} 个 Session...`);
+  const startTime = Date.now();
+
+  // 并行处理所有 Session
+  const promises = sessions.map(async (session, index) => {
+    if (!session || typeof session !== "string") {
+      return { success: false, error: "无效的 Session 格式" };
+    }
+
+    const trimmedSession = session.trim();
+
+    // 再次验证格式（双重保险）
+    if (!trimmedSession.startsWith(".eJx")) {
+      return {
+        success: false,
+        error: "Session 格式错误！请检查格式是否正确。",
+      };
+    }
+
+    try {
+      // 调用 Rust 后端处理 Session
+      const result = await invoke("add_token_from_session", {
+        session: trimmedSession,
+      });
+
+      if (result && result.access_token) {
+        // 构建 token 对象
+        const tokenData = {
+          tenant_url: result.tenant_url || "",
+          access_token: result.access_token,
+          portal_url: result.user_info?.portal_url || "",
+          email_note: result.user_info?.email_note || "",
+          auth_session: session.trim(), // ✅ 保存原始 Session 字符串
+        };
+
+        console.log(
+          `Session ${index + 1} 导入成功，已保存 auth_session:`,
+          session.trim().substring(0, 50) + "..."
+        );
+        return { success: true, data: tokenData };
+      } else {
+        return { success: false, error: "后端返回数据无效" };
+      }
+    } catch (error) {
+      console.error(`处理 Session ${index + 1} 失败:`, error);
+      return { success: false, error: error.message || "未知错误" };
+    }
+  });
+
+  // 等待所有 Promise 完成
+  const results = await Promise.all(promises);
+
+  // 统计结果
+  const importedTokens = [];
+  let successCount = 0;
+  let errorCount = 0;
+
+  results.forEach((result) => {
+    if (result.success) {
+      importedTokens.push(result.data);
+      successCount++;
+    } else {
+      errorCount++;
+    }
+  });
+
+  const endTime = Date.now();
+  const duration = ((endTime - startTime) / 1000).toFixed(2);
+  console.log(
+    `Session 并行处理完成，耗时: ${duration}秒，成功: ${successCount}，失败: ${errorCount}`
+  );
+
+  if (importedTokens.length > 0) {
+    // 发送转换后的 token 数据给父组件
+    emit("import", importedTokens);
+    jsonText.value = "";
+
+    if (errorCount > 0) {
+      emit(
+        "import-error",
+        `成功导入 ${successCount} 个 Session，失败 ${errorCount} 个（耗时 ${duration}秒）`
+      );
+    }
+  } else {
+    emit("import-error", `导入失败：${errorCount} 个 Session 处理失败`);
   }
 };
 
@@ -400,7 +524,7 @@ const getSelectedTokensData = () => {
   }));
 };
 
-const exportToClipboard = async () => {
+const exportJsonToClipboard = async () => {
   if (selectedTokensForExport.value.size === 0) return;
 
   isProcessing.value = true;
@@ -412,9 +536,13 @@ const exportToClipboard = async () => {
       2
     );
 
+    // 获取选中的账号ID列表
+    const selectedIds = Array.from(selectedTokensForExport.value);
+
     emit("export-clipboard", {
       data: jsonString,
       count: selectedTokensForExport.value.size,
+      tokenIds: selectedIds, // 传递账号ID列表
     });
 
     // 清空选中状态，但不关闭弹窗（由父组件决定）
@@ -426,26 +554,58 @@ const exportToClipboard = async () => {
   }
 };
 
-const exportToFile = async () => {
-  if (selectedTokensForExport.value.size === 0) return;
+const exportSessionToClipboard = async () => {
+  if (selectedTokensForExport.value.size === 0) {
+    emit("import-error", "请先选择要导出的账号");
+    return;
+  }
 
   isProcessing.value = true;
   try {
-    const exportData = getSelectedTokensData();
-    const jsonString = JSON.stringify(
-      exportData.length === 1 ? exportData[0] : exportData,
-      null,
-      2
+    const selectedTokens = props.tokens.filter((token) =>
+      selectedTokensForExport.value.has(token.id)
     );
 
-    emit("export-file", {
+    console.log("选中的账号:", selectedTokens);
+
+    // Session 格式：字符串数组
+    const sessionData = selectedTokens
+      .map((token) => {
+        const session = token.auth_session || "";
+        console.log(
+          `账号 ${token.email_note || token.tenant_url} 的 auth_session:`,
+          session
+        );
+        return session;
+      })
+      .filter((session) => session); // 过滤掉空字符串
+
+    console.log("提取的 Session 数据:", sessionData);
+
+    if (sessionData.length === 0) {
+      emit("import-error", "选中的账号中没有可用的 Session 数据");
+      isProcessing.value = false;
+      return;
+    }
+
+    const jsonString = JSON.stringify(sessionData, null, 2);
+
+    // 获取有 Session 数据的账号ID列表
+    const tokenIdsWithSession = selectedTokens
+      .filter((token) => token.auth_session)
+      .map((token) => token.id);
+
+    // 发出 export-session 事件（用于区分 JSON 和 Session 导出）
+    emit("export-session", {
       data: jsonString,
-      count: selectedTokensForExport.value.size,
+      count: sessionData.length,
+      tokenIds: tokenIdsWithSession, // 传递账号ID列表
     });
 
     // 清空选中状态，但不关闭弹窗（由父组件决定）
     selectedTokensForExport.value = new Set();
   } catch (error) {
+    console.error("导出 Session 失败:", error);
     emit("import-error", `导出失败: ${error}`);
   } finally {
     isProcessing.value = false;
@@ -453,6 +613,27 @@ const exportToFile = async () => {
 };
 
 // 导出辅助函数
+const getEmailColStyle = (token) => {
+  if (token.tag_color && colorMap[token.tag_color]) {
+    return {
+      color: colorMap[token.tag_color] + " !important",
+    };
+  }
+  return {};
+};
+
+const getTagStyle = (token) => {
+  if (token.tag_color && colorMap[token.tag_color]) {
+    const color = colorMap[token.tag_color];
+    return {
+      color: color,
+      backgroundColor: `${color}15`, // 15% 透明度
+      borderColor: `${color}40`, // 40% 透明度
+    };
+  }
+  return {};
+};
+
 const getTokenExpiryDisplay = (token) => {
   if (token.portal_info && token.portal_info.expiry_date) {
     const expiryDate = new Date(token.portal_info.expiry_date);
@@ -607,7 +788,7 @@ const getTokenStatusClass = (token) => {
 
 .json-textarea {
   width: 100%;
-  min-height: 120px;
+  min-height: 328px;
   padding: 14px 16px;
   border: 2px solid rgba(226, 232, 240, 0.5);
   border-radius: 12px;
@@ -785,7 +966,7 @@ const getTokenStatusClass = (token) => {
 
 .header-info-grid {
   display: grid;
-  grid-template-columns: 33% 1fr 1fr 1fr;
+  grid-template-columns: 25% 20% 2fr 2fr 1fr;
   gap: 12px;
   width: 100%;
   text-align: center;
@@ -793,6 +974,7 @@ const getTokenStatusClass = (token) => {
 }
 
 .header-email-col,
+.header-tag-col,
 .header-expiry-col,
 .header-balance-col,
 .header-status-col {
@@ -855,7 +1037,7 @@ const getTokenStatusClass = (token) => {
 
 .account-info-grid {
   display: grid;
-  grid-template-columns: 33% 1fr 1fr 1fr;
+  grid-template-columns: 25% 20% 2fr 2fr 1fr;
   gap: 12px;
   width: 100%;
   align-items: center;
@@ -884,6 +1066,26 @@ const getTokenStatusClass = (token) => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.account-tag-col {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.tag-text {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.tag-empty {
+  color: #cbd5e1;
+  font-size: 12px;
 }
 
 .account-expiry-col,

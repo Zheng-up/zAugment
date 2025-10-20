@@ -713,7 +713,7 @@
           <!-- 内容卡片 -->
           <div class="view-content-card">
             <div class="unified-steps-card">
-              <!-- 数据存储设置 -->
+              <!-- 基础设置 -->
               <div class="settings-section">
                 <div class="section-header">
                   <div class="section-icon">
@@ -724,26 +724,23 @@
                       fill="currentColor"
                     >
                       <path
-                        d="M6,2C4.89,2 4,2.89 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2H6Z"
+                        d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"
                       />
                     </svg>
                   </div>
-                  <h3>数据存储设置</h3>
+                  <h3>基础设置</h3>
                 </div>
                 <p class="section-description">
-                  设置应用数据的本地存储位置，包括账号信息、配置文件等。
+                  配置应用的基本功能选项，包括数据存储和导入导出等。
                 </p>
 
+                <!-- 数据存储目录 -->
                 <div class="setting-item">
                   <div class="setting-label">
                     <label>数据存储目录</label>
                     <span class="setting-help">
-                      应用数据将保存在此目录下
-                      <br />
-                      <span style="color: #ff6b6b; font-size: 12px">
-                        ⚠️
-                        注意：请选择不包含中文字符的文件夹路径，如：D:\TokenData
-                      </span>
+                      请选择不包含中文字符的文件夹路径，如：D:\TokenData
+                      ,重启后生效
                     </span>
                   </div>
                   <div class="setting-control">
@@ -790,18 +787,30 @@
                         </svg>
                       </button>
                     </div>
-                    <div class="setting-note">
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path
-                          d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"
-                        />
-                      </svg>
-                      更改数据目录需要重启应用才能生效。建议选择安全的本地目录。
+                  </div>
+                  <!-- 导入导出时创建标签 -->
+                  <div class="setting-item-create-tag">
+                    <div class="setting-label">
+                      <label>导入导出时创建标签</label>
+                      <span class="setting-help">
+                        开启后，导入或导出账号时可以为所有账号批量创建或应用标签
+                      </span>
+                    </div>
+                    <div class="setting-control">
+                      <div class="toggle-wrapper">
+                        <label class="toggle-label-switch">
+                          <input
+                            type="checkbox"
+                            v-model="createTagOnImportExport"
+                            @change="toggleCreateTagOnImportExport"
+                            class="toggle-checkbox"
+                          />
+                          <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-text">
+                          {{ createTagOnImportExport ? "已开启" : "已关闭" }}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1143,14 +1152,16 @@
                       <div class="auto-sync-row">
                         <!-- 自动上传开关 -->
                         <div class="auto-sync-item">
-                          <label class="toggle-label">
-                            <input
-                              type="checkbox"
-                              v-model="autoUploadEnabled"
-                              @change="toggleAutoUpload"
-                              class="toggle-checkbox"
-                            />
-                            <span class="toggle-slider"></span>
+                          <div class="toggle-wrapper">
+                            <label class="toggle-label-switch">
+                              <input
+                                type="checkbox"
+                                v-model="autoUploadEnabled"
+                                @change="toggleAutoUpload"
+                                class="toggle-checkbox"
+                              />
+                              <span class="toggle-slider"></span>
+                            </label>
                             <span class="toggle-text">
                               {{
                                 autoUploadEnabled
@@ -1158,19 +1169,21 @@
                                   : "自动上传已关闭"
                               }}
                             </span>
-                          </label>
+                          </div>
                         </div>
 
                         <!-- 自动下载开关 -->
                         <div class="auto-sync-item">
-                          <label class="toggle-label">
-                            <input
-                              type="checkbox"
-                              v-model="autoDownloadEnabled"
-                              @change="toggleAutoDownload"
-                              class="toggle-checkbox"
-                            />
-                            <span class="toggle-slider"></span>
+                          <div class="toggle-wrapper">
+                            <label class="toggle-label-switch">
+                              <input
+                                type="checkbox"
+                                v-model="autoDownloadEnabled"
+                                @change="toggleAutoDownload"
+                                class="toggle-checkbox"
+                              />
+                              <span class="toggle-slider"></span>
+                            </label>
                             <span class="toggle-text">
                               {{
                                 autoDownloadEnabled
@@ -1178,50 +1191,11 @@
                                   : "自动下载已关闭"
                               }}
                             </span>
-                          </label>
+                          </div>
                         </div>
                       </div>
                       <div class="toggle-help">
                         开启后，每3分钟自动上传到云端或下载至本地，关闭软件前也会自动上传
-                      </div>
-                    </div>
-
-                    <!-- 操作状态指示器（覆盖式显示） - 已禁用，改为使用左下角状态提示 -->
-                    <div
-                      v-if="false"
-                      class="operation-status-indicator"
-                      :class="currentOperationStatus.type"
-                    >
-                      <!-- 状态徽章 -->
-                      <div
-                        class="status-badge"
-                        :class="currentOperationStatus.type"
-                      >
-                        <div
-                          class="status-dot-badge"
-                          :class="currentOperationStatus.type"
-                        ></div>
-                        <span class="status-text">{{
-                          currentOperationStatus.message
-                        }}</span>
-                      </div>
-
-                      <!-- 进度条（如果有） -->
-                      <div
-                        v-if="currentOperationStatus.showProgress"
-                        class="status-progress"
-                      >
-                        <div class="progress-bar-mini">
-                          <div
-                            class="progress-fill-mini"
-                            :style="{
-                              width: currentOperationStatus.progress + '%',
-                            }"
-                          ></div>
-                        </div>
-                        <span class="progress-text-mini">{{
-                          currentOperationStatus.progressText
-                        }}</span>
                       </div>
                     </div>
                   </div>
@@ -1887,7 +1861,17 @@
       @import="handleAccountManagerImport"
       @import-error="handleAccountManagerImportError"
       @export-clipboard="handleAccountManagerExportClipboard"
-      @export-file="handleAccountManagerExportFile"
+      @export-session="handleAccountManagerExportSession"
+    />
+
+    <!-- 导入导出标签编辑器 -->
+    <TagEditorModal
+      v-if="showTagEditorForImportExport"
+      :visible="showTagEditorForImportExport"
+      :initial-tag-text="''"
+      :initial-tag-color="''"
+      @close="handleTagEditorForImportExportClose"
+      @confirm="handleTagEditorForImportExportConfirm"
     />
 
     <!-- 重复账号确认对话框 -->
@@ -1982,6 +1966,7 @@ import TokenForm from "./components/TokenForm.vue";
 import OutlookManager from "./components/OutlookManager.vue";
 import ModalContainer from "./components/ModalContainer.vue";
 import AccountManagerModal from "./components/AccountManagerModal.vue";
+import TagEditorModal from "./components/TagEditorModal.vue";
 import CustomTitleBar from "./components/CustomTitleBar.vue";
 import UpdateChecker from "./components/UpdateChecker.vue";
 import EditorResetModal from "./components/EditorResetModal.vue";
@@ -2162,6 +2147,8 @@ const updateExistingToken = (existingToken, newTokenData) => {
       auth_session: newTokenData.authSession || existingToken.auth_session,
       ban_status: newTokenData.banStatus || null,
       portal_info: newTokenData.portalInfo || null,
+      tag_text: newTokenData.tagText || existingToken.tag_text,
+      tag_color: newTokenData.tagColor || existingToken.tag_color,
       updated_at: new Date().toISOString(),
     };
     hasUnsavedChanges.value = true;
@@ -2323,6 +2310,9 @@ const isWebDAVConfigured = ref(false);
 const autoUploadEnabled = ref(false);
 const autoDownloadEnabled = ref(false);
 
+// 导入导出时创建标签的开关
+const createTagOnImportExport = ref(false);
+
 // 保存自动上传状态到本地存储
 const saveAutoUploadState = () => {
   try {
@@ -2377,6 +2367,36 @@ const loadAutoDownloadState = () => {
   }
 };
 
+// 保存导入导出时创建标签的状态到本地存储
+const saveCreateTagOnImportExportState = () => {
+  try {
+    localStorage.setItem(
+      "create_tag_on_import_export",
+      JSON.stringify(createTagOnImportExport.value)
+    );
+    console.log("导入导出时创建标签状态已保存:", createTagOnImportExport.value);
+  } catch (error) {
+    console.error("保存导入导出时创建标签状态失败:", error);
+  }
+};
+
+// 从本地存储加载导入导出时创建标签的状态
+const loadCreateTagOnImportExportState = () => {
+  try {
+    const saved = localStorage.getItem("create_tag_on_import_export");
+    if (saved !== null) {
+      createTagOnImportExport.value = JSON.parse(saved);
+      console.log(
+        "导入导出时创建标签状态已恢复:",
+        createTagOnImportExport.value
+      );
+    }
+  } catch (error) {
+    console.error("加载导入导出时创建标签状态失败:", error);
+    createTagOnImportExport.value = false; // 出错时默认为关闭
+  }
+};
+
 // 重试进度状态
 const retryProgress = ref(null);
 
@@ -2413,7 +2433,9 @@ const createNewToken = (
   accessToken,
   portalUrl = null,
   emailNote = null,
-  authSession = null
+  authSession = null,
+  tagText = null,
+  tagColor = null
 ) => {
   const now = new Date().toISOString();
   return {
@@ -2426,6 +2448,8 @@ const createNewToken = (
     portal_info: null,
     email_note: emailNote,
     auth_session: authSession,
+    tag_text: tagText,
+    tag_color: tagColor,
   };
 };
 
@@ -2668,8 +2692,16 @@ const hideOperationStatus = () => {
 
 // Session 导入方法
 const importFromSession = async () => {
-  if (!sessionInput.value.trim()) {
+  const trimmedSession = sessionInput.value.trim();
+
+  if (!trimmedSession) {
     showStatus("请输入 Session", "error");
+    return;
+  }
+
+  // 验证 Session 格式
+  if (!trimmedSession.startsWith(".eJx")) {
+    showStatus("Session 格式错误！请检查格式是否正确。", "error"  );
     return;
   }
 
@@ -2678,7 +2710,7 @@ const importFromSession = async () => {
 
   try {
     const result = await invoke("add_token_from_session", {
-      session: sessionInput.value,
+      session: trimmedSession,
     });
 
     if (result && result.access_token) {
@@ -2695,7 +2727,7 @@ const importFromSession = async () => {
         tenantUrl: result.tenant_url || "",
         portalUrl: result.user_info?.portal_url || "",
         emailNote: result.user_info?.email_note || "",
-        authSession: sessionInput.value.trim(),
+        authSession: trimmedSession,
         banStatus: result.user_info?.ban_status || "ACTIVE",
         portalInfo: portalInfo,
       };
@@ -2736,7 +2768,7 @@ const importFromSession = async () => {
           tenant_url: result.tenant_url || "",
           portal_url: result.user_info?.portal_url || "",
           email_note: result.user_info?.email_note || "",
-          auth_session: sessionInput.value.trim(),
+          auth_session: trimmedSession,
           created_at: new Date().toISOString(),
           ban_status: result.user_info?.ban_status || "ACTIVE",
           portal_info: portalInfo,
@@ -2980,7 +3012,32 @@ const saveTokensToFile = async (showSuccessMessage = true) => {
       };
       return getExpiryTime(a) - getExpiryTime(b);
     });
-    const jsonString = JSON.stringify(sortedForSave, null, 2);
+
+    // 尝试序列化 JSON，捕获可能的循环引用或格式错误
+    let jsonString;
+    try {
+      jsonString = JSON.stringify(sortedForSave, null, 2);
+    } catch (jsonError) {
+      console.error("JSON 序列化失败，尝试清理数据:", jsonError);
+      // 清理可能有问题的字段
+      const cleanedTokens = sortedForSave.map((token) => ({
+        id: token.id,
+        tenant_url: token.tenant_url || "",
+        access_token: token.access_token || "",
+        created_at: token.created_at,
+        portal_url: token.portal_url || null,
+        ban_status: token.ban_status || null,
+        portal_info: token.portal_info || null,
+        email_note: token.email_note || null,
+        auth_session: token.auth_session || null,
+        tag_text: token.tag_text || null,
+        tag_color: token.tag_color || null,
+        updated_at: token.updated_at || null,
+      }));
+      jsonString = JSON.stringify(cleanedTokens, null, 2);
+      console.log("使用清理后的数据重新序列化成功");
+    }
+
     await invoke("save_tokens_json", { jsonString });
     hasUnsavedChanges.value = false;
 
@@ -2989,7 +3046,11 @@ const saveTokensToFile = async (showSuccessMessage = true) => {
       showStatus("Token保存成功", "success");
     }
   } catch (error) {
-    showStatus(`保存Token失败: ${error}`, "error");
+    console.error("保存Token失败，详细错误:", error);
+    console.error("当前 tokens 数量:", tokens.value.length);
+    console.error("错误类型:", error.constructor.name);
+    console.error("错误消息:", error.message || error);
+    showStatus(`保存Token失败: ${error.message || error}`, "error");
     throw error;
   }
 };
@@ -4128,6 +4189,14 @@ const handleAddNewToken = () => {
 const showAccountManagerModal = ref(false);
 const accountManagerTab = ref("import"); // 'import' 或 'export'
 
+// 标签编辑弹框相关状态
+const showTagEditorForImportExport = ref(false);
+const pendingImportTokens = ref(null); // 待导入的账号数据
+const pendingExportData = ref(null); // 待导出的数据
+const pendingExportType = ref(null); // 'json' 或 'session'
+const pendingExportCount = ref(0); // 待导出的账号数量
+const pendingExportTokenIds = ref([]); // 待导出的账号ID列表
+
 const handleAccountManager = () => {
   showAccountManagerModal.value = true;
   accountManagerTab.value = "import"; // 默认显示导入tab
@@ -4149,56 +4218,160 @@ const handleAccountManagerClose = () => {
 };
 
 const handleAccountManagerImport = async (importedTokens) => {
-  // 复用现有的导入逻辑（导入完成后会自动关闭弹窗）
-  await handleTokensImport(importedTokens);
+  // 如果开启了导入导出时创建标签功能，先打开标签编辑器
+  if (createTagOnImportExport.value) {
+    pendingImportTokens.value = importedTokens;
+    showAccountManagerModal.value = false; // 关闭导入导出弹框
+    showTagEditorForImportExport.value = true; // 打开标签编辑器
+  } else {
+    // 直接导入
+    await handleTokensImport(importedTokens);
+  }
 };
 
 const handleAccountManagerImportError = (errorMessage) => {
   showStatus(errorMessage, "error");
 };
 
-const handleAccountManagerExportClipboard = async ({ data, count }) => {
-  try {
-    const success = await copyToClipboard(data);
-    if (success) {
-      showStatus(`已将 ${count} 个账号数据复制到剪贴板`, "success");
-      // 导出成功后关闭弹窗
-      showAccountManagerModal.value = false;
-    } else {
-      showStatus("复制到剪贴板失败", "error");
+const handleAccountManagerExportClipboard = async ({
+  data,
+  count,
+  tokenIds,
+}) => {
+  // 如果开启了导入导出时创建标签功能，先打开标签编辑器
+  if (createTagOnImportExport.value) {
+    pendingExportData.value = data;
+    pendingExportType.value = "json";
+    pendingExportCount.value = count;
+    pendingExportTokenIds.value = tokenIds || []; // 保存账号ID列表
+    showAccountManagerModal.value = false; // 关闭导入导出弹框
+    showTagEditorForImportExport.value = true; // 打开标签编辑器
+  } else {
+    // 直接导出
+    try {
+      const success = await copyToClipboard(data);
+      if (success) {
+        showStatus(`已将 ${count} 个账号数据复制到剪贴板`, "success");
+        // 导出成功后关闭弹窗
+        showAccountManagerModal.value = false;
+      } else {
+        showStatus("复制到剪贴板失败", "error");
+      }
+    } catch (error) {
+      showStatus(`导出失败: ${error}`, "error");
     }
-  } catch (error) {
-    showStatus(`导出失败: ${error}`, "error");
   }
 };
 
-const handleAccountManagerExportFile = async ({ data, count }) => {
-  try {
-    // 生成默认文件名：Zaugment yyyy-mm-dd hh:MM:ss.json
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const defaultFilename = `Zaugment ${year}-${month}-${day} ${hours}:${minutes}.json`;
-
-    // 打开文件保存对话框
-    const filePath = await invoke("save_file_dialog", { defaultFilename });
-
-    if (filePath) {
-      // 写入文件
-      await invoke("write_file_content", {
-        filePath,
-        content: data,
-      });
-
-      showStatus(`已将 ${count} 个账号数据导出到: ${filePath}`, "success");
-      // 导出成功后关闭弹窗
-      showAccountManagerModal.value = false;
+const handleAccountManagerExportSession = async ({ data, count, tokenIds }) => {
+  // 如果开启了导入导出时创建标签功能，先打开标签编辑器
+  if (createTagOnImportExport.value) {
+    pendingExportData.value = data;
+    pendingExportType.value = "session";
+    pendingExportCount.value = count;
+    pendingExportTokenIds.value = tokenIds || []; // 保存账号ID列表
+    showAccountManagerModal.value = false; // 关闭导入导出弹框
+    showTagEditorForImportExport.value = true; // 打开标签编辑器
+  } else {
+    // 直接导出
+    try {
+      const success = await copyToClipboard(data);
+      if (success) {
+        showStatus(`已将 ${count} 个账号数据复制到剪贴板`, "success");
+        // 导出成功后关闭弹窗
+        showAccountManagerModal.value = false;
+      } else {
+        showStatus("复制到剪贴板失败", "error");
+      }
+    } catch (error) {
+      showStatus(`导出失败: ${error}`, "error");
     }
-  } catch (error) {
-    showStatus(`导出失败: ${error}`, "error");
+  }
+};
+
+// 标签编辑器关闭处理
+const handleTagEditorForImportExportClose = () => {
+  showTagEditorForImportExport.value = false;
+  pendingImportTokens.value = null;
+  pendingExportData.value = null;
+  pendingExportType.value = null;
+  pendingExportCount.value = 0;
+  pendingExportTokenIds.value = [];
+};
+
+// 标签编辑器确认处理
+const handleTagEditorForImportExportConfirm = async (tagData) => {
+  showTagEditorForImportExport.value = false;
+
+  // TagEditorModal 传递的是对象 { tagText, tagColor }
+  const tagText = tagData.tagText || "";
+  const tagColor = tagData.tagColor || "";
+
+  console.log("标签编辑器确认 - 标签文字:", tagText, "标签颜色:", tagColor);
+
+  // 处理导入
+  if (pendingImportTokens.value) {
+    console.log("处理导入，待导入账号数量:", pendingImportTokens.value.length);
+    const tokensWithTag = pendingImportTokens.value.map((token) => ({
+      ...token,
+      tag_text: tagText,
+      tag_color: tagColor,
+    }));
+    await handleTokensImport(tokensWithTag);
+    pendingImportTokens.value = null;
+  }
+  // 处理导出
+  else if (pendingExportData.value) {
+    console.log("处理导出，待导出账号ID:", pendingExportTokenIds.value);
+    try {
+      const success = await copyToClipboard(pendingExportData.value);
+      if (success) {
+        const typeText =
+          pendingExportType.value === "json" ? "JSON" : "Session";
+        showStatus(
+          `已将 ${pendingExportCount.value} 个账号数据（${typeText}格式）复制到剪贴板`,
+          "success"
+        );
+
+        // 如果有标签，批量应用到选中的账号
+        if (tagText || tagColor) {
+          console.log("开始应用标签到导出的账号");
+          let updatedCount = 0;
+
+          // 根据账号ID直接更新标签
+          for (const tokenId of pendingExportTokenIds.value) {
+            const token = tokens.value.find((t) => t.id === tokenId);
+            if (token) {
+              token.tag_text = tagText;
+              token.tag_color = tagColor;
+              updatedCount++;
+              console.log(
+                `已更新账号 ${token.email_note || token.tenant_url} 的标签`
+              );
+            }
+          }
+
+          if (updatedCount > 0) {
+            // 保存更新后的账号数据
+            await saveTokensToFile(false);
+            showStatus(`标签已应用到 ${updatedCount} 个导出的账号`, "success");
+            console.log(`成功应用标签到 ${updatedCount} 个账号`);
+          } else {
+            console.log("没有找到需要更新标签的账号");
+          }
+        }
+      } else {
+        showStatus("复制到剪贴板失败", "error");
+      }
+    } catch (error) {
+      console.error("导出失败:", error);
+      showStatus(`导出失败: ${error}`, "error");
+    }
+
+    pendingExportData.value = null;
+    pendingExportType.value = null;
+    pendingExportCount.value = 0;
+    pendingExportTokenIds.value = [];
   }
 };
 
@@ -4255,6 +4428,9 @@ const handleTokensImport = async (importedTokens) => {
         accessToken: tokenData.access_token,
         portalUrl: tokenData.portal_url || null,
         emailNote: autoEmailNote,
+        authSession: tokenData.auth_session || null,
+        tagText: tokenData.tag_text || null,
+        tagColor: tokenData.tag_color || null,
       };
 
       // 检测重复账号（基于邮箱）
@@ -4280,11 +4456,19 @@ const handleTokensImport = async (importedTokens) => {
             newTokenData.tenantUrl,
             newTokenData.accessToken,
             newTokenData.portalUrl,
-            newTokenData.emailNote
+            newTokenData.emailNote,
+            newTokenData.authSession,
+            newTokenData.tagText,
+            newTokenData.tagColor
           );
           insertTokenSorted(newToken);
           newTokenIds.push(newToken.id); // 记录新添加的账号ID
           successCount++;
+          console.log(
+            `导入账号成功，标签: ${newTokenData.tagText || "无"}, 颜色: ${
+              newTokenData.tagColor || "无"
+            }, Session: ${newTokenData.authSession ? "有" : "无"}`
+          );
         } else {
           errorCount++;
         }
@@ -4419,31 +4603,54 @@ const completeImport = async (
     // 强制更新状态统计（确保导入后及时同步）
     recalcHeaderCounts();
 
-    // 自动保存到文件
-    try {
-      await saveTokensToFile(false);
-      const emailInfo =
-        emailFetchCount > 0 ? `，自动获取到 ${emailFetchCount} 个邮箱` : "";
-      const updateInfo =
-        updateCount > 0 ? `，检测到重复账号已更新 ${updateCount} 个` : "";
-      showStatus(
-        `成功导入 ${successCount} 个账号${updateInfo}${emailInfo}${
-          errorCount > 0 ? `，${errorCount} 个失败或跳过` : ""
-        }`,
-        "success"
-      );
+    // 自动保存到文件（带重试机制）
+    let saveSuccess = false;
+    let retryCount = 0;
+    const maxRetries = 3;
 
-      // 导入完成后检测所有新账号状态（批量检测，统一提示）
-      if (newTokenIds.length > 0) {
-        setTimeout(async () => {
-          await checkBatchAccountStatus(newTokenIds);
-        }, 1000);
+    while (!saveSuccess && retryCount < maxRetries) {
+      try {
+        if (retryCount > 0) {
+          console.log(`保存重试 ${retryCount}/${maxRetries}...`);
+          // 重试前等待一小段时间
+          await new Promise((resolve) => setTimeout(resolve, 200 * retryCount));
+        }
+
+        await saveTokensToFile(false);
+        saveSuccess = true;
+
+        const emailInfo =
+          emailFetchCount > 0 ? `，自动获取到 ${emailFetchCount} 个邮箱` : "";
+        const updateInfo =
+          updateCount > 0 ? `，检测到重复账号已更新 ${updateCount} 个` : "";
+        showStatus(
+          `成功导入 ${successCount} 个账号${updateInfo}${emailInfo}${
+            errorCount > 0 ? `，${errorCount} 个失败或跳过` : ""
+          }`,
+          "success"
+        );
+
+        // 导入完成后检测所有新账号状态（批量检测，统一提示）
+        if (newTokenIds.length > 0) {
+          setTimeout(async () => {
+            await checkBatchAccountStatus(newTokenIds);
+          }, 1000);
+        }
+      } catch (error) {
+        retryCount++;
+        console.error(`保存失败（第 ${retryCount} 次尝试）:`, error);
+
+        if (retryCount >= maxRetries) {
+          // 所有重试都失败
+          console.error("保存失败，已达到最大重试次数");
+          showStatus(
+            `导入成功但自动保存失败（已重试${maxRetries}次），请手动保存。成功：${successCount}，更新：${updateCount}，失败：${errorCount}`,
+            "warning"
+          );
+          // 即使保存失败，也标记为有未保存的更改
+          hasUnsavedChanges.value = true;
+        }
       }
-    } catch (error) {
-      showStatus(
-        `导入成功但自动保存失败，请手动保存。成功：${successCount}，更新：${updateCount}，失败：${errorCount}`,
-        "warning"
-      );
     }
   }
 
@@ -4965,6 +5172,18 @@ const toggleAutoDownload = () => {
   saveAutoDownloadState();
 };
 
+// 切换导入导出时创建标签
+const toggleCreateTagOnImportExport = () => {
+  if (createTagOnImportExport.value) {
+    showStatus("导入导出时创建标签已开启", "success");
+  } else {
+    showStatus("导入导出时创建标签已关闭", "info");
+  }
+
+  // 保存状态到本地存储
+  saveCreateTagOnImportExportState();
+};
+
 // 应用关闭前同步
 const syncBeforeClose = async () => {
   // 只有自动上传开启时才在关闭前上传
@@ -5111,6 +5330,10 @@ onMounted(async () => {
     console.log("开始加载自动下载状态...");
     loadAutoDownloadState();
     console.log("自动下载状态加载成功");
+
+    console.log("开始加载导入导出时创建标签状态...");
+    loadCreateTagOnImportExportState();
+    console.log("导入导出时创建标签状态加载成功");
 
     // 如果自动上传已开启且WebDAV已配置，启动定时器
     if (autoUploadEnabled.value && isWebDAVConfigured.value) {
@@ -8574,9 +8797,15 @@ textarea.unified-input {
   }
 }
 
-/* 设置页面样式 */
+/* 设置页面样式  */
+.settings-section:first-child {
+  padding-top: 20px;
+}
 .settings-section {
-  padding: 20px;
+  padding: 0 20px;
+}
+.settings-section:last-child {
+  padding-bottom: 20px;
 }
 
 .section-header {
@@ -8640,7 +8869,9 @@ textarea.unified-input {
   border-color: rgba(59, 130, 246, 0.2);
   box-shadow: 0 4px 20px rgba(59, 130, 246, 0.1);
 }
-
+.setting-item-create-tag {
+  margin-top: 20px;
+}
 .setting-label {
   margin-bottom: 16px;
 }
@@ -9677,6 +9908,21 @@ textarea.unified-input {
   gap: 8px;
 }
 
+/* 开关容器 - 只有开关可点击 */
+.toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 只包裹开关的 label - 只有这部分可点击 */
+.toggle-label-switch {
+  display: inline-flex;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* 旧的 toggle-label 保持兼容性（如果其他地方还在用） */
 .toggle-label {
   display: flex;
   align-items: center;
@@ -9724,6 +9970,8 @@ textarea.unified-input {
   font-size: 14px;
   font-weight: 500;
   color: #1e293b;
+  user-select: none;
+  pointer-events: none; /* 文字不可点击 */
 }
 
 .toggle-help {

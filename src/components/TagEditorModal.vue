@@ -14,15 +14,15 @@
           id="tagText"
           v-model="tagText"
           type="text"
-          placeholder="请输入标签文字（最多8个字符）"
-          maxlength="8"
+          placeholder="请输入标签文字（最多6个字符）"
+          maxlength="6"
           autocomplete="off"
           autocapitalize="off"
           autocorrect="off"
           spellcheck="false"
           @input="validateTagText"
         />
-        <div class="char-count">{{ tagText.length }}/8</div>
+        <div class="char-count">{{ tagText.length }}/6</div>
         <div v-if="errors.tagText" class="error-message">
           {{ errors.tagText }}
         </div>
@@ -119,14 +119,14 @@ const errors = ref({
 
 // Computed
 const isValid = computed(() => {
-  // 标签文字为可选，只要不超过8个字符即可
-  return tagText.value.length <= 8;
+  // 标签文字为可选，只要不超过6个字符即可
+  return tagText.value.length <= 6;
 });
 
 // Methods
 const validateTagText = () => {
-  if (tagText.value.length > 8) {
-    errors.value.tagText = "标签文字不能超过8个字符";
+  if (tagText.value.length > 6) {
+    errors.value.tagText = "标签文字不能超过6个字符";
   } else {
     errors.value.tagText = "";
   }
