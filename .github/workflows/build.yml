@@ -70,15 +70,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
 
-      - name: Install frontend dependencies
-        run: npm install
+      - name: Update npm to latest
+        run: npm install -g npm@latest
 
-      - name: Build frontend
-        run: npm run build
+      - name: Clean and install frontend dependencies (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: |
+          if (Test-Path node_modules) { Remove-Item -Recurse -Force node_modules }
+          if (Test-Path package-lock.json) { Remove-Item -Force package-lock.json }
+          npm install
+
+      - name: Clean and install frontend dependencies (Unix)
+        if: matrix.platform != 'windows-latest'
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
 
       - name: Build the app
-        uses: tauri-apps/tauri-action@v0.5
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -87,18 +98,11 @@ jobs:
           releaseBody: |
             ## 🚀 ZAugment ${{ github.ref_name }} 发布
 
-            ### 🎉 新增功能
-            1. ✅ **Token 自动刷新** - 检测到 Token 失效时自动使用 Session 刷新，无需手动操作
-            2. ✅ **智能错误处理** - 刷新失败时自动识别账号封禁状态
-
-            ### 🔧 优化改进
-            3. ✅ **Session 验证优化** - 简化 Session 格式验证，仅做非空判断
-            4. ✅ **禁用 F 类快捷键** - 禁用 F1-F12 功能键，防止误触系统快捷键
-
-            ### 📝 详细说明
-            - **自动刷新机制**：当系统检测到 Token 状态为 `INVALID_TOKEN` 时，如果存在 `auth_session`，会自动提取新的 Token 并更新
-            - **错误识别**：刷新失败时能够区分账号封禁（`SUSPENDED`）和其他错误类型
-            - **无缝更新**：前端自动接收并保存刷新后的 Token 和 Tenant URL
+            ### 🎉更新内容
+            1. 智能错误处理 - 刷新失败时自动识别账号封禁状态
+            2. Token 自动刷新 - 检测到 Token 失效时自动使用 Session 刷新，无需手动操作
+            3. Session 验证优化 - 简化 Session 格式验证，后端校验
+            4. 禁用 F 类快捷键 - 禁用 F1-F12 功能键，防止误触系统快捷键
 
             ### 📥 下载文件
             | 平台 | 文件名 |
