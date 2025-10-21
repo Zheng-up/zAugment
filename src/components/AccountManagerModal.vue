@@ -381,26 +381,23 @@ const handleSessionImport = async (sessions) => {
     return;
   }
 
-  // 验证所有 Session 格式
+  // 验证所有 Session 非空
   const invalidSessions = [];
   sessions.forEach((session, index) => {
-    if (session && typeof session === "string") {
-      const trimmedSession = session.trim();
-      if (!trimmedSession.startsWith(".eJx")) {
-        invalidSessions.push({
-          index: index + 1,
-          session: trimmedSession.substring(0, 50) + "...",
-        });
-      }
+    if (!session || typeof session !== "string" || !session.trim()) {
+      invalidSessions.push({
+        index: index + 1,
+        session: "空 Session",
+      });
     }
   });
 
-  // 如果有格式错误的 Session，报错并中止
+  // 如果有空的 Session，报错并中止
   if (invalidSessions.length > 0) {
     const errorDetails = invalidSessions
-      .map((item) => `第 ${item.index} 个 Session: ${item.session}`)
+      .map((item) => `第 ${item.index} 个 Session 为空`)
       .join("\n");
-    emit("import-error", `Session 格式错误！请检查格式是否正确。`);
+    emit("import-error", `Session 不能为空！\n${errorDetails}`);
     return;
   }
 
@@ -415,11 +412,11 @@ const handleSessionImport = async (sessions) => {
 
     const trimmedSession = session.trim();
 
-    // 再次验证格式（双重保险）
-    if (!trimmedSession.startsWith(".eJx")) {
+    // 验证非空
+    if (!trimmedSession) {
       return {
         success: false,
-        error: "Session 格式错误！请检查格式是否正确。",
+        error: "Session 不能为空",
       };
     }
 
@@ -449,7 +446,12 @@ const handleSessionImport = async (sessions) => {
       }
     } catch (error) {
       console.error(`处理 Session ${index + 1} 失败:`, error);
-      return { success: false, error: error.message || "未知错误" };
+      // 映射后端错误标识符到用户友好的提示信息
+      let errorMessage = error.message || error || "未知错误";
+      if (errorMessage.includes("SESSION_ERROR_OR_ACCOUNT_BANNED")) {
+        errorMessage = "Session 无效或账号已被封禁";
+      }
+      return { success: false, error: errorMessage };
     }
   });
 

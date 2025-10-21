@@ -70,26 +70,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
 
-      - name: Update npm to latest
-        run: npm install -g npm@latest
-
-      - name: Clean and install frontend dependencies (Windows)
-        if: matrix.platform == 'windows-latest'
-        run: |
-          if (Test-Path node_modules) { Remove-Item -Recurse -Force node_modules }
-          if (Test-Path package-lock.json) { Remove-Item -Force package-lock.json }
-          npm install
-
-      - name: Clean and install frontend dependencies (Unix)
-        if: matrix.platform != 'windows-latest'
-        run: |
-          rm -rf node_modules package-lock.json
-          npm install
+      - name: Install frontend dependencies
+        run: npm ci || npm install
 
       - name: Build the app
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v0.5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -98,13 +84,18 @@ jobs:
           releaseBody: |
             ## 🚀 ZAugment ${{ github.ref_name }} 发布
 
-            ### 更新内容
-            1. ✅ 优化 Session 格式验证：从 `.eJx` 改为首位是 `.` 且长度大于 60 位，支持更多 Session 格式
-            2. ✅ 禁用全局 F 类快捷键：禁用 F1-F12 功能键，防止误触系统快捷键（如 F5 刷新、F12 开发者工具等）
-            3. ✅ 优化开关交互：设置页面的三个开关（导入导出时创建标签、自动上传、自动下载）现在只能点击开关本身切换，避免误触
-            4. ✅ 修复 Session 批量导入保存失败问题：增加重试机制和错误处理
-            5. ✅ 性能优化：Session 批量导入改为并行处理，速度大幅提升
-            6. ✅ 修复 Session 复制功能：通过 Session 导入的账号现在可以正常复制 Session
+            ### 🎉 新增功能
+            1. ✅ **Token 自动刷新** - 检测到 Token 失效时自动使用 Session 刷新，无需手动操作
+            2. ✅ **智能错误处理** - 刷新失败时自动识别账号封禁状态
+
+            ### 🔧 优化改进
+            3. ✅ **Session 验证优化** - 简化 Session 格式验证，仅做非空判断
+            4. ✅ **禁用 F 类快捷键** - 禁用 F1-F12 功能键，防止误触系统快捷键
+
+            ### 📝 详细说明
+            - **自动刷新机制**：当系统检测到 Token 状态为 `INVALID_TOKEN` 时，如果存在 `auth_session`，会自动提取新的 Token 并更新
+            - **错误识别**：刷新失败时能够区分账号封禁（`SUSPENDED`）和其他错误类型
+            - **无缝更新**：前端自动接收并保存刷新后的 Token 和 Tenant URL
 
             ### 📥 下载文件
             | 平台 | 文件名 |

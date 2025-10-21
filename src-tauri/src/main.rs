@@ -228,11 +228,91 @@ async fn get_augment_token(code: String, state: State<'_, AppState>) -> Result<A
         .map_err(|e| format!("Failed to complete Augment OAuth flow: {}", e))
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckAccountStatusResult {
+    pub is_banned: bool,
+    pub status: String,
+    pub error_message: Option<String>,
+    pub response_code: Option<u16>,
+    pub access_token: String,
+    pub tenant_url: String,
+}
+
 #[tauri::command]
-async fn check_account_status(token: String, tenant_url: String) -> Result<AccountStatus, String> {
-    check_account_ban_status(&token, &tenant_url)
+async fn check_account_status(
+    token: String,
+    tenant_url: String,
+    auth_session: Option<String>,
+    token_id: Option<String>
+) -> Result<CheckAccountStatusResult, String> {
+    let mut current_token = token;
+    let mut current_tenant_url = tenant_url;
+
+    // 1. 检测账号状态
+    let mut status_result = check_account_ban_status(&current_token, &current_tenant_url)
         .await
-        .map_err(|e| format!("Failed to check account status: {}", e))
+        .map_err(|e| format!("Failed to check account status: {}", e))?;
+
+    // 2. 如果检测到 INVALID_TOKEN 且有 auth_session，尝试自动刷新
+    if status_result.status == "INVALID_TOKEN" {
+        if let Some(ref session) = auth_session {
+            println!("Detected INVALID_TOKEN for {:?}, attempting auto-refresh", token_id);
+
+            match extract_token_from_session(session).await {
+                Ok(new_token_response) => {
+                    println!("Successfully refreshed token for {:?}", token_id);
+                    // 更新 token 和 tenant_url
+                    current_token = new_token_response.access_token;
+                    current_tenant_url = new_token_response.tenant_url;
+
+                    // 重新检测状态
+                    match check_account_ban_status(&current_token, &current_tenant_url).await {
+                        Ok(new_status) => {
+                            status_result = new_status;
+                            status_result.error_message = Some(format!(
+                                "Token was invalid but successfully auto-refreshed. New status: {}",
+                                status_result.status
+                            ));
+                        }
+                        Err(e) => {
+                            println!("Failed to check status after refresh: {}", e);
+                        }
+                    }
+                }
+                Err(err) => {
+                    println!("Failed to refresh token for {:?}: {}", token_id, err);
+                    // 如果刷新失败原因是 SESSION_ERROR_OR_ACCOUNT_BANNED，视为账号封禁
+                    if err.contains("SESSION_ERROR_OR_ACCOUNT_BANNED") {
+                        status_result.status = "SUSPENDED".to_string();
+                        status_result.is_banned = true;
+                        status_result.error_message = Some(
+                            "Account is suspended (detected during token refresh)".to_string()
+                        );
+                    } else {
+                        status_result.error_message = Some(format!(
+                            "Token is invalid. Failed to auto-refresh: {}",
+                            err
+                        ));
+                    }
+                }
+            }
+        } else {
+            println!("Token {:?} is invalid but no auth_session available", token_id);
+            status_result.error_message = Some(
+                "Token is invalid. No auth_session available for auto-refresh".to_string()
+            );
+        }
+    }
+
+    // 3. 返回结果（包含可能已更新的 token 和 tenant_url）
+    Ok(CheckAccountStatusResult {
+        is_banned: status_result.is_banned,
+        status: status_result.status,
+        error_message: status_result.error_message,
+        response_code: status_result.response_code,
+        access_token: current_token,
+        tenant_url: current_tenant_url,
+    })
 }
 
 #[tauri::command]

@@ -2699,12 +2699,6 @@ const importFromSession = async () => {
     return;
   }
 
-  // 验证 Session 格式
-  if (!trimmedSession.startsWith(".eJx")) {
-    showStatus("Session 格式错误！请检查格式是否正确。", "error");
-    return;
-  }
-
   isImportingSession.value = true;
   sessionImportProgress.value = "正在提取 access token...";
 
@@ -2785,7 +2779,12 @@ const importFromSession = async () => {
       showStatus("导入失败：无效的 Session", "error");
     }
   } catch (error) {
-    showStatus(`导入失败: ${error}`, "error");
+    let errorMessage = error;
+    // 映射后端错误标识符到用户友好的提示信息
+    if (error.includes("SESSION_ERROR_OR_ACCOUNT_BANNED")) {
+      errorMessage = "Session 无效或账号已被封禁";
+    }
+    showStatus(`导入失败: ${errorMessage}`, "error");
   } finally {
     isImportingSession.value = false;
     sessionImportProgress.value = "";
@@ -3545,10 +3544,16 @@ const checkSingleAccountStatus = async (tokenId) => {
     const result = await invoke("check_account_status", {
       token: token.access_token,
       tenantUrl: token.tenant_url,
+      authSession: token.auth_session || null,
+      tokenId: token.id || null,
     });
 
     const banStatus =
       result.status || (result.is_banned ? "SUSPENDED" : "ACTIVE");
+
+    // 始终更新 access_token 和 tenant_url (如果 token 被刷新,这里会是新值)
+    token.access_token = result.access_token;
+    token.tenant_url = result.tenant_url;
 
     // 如果状态有变化或邮箱有更新，更新token
     if (token.ban_status !== banStatus || emailUpdated) {
@@ -3693,10 +3698,16 @@ const checkSingleAccountStatusSilent = async (tokenId) => {
     const result = await invoke("check_account_status", {
       token: token.access_token,
       tenantUrl: token.tenant_url,
+      authSession: token.auth_session || null,
+      tokenId: token.id || null,
     });
 
     const banStatus =
       result.status || (result.is_banned ? "SUSPENDED" : "ACTIVE");
+
+    // 始终更新 access_token 和 tenant_url (如果 token 被刷新,这里会是新值)
+    token.access_token = result.access_token;
+    token.tenant_url = result.tenant_url;
 
     // 如果状态有变化或邮箱有更新，更新token
     if (token.ban_status !== banStatus || emailUpdated) {
@@ -3803,10 +3814,16 @@ const refreshAllAccountData = async (manageState = true) => {
             const result = await invoke("check_account_status", {
               token: token.access_token,
               tenantUrl: token.tenant_url,
+              authSession: token.auth_session || null,
+              tokenId: token.id || null,
             });
 
             const banStatus =
               result.status || (result.is_banned ? "SUSPENDED" : "ACTIVE");
+
+            // 始终更新 access_token 和 tenant_url (如果 token 被刷新,这里会是新值)
+            token.access_token = result.access_token;
+            token.tenant_url = result.tenant_url;
 
             // 如果状态有变化或邮箱有更新，更新token
             if (token.ban_status !== banStatus || emailUpdated) {

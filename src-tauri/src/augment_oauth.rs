@@ -274,6 +274,14 @@ pub async fn check_account_ban_status(
                 response_code: Some(status_code),
                 debug_info,
             })
+        } else if response_body.to_lowercase().contains("invalid token") {
+            Ok(AccountStatus {
+                is_banned: false,
+                status: "INVALID_TOKEN".to_string(),
+                error_message: Some("Token is invalid".to_string()),
+                response_code: Some(status_code),
+                debug_info,
+            })
         } else if response_body.contains("You are out of user messages")
                 || response_body.contains("out of user messages")
                 || response_body.contains("Please update your account")
