@@ -7304,9 +7304,9 @@ textarea.unified-input {
   }
 
   .status-item {
-    padding: 6px 6px;
-    min-width: 60px;
-    font-size: 12px;
+    padding: 6px 4px;
+    min-width: 74px;
+    font-size: 10px;
     display: flex;
     align-items: center;
     justify-content: center;

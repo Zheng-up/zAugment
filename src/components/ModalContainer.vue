@@ -191,7 +191,7 @@ const handleEscKey = (e) => {
     0 8px 16px -8px rgba(0, 0, 0, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
-  max-height: 82vh;
+  max-height: calc(100vh - 40px);
   display: flex;
   flex-direction: column;
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);

@@ -968,7 +968,7 @@ const getTokenStatusClass = (token) => {
 
 .header-info-grid {
   display: grid;
-  grid-template-columns: 25% 20% 2fr 2fr 1fr;
+  grid-template-columns: 20% 20% 2fr 2fr 2fr;
   gap: 12px;
   width: 100%;
   text-align: center;
@@ -997,10 +997,10 @@ const getTokenStatusClass = (token) => {
   display: flex;
   flex-direction: column;
   gap: 0;
-  /* 不要 */
-  /* max-height: 350px;
-  overflow-y: auto; */
-  /* padding: 8px; */
+
+  max-height: 354px;
+
+  padding: 8px 0;
   border: 1px solid rgba(226, 232, 240, 0.3);
   border-top: none;
   border-radius: 0 0 8px 8px;
@@ -1039,7 +1039,7 @@ const getTokenStatusClass = (token) => {
 
 .account-info-grid {
   display: grid;
-  grid-template-columns: 25% 20% 2fr 2fr 1fr;
+  grid-template-columns: 20% 20% 2fr 2fr 2fr;
   gap: 12px;
   width: 100%;
   align-items: center;
@@ -1290,7 +1290,7 @@ const getTokenStatusClass = (token) => {
 }
 
 /* 响应式设计 */
-@media (max-width: 768px) {
+/* @media (max-width: 768px) {
   .tab-content {
     min-height: 250px;
   }
@@ -1361,5 +1361,5 @@ const getTokenStatusClass = (token) => {
   .no-email-hint {
     font-size: 10px;
   }
-}
+} */
 </style>
