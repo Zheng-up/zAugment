@@ -2701,7 +2701,7 @@ const importFromSession = async () => {
 
   // 验证 Session 格式
   if (!trimmedSession.startsWith(".eJx")) {
-    showStatus("Session 格式错误！请检查格式是否正确。", "error"  );
+    showStatus("Session 格式错误！请检查格式是否正确。", "error");
     return;
   }
 
@@ -4030,7 +4030,12 @@ const refreshAllAccountData = async (manageState = true) => {
 
 // 键盘事件处理
 const handleKeydown = (event) => {
-  // 可以在这里添加其他键盘事件处理
+  // 禁用所有 F 类功能键（F1-F12）
+  if (event.key && event.key.match(/^F([1-9]|1[0-2])$/)) {
+    event.preventDefault();
+    event.stopPropagation();
+    return false;
+  }
 };
 
 // 禁用所有输入框自动填充的函数
