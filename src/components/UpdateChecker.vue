@@ -22,7 +22,6 @@
           </div>
         </div>
         <div class="release-notes-container">
-          <h3>更新内容:</h3>
           <div class="release-notes" v-html="formattedReleaseNotes"></div>
         </div>
       </div>
@@ -332,7 +331,7 @@ export default {
   color: #666;
 }
 
-/* 按钮样式 - 参考添加账号弹窗 */
+/* 按钮样式 - 统一为检查更新按钮样式 */
 .modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -346,10 +345,32 @@ export default {
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn:hover::before {
+  left: 100%;
 }
 
 .btn:disabled {
@@ -362,19 +383,21 @@ export default {
   color: #6b7280;
 }
 
-.btn.secondary:hover {
+.btn.secondary:hover:not(:disabled) {
   background: #e5e7eb;
+  transform: translateY(-1px);
 }
 
 .btn.primary {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: white;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
 }
 
-.btn.primary:hover {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+.btn.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
 }
 </style>
 display: flex; align-items: center; gap: 16px; background:

@@ -1395,8 +1395,10 @@ fn parse_release_notes(body: &str) -> String {
     for line in lines {
         let trimmed = line.trim();
 
-        // 检测更新内容部分开始
-        if trimmed.starts_with("### 更新内容") || trimmed.starts_with("###更新内容") {
+        // 检测更新内容部分开始（支持带 emoji 和不带 emoji 的标题）
+        if trimmed.starts_with("### 更新内容") ||
+           trimmed.starts_with("###更新内容") ||
+           trimmed.contains("更新内容") && trimmed.starts_with("###") {
             in_update_content = true;
             continue; // 不包含标题行
         }
