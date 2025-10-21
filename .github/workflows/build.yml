@@ -88,6 +88,9 @@ jobs:
           rm -rf node_modules package-lock.json
           npm install
 
+      - name: Build frontend
+        run: npm run build
+
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
         env:
