@@ -70,7 +70,7 @@
               <template v-if="portalInfo.data">
                 <span class="portal-meta" :style="metaStyle">
                   <span class="portal-info-item expiry">
-                    剩余：<span
+                    <span
                       class="portal-value"
                       :style="getExpiryStyle(portalInfo.data.expiry_date)"
                       >{{ formatExpiryDate(portalInfo.data.expiry_date) }}</span
@@ -78,11 +78,11 @@
                   </span>
                   <span class="portal-separator">|</span>
                   <span class="portal-info-item balance">
-                    额度：<span
+                    <span
                       class="portal-value"
                       :style="getBalanceStyle(portalInfo.data.credits_balance)"
-                      >{{ portalInfo.data.credits_balance }}次</span
-                    >
+                      >{{ portalInfo.data.credits_balance }} 积分
+                    </span>
                   </span>
                 </span>
               </template>
@@ -96,11 +96,11 @@
               <template v-else>
                 <span class="portal-meta unknown" :style="metaStyle">
                   <span class="portal-info-item"
-                    >剩余：<span class="portal-value">未知</span></span
+                    ><span class="portal-value">未知</span></span
                   >
                   <span class="portal-separator">|</span>
                   <span class="portal-info-item"
-                    >额度：<span class="portal-value">未知</span></span
+                    ><span class="portal-value">未知</span></span
                   >
                 </span>
               </template>
@@ -109,11 +109,11 @@
             <template v-else>
               <span class="portal-meta unknown" :style="metaStyle">
                 <span class="portal-info-item"
-                  >剩余：<span class="portal-value">未知</span></span
+                  ><span class="portal-value">未知</span></span
                 >
                 <span class="portal-separator">|</span>
                 <span class="portal-info-item"
-                  >额度：<span class="portal-value">未知</span></span
+                  ><span class="portal-value">未知</span></span
                 >
               </span>
             </template>
@@ -1364,7 +1364,20 @@ const loadPortalInfo = async (forceRefresh = false) => {
 const formatExpiryDate = (dateString) => {
   try {
     const now = new Date();
-    const expiry = new Date(dateString);
+
+    // 解析后端返回的 ISO 8601 日期字符串
+    // 例如: "2025-10-21T00:00:00+00:00" 表示 UTC 时间的 2025-10-21 00:00:00
+    // 我们需要将其转换为本地时区的同一日期（2025-10-21 00:00:00 本地时间）
+    const expiryUTC = new Date(dateString);
+
+    // 提取 UTC 日期的年月日
+    const year = expiryUTC.getUTCFullYear();
+    const month = expiryUTC.getUTCMonth();
+    const day = expiryUTC.getUTCDate();
+
+    // 创建本地时区的日期对象（当天的 00:00:00）
+    const expiry = new Date(year, month, day, 0, 0, 0, 0);
+
     const diffMs = expiry.getTime() - now.getTime();
 
     if (diffMs <= 0) {
@@ -1393,20 +1406,27 @@ const getExpiryStyle = (dateString) => {
     };
 
   const now = new Date();
-  const expiry = new Date(dateString);
+
+  // 使用与 formatExpiryDate 相同的逻辑解析日期
+  const expiryUTC = new Date(dateString);
+  const year = expiryUTC.getUTCFullYear();
+  const month = expiryUTC.getUTCMonth();
+  const day = expiryUTC.getUTCDate();
+  const expiry = new Date(year, month, day, 0, 0, 0, 0);
+
   const diffMs = expiry.getTime() - now.getTime();
   const days = diffMs / (1000 * 60 * 60 * 24);
 
   let color;
 
-  if (days > 3) {
-    // 剩余时间 > 3天：深绿文字
+  if (days >= 20) {
+    // 剩余时间 ≥ 20天：深绿文字
     color = "#15803d";
-  } else if (days > 1) {
-    // 剩余时间 > 1天 且 ≤ 3天：深黄文字
+  } else if (days >= 10) {
+    // 剩余时间 ≥ 10天 且 < 20天：深黄文字
     color = "#a16207";
   } else {
-    // 剩余时间 ≤ 1天：深红文字
+    // 剩余时间 < 10天：深红文字
     color = "#b91c1c";
   }
 
@@ -1419,14 +1439,14 @@ const getExpiryStyle = (dateString) => {
 const getBalanceStyle = (balance) => {
   let color;
 
-  if (balance > 30) {
-    // 额度 > 30：深绿文字
+  if (balance >= 2000) {
+    // 额度 ≥ 2000：深绿文字
     color = "#15803d";
-  } else if (balance > 10) {
-    // 额度 > 10 且 ≤ 30：深黄文字
+  } else if (balance >= 1000) {
+    // 额度 ≥ 1000 且 < 2000：深黄文字
     color = "#a16207";
   } else {
-    // 额度 ≤ 10：深红文字
+    // 额度 < 1000：深红文字
     color = "#b91c1c";
   }
 
