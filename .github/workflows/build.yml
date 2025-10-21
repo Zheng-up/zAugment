@@ -72,7 +72,10 @@ jobs:
           node-version: "20"
 
       - name: Install frontend dependencies
-        run: npm ci || npm install
+        run: npm install
+
+      - name: Build frontend
+        run: npm run build
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0.5
