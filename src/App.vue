@@ -605,6 +605,7 @@
                 :tokens="sortedTokens"
                 :isLoading="isLoading"
                 :hasUnsavedChanges="hasUnsavedChanges"
+                :statusThresholds="statusThresholds"
                 @edit-token="handleEditToken"
                 @delete-token="deleteToken"
                 @refresh="loadTokens"
@@ -810,6 +811,75 @@
                         <span class="toggle-text">
                           {{ createTagOnImportExport ? "已开启" : "已关闭" }}
                         </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 账号状态阈值配置 -->
+                  <div class="setting-item-create-tag">
+                    <div class="setting-label">
+                      <label>账号阈值配置</label>
+                      <span class="setting-help">
+                        配置账号时间 和 剩余额度 的颜色显示阈值
+                      </span>
+                    </div>
+
+                    <div class="setting-control">
+                      <div class="threshold-config-wrapper">
+                        <button
+                          @click="showThresholdConfigModal = true"
+                          class="btn-config-threshold"
+                        >
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                          >
+                            <path
+                              d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"
+                            />
+                          </svg>
+                          <span>配置阈值</span>
+                        </button>
+
+                        <div class="threshold-display">
+                          <div class="threshold-rules">
+                            <span class="threshold-label">时间:</span>
+                            <span class="rule-item red">
+                              0天 &lt; <span class="color-dot"></span> ≤
+                              {{ statusThresholds.time.warning }}天
+                            </span>
+                            <span class="rule-item yellow">
+                              {{ statusThresholds.time.warning }}天 &lt;
+                              <span class="color-dot"></span> ≤
+                              {{ statusThresholds.time.safe }}天
+                            </span>
+                            <span class="rule-item green">
+                              {{ statusThresholds.time.safe }}天 &lt;
+                              <span class="color-dot"></span> ≤
+                              {{ statusThresholds.timeMax }}天
+                            </span>
+                          </div>
+
+                          <div class="threshold-rules">
+                            <span class="threshold-label">额度:</span>
+                            <span class="rule-item red">
+                              0分 &lt; <span class="color-dot"></span> ≤
+                              {{ statusThresholds.balance.warning }}分
+                            </span>
+                            <span class="rule-item yellow">
+                              {{ statusThresholds.balance.warning }}分 &lt;
+                              <span class="color-dot"></span> ≤
+                              {{ statusThresholds.balance.safe }}分
+                            </span>
+                            <span class="rule-item green">
+                              {{ statusThresholds.balance.safe }}分 &lt;
+                              <span class="color-dot"></span> ≤
+                              {{ statusThresholds.balanceMax }}分
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1509,6 +1579,17 @@
           </div>
         </div>
       </ModalContainer>
+
+      <!-- 账号状态阈值配置弹窗 -->
+      <ThresholdConfigModal
+        :visible="showThresholdConfigModal"
+        :timeThresholds="statusThresholds.time"
+        :balanceThresholds="statusThresholds.balance"
+        :timeMax="statusThresholds.timeMax"
+        :balanceMax="statusThresholds.balanceMax"
+        @close="showThresholdConfigModal = false"
+        @save="handleSaveThresholds"
+      />
     </div>
 
     <!-- 编辑器重置弹窗 -->
@@ -1970,6 +2051,7 @@ import TagEditorModal from "./components/TagEditorModal.vue";
 import CustomTitleBar from "./components/CustomTitleBar.vue";
 import UpdateChecker from "./components/UpdateChecker.vue";
 import EditorResetModal from "./components/EditorResetModal.vue";
+import ThresholdConfigModal from "./components/ThresholdConfigModal.vue";
 import appreciationQR from "/赞赏.png";
 
 // 简化的状态管理
@@ -2004,12 +2086,15 @@ const hasInitializedEmailManagement = ref(false); // 是否已初始化邮箱管
 let unlistenSessionProgress = null;
 
 // 监听视图切换，关闭所有弹窗
-watch(currentView, (newView) => {
+watch(currentView, () => {
   showPluginModal.value = false;
   showPluginHomeDialog.value = false;
 
   showDeleteConfirm.value = false;
   showForceConfirm.value = false;
+
+  // 关闭账号状态阈值配置弹窗
+  showThresholdConfigModal.value = false;
   showEditorResetModal.value = false;
   showPlatformSelector.value = false;
   showSyncHistoryModal.value = false;
@@ -2313,6 +2398,21 @@ const autoDownloadEnabled = ref(false);
 // 导入导出时创建标签的开关
 const createTagOnImportExport = ref(false);
 
+// 账号状态阈值配置
+const showThresholdConfigModal = ref(false);
+const statusThresholds = ref({
+  time: {
+    warning: 10, // 警告阈值（天）
+    safe: 20, // 安全阈值（天）
+  },
+  balance: {
+    warning: 1000, // 警告阈值（积分）
+    safe: 2000, // 安全阈值（积分）
+  },
+  timeMax: 30, // 时间最大值（天）
+  balanceMax: 5000, // 额度最大值（积分）
+});
+
 // 保存自动上传状态到本地存储
 const saveAutoUploadState = () => {
   try {
@@ -2395,6 +2495,93 @@ const loadCreateTagOnImportExportState = () => {
     console.error("加载导入导出时创建标签状态失败:", error);
     createTagOnImportExport.value = false; // 出错时默认为关闭
   }
+};
+
+// 保存账号状态阈值配置到本地存储和云端
+const saveStatusThresholds = async () => {
+  try {
+    // 保存到本地存储
+    localStorage.setItem(
+      "status_thresholds",
+      JSON.stringify(statusThresholds.value)
+    );
+    console.log("账号状态阈值已保存:", statusThresholds.value);
+
+    // 如果启用了自动上传且WebDAV已配置，同步到云端
+    if (autoUploadEnabled.value && isWebDAVConfigured.value) {
+      await saveStatusThresholdsToCloud();
+    }
+  } catch (error) {
+    console.error("保存账号状态阈值失败:", error);
+  }
+};
+
+// 保存阈值配置到云端
+const saveStatusThresholdsToCloud = async () => {
+  try {
+    const result = await invoke("save_status_thresholds", {
+      thresholds: statusThresholds.value,
+    });
+    console.log("阈值配置已同步到云端:", result);
+  } catch (error) {
+    console.error("同步阈值配置到云端失败:", error);
+  }
+};
+
+// 从本地存储加载账号状态阈值配置
+const loadStatusThresholds = async () => {
+  try {
+    // 如果启用了自动下载且WebDAV已配置，先从云端加载
+    if (autoDownloadEnabled.value && isWebDAVConfigured.value) {
+      await loadStatusThresholdsFromCloud();
+    }
+
+    const saved = localStorage.getItem("status_thresholds");
+    if (saved !== null) {
+      const parsed = JSON.parse(saved);
+      // 合并保存的配置和默认值，确保所有字段都存在
+      statusThresholds.value = {
+        time: parsed.time || { warning: 10, safe: 20 },
+        balance: parsed.balance || { warning: 1000, safe: 2000 },
+        timeMax: parsed.timeMax || 30,
+        balanceMax: parsed.balanceMax || 5000,
+      };
+      console.log("账号状态阈值已恢复:", statusThresholds.value);
+    }
+  } catch (error) {
+    console.error("加载账号状态阈值失败:", error);
+    // 出错时使用默认值
+    statusThresholds.value = {
+      time: { warning: 10, safe: 20 },
+      balance: { warning: 1000, safe: 2000 },
+      timeMax: 30,
+      balanceMax: 5000,
+    };
+  }
+};
+
+// 从云端加载阈值配置
+const loadStatusThresholdsFromCloud = async () => {
+  try {
+    const result = await invoke("load_status_thresholds");
+    if (result) {
+      // 保存到本地存储
+      localStorage.setItem("status_thresholds", JSON.stringify(result));
+      console.log("从云端加载阈值配置成功:", result);
+    }
+  } catch (error) {
+    console.error("从云端加载阈值配置失败:", error);
+  }
+};
+
+// 处理保存阈值配置
+const handleSaveThresholds = (config) => {
+  statusThresholds.value.time = config.timeThresholds;
+  statusThresholds.value.balance = config.balanceThresholds;
+  statusThresholds.value.timeMax = config.timeMax;
+  statusThresholds.value.balanceMax = config.balanceMax;
+  saveStatusThresholds();
+  showStatus("阈值配置已保存", "success");
 };
 
 // 重试进度状态
@@ -5356,6 +5543,10 @@ onMounted(async () => {
     console.log("开始加载导入导出时创建标签状态...");
     loadCreateTagOnImportExportState();
     console.log("导入导出时创建标签状态加载成功");
+
+    console.log("开始加载账号状态阈值配置...");
+    loadStatusThresholds();
+    console.log("账号状态阈值配置加载成功");
 
     // 如果自动上传已开启且WebDAV已配置，启动定时器
     if (autoUploadEnabled.value && isWebDAVConfigured.value) {
@@ -8894,6 +9085,123 @@ textarea.unified-input {
 .setting-item-create-tag {
   margin-top: 20px;
 }
+
+.threshold-config-wrapper {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.btn-config-threshold {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.btn-config-threshold::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn-config-threshold:hover::before {
+  left: 100%;
+}
+
+.btn-config-threshold:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
+}
+
+.btn-config-threshold svg {
+  flex-shrink: 0;
+}
+
+.threshold-display {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.threshold-section {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.threshold-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  flex-shrink: 0;
+}
+
+.threshold-rules {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  flex-wrap: nowrap;
+  flex: 1;
+}
+
+.threshold-rules .rule-item {
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  color: #475569;
+}
+
+.threshold-rules .color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.threshold-rules .rule-item.red .color-dot {
+  background: #b91c1c;
+}
+
+.threshold-rules .rule-item.yellow .color-dot {
+  background: #a16207;
+}
+
+.threshold-rules .rule-item.green .color-dot {
+  background: #15803d;
+}
+
 .setting-label {
   margin-bottom: 16px;
 }

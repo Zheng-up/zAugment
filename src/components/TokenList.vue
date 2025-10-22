@@ -75,6 +75,7 @@
               :key="token.id"
               :ref="(el) => setTokenCardRef(el, token.id)"
               :token="token"
+              :statusThresholds="statusThresholds"
               @delete="$emit('delete-token', $event)"
               @copy-success="handleCopySuccess"
               @edit="$emit('edit-token', $event)"
@@ -108,6 +109,13 @@ const props = defineProps({
   shouldAutoCheck: {
     type: Boolean,
     default: false,
+  },
+  statusThresholds: {
+    type: Object,
+    default: () => ({
+      time: { warning: 10, safe: 20 },
+      balance: { warning: 1000, safe: 2000 },
+    }),
   },
 });
 

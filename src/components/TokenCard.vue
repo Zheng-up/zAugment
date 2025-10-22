@@ -70,6 +70,7 @@
               <template v-if="portalInfo.data">
                 <span class="portal-meta" :style="metaStyle">
                   <span class="portal-info-item expiry">
+                    时间：
                     <span
                       class="portal-value"
                       :style="getExpiryStyle(portalInfo.data.expiry_date)"
@@ -78,10 +79,11 @@
                   </span>
                   <span class="portal-separator">|</span>
                   <span class="portal-info-item balance">
+                    额度：
                     <span
                       class="portal-value"
                       :style="getBalanceStyle(portalInfo.data.credits_balance)"
-                      >{{ portalInfo.data.credits_balance }} 积分
+                      >{{ portalInfo.data.credits_balance }} 分
                     </span>
                   </span>
                 </span>
@@ -632,6 +634,15 @@ const props = defineProps({
   token: {
     type: Object,
     required: true,
+  },
+  statusThresholds: {
+    type: Object,
+    default: () => ({
+      time: { warning: 10, safe: 20 },
+      balance: { warning: 1000, safe: 2000 },
+      timeMax: 30,
+      balanceMax: 5000,
+    }),
   },
 });
 
@@ -1360,30 +1371,23 @@ const loadPortalInfo = async (forceRefresh = false) => {
   }
 };
 
-// 格式化过期时间为"剩余：N天NN时NN分"格式
+// 格式化过期时间为"X天XX时XX分"格式
 const formatExpiryDate = (dateString) => {
+  if (!dateString) return "未知";
+
   try {
+    // 直接使用 Date 对象解析，让浏览器自动处理时区
     const now = new Date();
+    const expiry = new Date(dateString);
 
-    // 解析后端返回的 ISO 8601 日期字符串
-    // 例如: "2025-10-21T00:00:00+00:00" 表示 UTC 时间的 2025-10-21 00:00:00
-    // 我们需要将其转换为本地时区的同一日期（2025-10-21 00:00:00 本地时间）
-    const expiryUTC = new Date(dateString);
-
-    // 提取 UTC 日期的年月日
-    const year = expiryUTC.getUTCFullYear();
-    const month = expiryUTC.getUTCMonth();
-    const day = expiryUTC.getUTCDate();
-
-    // 创建本地时区的日期对象（当天的 00:00:00）
-    const expiry = new Date(year, month, day, 0, 0, 0, 0);
-
+    // 计算时间差（毫秒）
     const diffMs = expiry.getTime() - now.getTime();
 
     if (diffMs <= 0) {
-      return "0天00时00分";
+      return "已过期";
     }
 
+    // 计算天、时、分
     const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     const hours = Math.floor(
       (diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
@@ -1405,48 +1409,66 @@ const getExpiryStyle = (dateString) => {
       color: "#b91c1c",
     };
 
-  const now = new Date();
+  try {
+    // 直接使用 Date 对象解析，与 formatExpiryDate 保持一致
+    const now = new Date();
+    const expiry = new Date(dateString);
 
-  // 使用与 formatExpiryDate 相同的逻辑解析日期
-  const expiryUTC = new Date(dateString);
-  const year = expiryUTC.getUTCFullYear();
-  const month = expiryUTC.getUTCMonth();
-  const day = expiryUTC.getUTCDate();
-  const expiry = new Date(year, month, day, 0, 0, 0, 0);
+    // 计算剩余天数
+    const diffMs = expiry.getTime() - now.getTime();
+    const days = diffMs / (1000 * 60 * 60 * 24);
 
-  const diffMs = expiry.getTime() - now.getTime();
-  const days = diffMs / (1000 * 60 * 60 * 24);
+    // 使用配置的阈值
+    const safeThreshold = props.statusThresholds.time.safe;
+    const warningThreshold = props.statusThresholds.time.warning;
 
-  let color;
+    let color;
 
-  if (days >= 20) {
-    // 剩余时间 ≥ 20天：深绿文字
-    color = "#15803d";
-  } else if (days >= 10) {
-    // 剩余时间 ≥ 10天 且 < 20天：深黄文字
-    color = "#a16207";
-  } else {
-    // 剩余时间 < 10天：深红文字
-    color = "#b91c1c";
+    // 颜色区域规则：
+    // 红色：0 < 值 ≤ warning
+    // 黄色：warning < 值 ≤ safe
+    // 绿色：safe < 值 ≤ max
+    if (days > safeThreshold) {
+      // 剩余时间 > 安全阈值：深绿文字
+      color = "#15803d";
+    } else if (days > warningThreshold) {
+      // 剩余时间 > 警告阈值 且 ≤ 安全阈值：深黄文字
+      color = "#a16207";
+    } else {
+      // 剩余时间 ≤ 警告阈值：深红文字
+      color = "#b91c1c";
+    }
+
+    return {
+      color,
+    };
+  } catch {
+    return {
+      color: "#b91c1c",
+    };
   }
-
-  return {
-    color,
-  };
 };
 
 // 剩余额度样式：根据额度数量显示不同颜色（只改变文字颜色）
 const getBalanceStyle = (balance) => {
+  // 使用配置的阈值
+  const safeThreshold = props.statusThresholds.balance.safe;
+  const warningThreshold = props.statusThresholds.balance.warning;
+
   let color;
 
-  if (balance >= 2000) {
-    // 额度 ≥ 2000：深绿文字
+  // 颜色区域规则：
+  // 红色：0 < 值 ≤ warning
+  // 黄色：warning < 值 ≤ safe
+  // 绿色：safe < 值 ≤ max
+  if (balance > safeThreshold) {
+    // 额度 > 安全阈值：深绿文字
     color = "#15803d";
-  } else if (balance >= 1000) {
-    // 额度 ≥ 1000 且 < 2000：深黄文字
+  } else if (balance > warningThreshold) {
+    // 额度 > 警告阈值 且 ≤ 安全阈值：深黄文字
     color = "#a16207";
   } else {
-    // 额度 < 1000：深红文字
+    // 额度 ≤ 警告阈值：深红文字
     color = "#b91c1c";
   }
 
@@ -1486,7 +1508,8 @@ const getComprehensiveStatus = (apiStatus, portalData) => {
     if (portalData.expiry_date) {
       const now = new Date();
       const expiry = new Date(portalData.expiry_date);
-      if (expiry <= now) {
+
+      if (expiry.getTime() <= now.getTime()) {
         return "EXPIRED";
       }
     }

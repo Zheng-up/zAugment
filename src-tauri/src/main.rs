@@ -7,6 +7,7 @@ mod bookmarks;
 mod http_server;
 mod outlook_manager;
 mod storage;
+mod thresholds;
 mod webdav;
 
 use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, extract_token_from_session, AugmentOAuthState, AugmentTokenResponse, AccountStatus};
@@ -15,6 +16,7 @@ use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
 use outlook_manager::{OutlookManager, OutlookCredentials, EmailListResponse, EmailDetailsResponse, AccountStatus as OutlookAccountStatus};
 use storage::{LocalFileStorage, TokenStorage};
+use thresholds::{ThresholdsManager, StatusThresholds};
 use webdav::{WebDAVConfig, CloudSync, SecureWebDAVConfig, PasswordManager};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
@@ -42,6 +44,7 @@ pub struct UserDataPackage {
     pub tokens: Option<serde_json::Value>,           // tokens.json 内容
     pub unified_config: Option<UnifiedAppConfig>,    // 统一配置（包含WebDAV配置）
     pub bookmarks: Option<serde_json::Value>,        // 书签数据
+    pub status_thresholds: Option<StatusThresholds>, // 账号状态阈值配置
 }
 
 impl Default for UserDataPackage {
@@ -52,6 +55,7 @@ impl Default for UserDataPackage {
             tokens: None,
             unified_config: None,
             bookmarks: None,
+            status_thresholds: None,
         }
     }
 }
@@ -85,12 +89,23 @@ impl UserDataPackage {
             package.bookmarks = serde_json::from_str(&bookmarks_content)
                 .map_err(|e| format!("解析bookmarks.json失败: {}", e))?;
         }
-        
 
-        
+        // 5. 收集阈值配置
+        let mut manager_guard = state.thresholds_manager.lock().unwrap();
+        if manager_guard.is_none() {
+            *manager_guard = Some(ThresholdsManager::new(data_dir.clone()));
+        }
+        let manager = manager_guard.as_ref().unwrap();
+
+        // 优先从云端文件加载，失败则从本地文件加载
+        if let Ok(thresholds) = manager.load_from_cloud().or_else(|_| manager.load_from_local()) {
+            package.status_thresholds = Some(thresholds);
+        }
+        drop(manager_guard);
+
         // 更新时间戳
         package.timestamp = chrono::Utc::now();
-        
+
         Ok(package)
     }
     
@@ -144,9 +159,20 @@ impl UserDataPackage {
             fs::write(&bookmarks_path, bookmarks_content)
                 .map_err(|e| format!("写入bookmarks.json失败: {}", e))?;
         }
-        
 
-        
+        // 5. 恢复阈值配置
+        if let Some(ref thresholds) = self.status_thresholds {
+            let mut manager_guard = state.thresholds_manager.lock().unwrap();
+            if manager_guard.is_none() {
+                *manager_guard = Some(ThresholdsManager::new(data_dir.clone()));
+            }
+            let manager = manager_guard.as_ref().unwrap();
+
+            // 同时保存到本地和云端文件
+            manager.save_to_local(thresholds)?;
+            manager.save_to_cloud(thresholds)?;
+        }
+
         Ok(())
     }
     
@@ -174,6 +200,7 @@ struct AppState {
     webdav_config: Arc<Mutex<Option<SecureWebDAVConfig>>>,
     cloud_sync: Arc<Mutex<Option<CloudSync>>>,
     password_manager: Arc<PasswordManager>,
+    thresholds_manager: Arc<Mutex<Option<ThresholdsManager>>>,
 }
 
 #[tauri::command]
@@ -2589,9 +2616,62 @@ async fn save_ui_settings_cmd(
     config.ui_settings.window_size = window_size;
     config.ui_settings.language = language;
     config.last_updated = chrono::Utc::now();
-    
+
     save_unified_config_with_state(&app, &config, &state)?;
     Ok(())
+}
+
+// ================================
+// 阈值配置管理命令
+// ================================
+
+// Tauri命令：保存阈值配置
+#[tauri::command]
+async fn save_status_thresholds(
+    thresholds: StatusThresholds,
+    state: State<'_, AppState>,
+    app: tauri::AppHandle
+) -> Result<String, String> {
+    // 初始化 thresholds_manager（如果还没有初始化）
+    let data_dir = get_effective_data_dir(&app, &state)?;
+
+    let mut manager_guard = state.thresholds_manager.lock().unwrap();
+    if manager_guard.is_none() {
+        *manager_guard = Some(ThresholdsManager::new(data_dir.clone()));
+    }
+
+    let manager = manager_guard.as_ref().unwrap();
+
+    // 保存到本地文件
+    manager.save_to_local(&thresholds)?;
+
+    // 保存到云端文件（用于WebDAV同步）
+    manager.save_to_cloud(&thresholds)?;
+
+    Ok("阈值配置已保存".to_string())
+}
+
+// Tauri命令：加载阈值配置
+#[tauri::command]
+async fn load_status_thresholds(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle
+) -> Result<StatusThresholds, String> {
+    // 初始化 thresholds_manager（如果还没有初始化）
+    let data_dir = get_effective_data_dir(&app, &state)?;
+
+    let mut manager_guard = state.thresholds_manager.lock().unwrap();
+    if manager_guard.is_none() {
+        *manager_guard = Some(ThresholdsManager::new(data_dir.clone()));
+    }
+
+    let manager = manager_guard.as_ref().unwrap();
+
+    // 先尝试从云端文件加载
+    let thresholds = manager.load_from_cloud()
+        .or_else(|_| manager.load_from_local())?;
+
+    Ok(thresholds)
 }
 
 // ================================
@@ -3566,6 +3646,7 @@ fn main() {
                 webdav_config: Arc::new(Mutex::new(None)),
                 cloud_sync: Arc::new(Mutex::new(None)),
                 password_manager: Arc::new(PasswordManager::new()),
+                thresholds_manager: Arc::new(Mutex::new(None)),
             };
 
             app.manage(app_state);
@@ -3634,6 +3715,10 @@ fn main() {
             get_app_settings_cmd,
             get_unified_config_cmd,
             save_ui_settings_cmd,
+
+            // 阈值配置管理命令
+            save_status_thresholds,
+            load_status_thresholds,
 
             // 版本检查命令
             get_app_version,
