@@ -334,9 +334,10 @@ const handleEscKey = (e) => {
 
 /* 弹窗内容区域 */
 .modal-body {
-  padding: 32px;
+  padding: 14px 32px;
   overflow-y: auto;
   flex: 1;
+  box-sizing: border-box;
 }
 
 .modal-body.no-header {
@@ -404,11 +405,11 @@ const handleEscKey = (e) => {
   }
 
   .modal-body {
-    padding: 24px;
+    padding: 14px 24px;
   }
 
   .modal-header.has-tabs + .modal-body {
-    padding-top: 20px;
+    padding-top: 14px;
     margin-top: 12px;
   }
 }

@@ -173,7 +173,7 @@ const props = defineProps({
     default: 50,
   },
 });
-const emit = defineEmits(["close", "save"]);
+const emit = defineEmits(["close", "save", "reset"]);
 // 本地状态
 const localTimeThresholds = ref({ ...props.timeThresholds });
 const localBalanceThresholds = ref({ ...props.balanceThresholds });
@@ -293,6 +293,7 @@ const handleReset = () => {
   localBalanceThresholds.value = { warning: 10, safe: 30 };
   localTimeMax.value = 365;
   localBalanceMax.value = 100000;
+  emit("reset");
 };
 </script>
 <style scoped>

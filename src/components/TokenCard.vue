@@ -638,10 +638,10 @@ const props = defineProps({
   statusThresholds: {
     type: Object,
     default: () => ({
-      time: { warning: 10, safe: 20 },
-      balance: { warning: 1000, safe: 2000 },
-      timeMax: 30,
-      balanceMax: 5000,
+      time: { warning: 3, safe: 5 },
+      balance: { warning: 10, safe: 30 },
+      timeMax: 365,
+      balanceMax: 100000,
     }),
   },
 });

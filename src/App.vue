@@ -1589,6 +1589,7 @@
         :balanceMax="statusThresholds.balanceMax"
         @close="showThresholdConfigModal = false"
         @save="handleSaveThresholds"
+        @reset="handleResetThresholds"
       />
     </div>
 
@@ -2402,15 +2403,15 @@ const createTagOnImportExport = ref(false);
 const showThresholdConfigModal = ref(false);
 const statusThresholds = ref({
   time: {
-    warning: 10, // 警告阈值（天）
-    safe: 20, // 安全阈值（天）
+    warning: 3, // 警告阈值（天）
+    safe: 5, // 安全阈值（天）
   },
   balance: {
-    warning: 1000, // 警告阈值（积分）
-    safe: 2000, // 安全阈值（积分）
+    warning: 10, // 警告阈值（积分）
+    safe: 30, // 安全阈值（积分）
   },
-  timeMax: 30, // 时间最大值（天）
-  balanceMax: 5000, // 额度最大值（积分）
+  timeMax: 365, // 时间最大值（天）
+  balanceMax: 100000, // 额度最大值（积分）
 });
 
 // 保存自动上传状态到本地存储
@@ -2541,10 +2542,10 @@ const loadStatusThresholds = async () => {
       const parsed = JSON.parse(saved);
       // 合并保存的配置和默认值，确保所有字段都存在
       statusThresholds.value = {
-        time: parsed.time || { warning: 10, safe: 20 },
-        balance: parsed.balance || { warning: 1000, safe: 2000 },
-        timeMax: parsed.timeMax || 30,
-        balanceMax: parsed.balanceMax || 5000,
+        time: parsed.time || { warning: 3, safe: 5 },
+        balance: parsed.balance || { warning: 10, safe: 30 },
+        timeMax: parsed.timeMax || 365,
+        balanceMax: parsed.balanceMax || 100000,
       };
       console.log("账号状态阈值已恢复:", statusThresholds.value);
     }
@@ -2552,10 +2553,10 @@ const loadStatusThresholds = async () => {
     console.error("加载账号状态阈值失败:", error);
     // 出错时使用默认值
     statusThresholds.value = {
-      time: { warning: 10, safe: 20 },
-      balance: { warning: 1000, safe: 2000 },
-      timeMax: 30,
-      balanceMax: 5000,
+      time: { warning: 3, safe: 5 },
+      balance: { warning: 10, safe: 30 },
+      timeMax: 365,
+      balanceMax: 100000,
     };
   }
 };
@@ -2582,6 +2583,11 @@ const handleSaveThresholds = (config) => {
   statusThresholds.value.balanceMax = config.balanceMax;
   saveStatusThresholds();
   showStatus("阈值配置已保存", "success");
+};
+
+// 处理恢复默认阈值配置
+const handleResetThresholds = () => {
+  showStatus("已恢复默认阈值配置", "success");
 };
 
 // 重试进度状态
@@ -3635,6 +3641,8 @@ const handleNavClick = (view) => {
   showEditorResetModal.value = false;
   // 关闭账号管理弹窗
   showAccountManagerModal.value = false;
+
+  showSessionHelpModal.value = false;
 };
 
 // 处理编辑器重置弹窗关闭
@@ -6455,14 +6463,13 @@ body {
 .session-help-content {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 10px;
+  max-height: 60vh;
 }
 
 .help-step {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
   padding: 16px;
+  /* margin-bottom: 20px; */
   background: linear-gradient(
     135deg,
     rgba(248, 250, 252, 0.8) 0%,
