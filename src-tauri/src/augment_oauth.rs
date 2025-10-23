@@ -29,6 +29,7 @@ pub struct ParsedCode {
 pub struct AugmentTokenResponse {
     pub access_token: String,
     pub tenant_url: String,
+    pub portal_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -49,6 +50,36 @@ pub struct DebugInfo {
     pub response_headers: std::collections::HashMap<String, String>,
     pub response_body: String,
     pub response_status_text: String,
+}
+
+// 批量检测相关结构体
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TokenInfo {
+    pub access_token: String,
+    pub tenant_url: String,
+    pub id: Option<String>, // 用于前端识别是哪个token
+    pub portal_url: Option<String>, // Portal URL用于获取使用次数信息
+    pub auth_session: Option<String>, // Auth session用于自动刷新token
+}
+
+// Portal信息结构体
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PortalInfo {
+    pub credits_balance: i32,
+    pub expiry_date: Option<String>,
+    pub can_still_use: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TokenStatusResult {
+    pub token_id: Option<String>, // 对应输入的id
+    pub access_token: String, // 保留token用于前端更新 (如果被刷新,这里是新token)
+    pub tenant_url: String, // 保留tenant_url用于前端更新 (如果被刷新,这里是新url)
+    pub portal_url: Option<String>, // Portal URL (如果被刷新,这里是新url)
+    pub status_result: AccountStatus,
+    pub portal_info: Option<PortalInfo>, // Portal信息（如果有）
+    pub portal_error: Option<String>, // Portal获取错误（如果有）
+    pub suspensions: Option<serde_json::Value>, // 封禁详情（如果有）
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -175,6 +206,7 @@ pub async fn complete_augment_oauth_flow(
     Ok(AugmentTokenResponse {
         access_token: token,
         tenant_url: parsed_code.tenant_url,
+        portal_url: None, // OAuth 流程不提供 portal_url
     })
 }
 
@@ -182,7 +214,7 @@ pub async fn complete_augment_oauth_flow(
 pub async fn check_account_ban_status(
     token: &str,
     tenant_url: &str,
-) -> Result<AccountStatus, Box<dyn std::error::Error>> {
+) -> Result<AccountStatus, Box<dyn std::error::Error + Send + Sync>> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()?;
@@ -414,9 +446,22 @@ pub async fn extract_token_from_session(session: &str) -> Result<AugmentTokenRes
         .await
         .map_err(|e| format!("Failed to parse token response: {}", e))?;
 
+    // 尝试获取 portal_url
+    let portal_url = match crate::augment_user_info::get_user_info(session).await {
+        Ok(user_info) => {
+            println!("Successfully fetched portal_url from session: {:?}", user_info.portal_url);
+            user_info.portal_url
+        }
+        Err(err) => {
+            println!("Failed to fetch portal_url from session: {}", err);
+            None
+        }
+    };
+
     Ok(AugmentTokenResponse {
         access_token: token_data.access_token,
         tenant_url: tenant_url.to_string(),
+        portal_url,
     })
 }
 
@@ -427,4 +472,372 @@ fn generate_random_string(length: usize) -> String {
     let mut random_bytes = vec![0u8; length];
     rng.fill_bytes(&mut random_bytes);
     base64_url_encode(&random_bytes)
+}
+
+// 从Portal URL提取token
+fn extract_token_from_portal_url(portal_url: &str) -> Option<String> {
+    if let Ok(url) = url::Url::parse(portal_url) {
+        url.query_pairs()
+            .find(|(key, _)| key == "token")
+            .map(|(_, value)| value.into_owned())
+    } else {
+        None
+    }
+}
+
+// 获取Portal信息
+async fn get_portal_info(portal_url: &str) -> Result<PortalInfo, String> {
+    let token = extract_token_from_portal_url(portal_url)
+        .ok_or("Failed to extract token from portal URL")?;
+
+    // 获取customer信息
+    let customer_url = format!("https://portal.withorb.com/api/v1/customer_from_link?token={}", token);
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let customer_response = client
+        .get(&customer_url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .header("Accept", "application/json, text/plain, */*")
+        .header("Accept-Language", "en-US,en;q=0.9")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get customer info: {}", e))?;
+
+    if !customer_response.status().is_success() {
+        return Err(format!("Customer API request failed: {}", customer_response.status()));
+    }
+
+    let customer_text = customer_response.text().await
+        .map_err(|e| format!("Failed to read customer response: {}", e))?;
+
+    let customer_data: serde_json::Value = serde_json::from_str(&customer_text)
+        .map_err(|e| format!("Failed to parse customer response: {}", e))?;
+
+    // 提取customer_id和pricing_unit_id
+    let customer_id = customer_data["customer"]["id"]
+        .as_str()
+        .ok_or("Customer ID not found")?;
+
+    let pricing_unit_id = customer_data["customer"]["ledger_pricing_units"][0]["id"]
+        .as_str()
+        .ok_or("Pricing unit ID not found")?;
+
+    // 获取ledger summary
+    let ledger_url = format!(
+        "https://portal.withorb.com/api/v1/customers/{}/ledger_summary?pricing_unit_id={}&token={}",
+        customer_id, pricing_unit_id, token
+    );
+
+    let ledger_response = client
+        .get(&ledger_url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .header("Accept", "application/json, text/plain, */*")
+        .header("Accept-Language", "en-US,en;q=0.9")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get ledger info: {}", e))?;
+
+    if !ledger_response.status().is_success() {
+        return Err(format!("Ledger API request failed: {}", ledger_response.status()));
+    }
+
+    let ledger_text = ledger_response.text().await
+        .map_err(|e| format!("Failed to read ledger response: {}", e))?;
+
+    let ledger_data: serde_json::Value = serde_json::from_str(&ledger_text)
+        .map_err(|e| format!("Failed to parse ledger response: {}", e))?;
+
+    // 解析Portal信息
+    let credits_balance: i32 = ledger_data["credits_balance"].as_str()
+        .and_then(|s| s.parse::<f64>().ok())
+        .map(|v| v.floor() as i32)
+        .unwrap_or(0);
+
+    let mut expiry_date = None;
+
+    if let Some(credit_blocks) = ledger_data["credit_blocks"].as_array() {
+        if let Some(first_block) = credit_blocks.first() {
+            expiry_date = first_block["expiry_date"].as_str().map(|s| s.to_string());
+        }
+    }
+
+    Ok(PortalInfo {
+        credits_balance,
+        expiry_date,
+        can_still_use: false, // 默认值，将在batch_check_account_status中更新
+    })
+}
+
+pub async fn check_subscription_info(token: String, tenant_url: String) -> Result<bool, String> {
+    let url = format!("{}/subscription-info", tenant_url.trim_end_matches('/'));
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "application/json")
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to make API request: {}", e))?;
+
+    let status = response.status();
+
+    if status.is_success() {
+        let response_text = response
+            .text()
+            .await
+            .map_err(|e| format!("Failed to read response: {}", e))?;
+
+        // 检查响应中是否包含 "out of user messages"
+        let has_usage_limit = response_text.contains("out of user messages");
+        Ok(!has_usage_limit) // 如果包含限制信息则返回false，否则返回true
+    } else {
+        Err(format!("API request failed with status {}: {}", status, response.status()))
+    }
+}
+
+// 批量检测账号状态
+pub async fn batch_check_account_status(
+    tokens: Vec<TokenInfo>
+) -> Result<Vec<TokenStatusResult>, String> {
+
+    // 创建并发任务并立即spawn
+    let mut handles = Vec::new();
+
+    for token_info in tokens {
+        let mut token = token_info.access_token.clone();
+        let mut tenant_url = token_info.tenant_url.clone();
+        let token_id = token_info.id.clone();
+        let mut portal_url = token_info.portal_url.clone();
+        let auth_session = token_info.auth_session.clone();
+
+        let handle = tokio::spawn(async move {
+            println!("Checking status for token: {:?}", token_id);
+
+            // 1. 先检测账号封禁状态
+            let status_result = check_account_ban_status(&token, &tenant_url).await;
+
+            // 处理账号状态检测结果
+            let mut status_result = match status_result {
+                Ok(status) => status,
+                Err(err) => {
+                    // 如果出错，创建一个错误状态并直接返回
+                    let error_status = AccountStatus {
+                        is_banned: false,
+                        status: "ERROR".to_string(),
+                        error_message: Some(format!("Failed to check status: {}", err)),
+                        response_code: None,
+                        debug_info: DebugInfo {
+                            request_url: format!("{}find-missing", tenant_url),
+                            request_headers: HashMap::new(),
+                            request_body: "{}".to_string(),
+                            response_headers: HashMap::new(),
+                            response_body: format!("Error: {}", err),
+                            response_status_text: "Error".to_string(),
+                        },
+                    };
+
+                    return TokenStatusResult {
+                        token_id,
+                        access_token: token,
+                        tenant_url,
+                        portal_url,
+                        status_result: error_status,
+                        portal_info: None,
+                        portal_error: Some(format!("Status check failed: {}", err)),
+                        suspensions: None,
+                    };
+                }
+            };
+
+            // 2. 如果检测到 INVALID_TOKEN 且有 auth_session，尝试自动刷新
+            if status_result.status == "INVALID_TOKEN" {
+                if let Some(ref session) = auth_session {
+                    println!("Detected INVALID_TOKEN for {:?}, attempting auto-refresh with auth_session", token_id);
+
+                    match extract_token_from_session(session).await {
+                        Ok(new_token_response) => {
+                            println!("Successfully refreshed token for {:?}", token_id);
+                            // 更新 token、tenant_url 和 portal_url
+                            token = new_token_response.access_token;
+                            tenant_url = new_token_response.tenant_url;
+
+                            // 如果获取到了新的 portal_url，更新它
+                            if let Some(new_portal_url) = new_token_response.portal_url {
+                                println!("Updated portal_url for {:?}: {}", token_id, new_portal_url);
+                                portal_url = Some(new_portal_url);
+                            }
+
+                            // 重新检测状态
+                            match check_account_ban_status(&token, &tenant_url).await {
+                                Ok(new_status) => {
+                                    status_result = new_status;
+                                    status_result.error_message = Some(format!(
+                                        "Token was invalid but successfully auto-refreshed. New status: {}",
+                                        status_result.status
+                                    ));
+                                }
+                                Err(err) => {
+                                    println!("Failed to check status after refresh: {}", err);
+                                    status_result.error_message = Some(format!(
+                                        "Token refreshed but status check failed: {}",
+                                        err
+                                    ));
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            println!("Failed to refresh token for {:?}: {}", token_id, err);
+
+                            // 如果刷新失败原因是 SESSION_ERROR_OR_ACCOUNT_BANNED，视为账号封禁
+                            if err.contains("SESSION_ERROR_OR_ACCOUNT_BANNED") {
+                                status_result.status = "SUSPENDED".to_string();
+                                status_result.is_banned = true;
+                                status_result.error_message = Some(
+                                    "Account is suspended (detected during token refresh)".to_string()
+                                );
+                            } else {
+                                status_result.error_message = Some(format!(
+                                    "Token is invalid. Auto-refresh failed: {}",
+                                    err
+                                ));
+                            }
+                        }
+                    }
+                } else {
+                    println!("Token {:?} is invalid but no auth_session available for refresh", token_id);
+                    status_result.error_message = Some(
+                        "Token is invalid. No auth_session available for auto-refresh".to_string()
+                    );
+                }
+            }
+
+            // 3. 如果账号被封禁，尝试获取详细的用户信息
+            let mut suspensions_info = None;
+            if status_result.is_banned {
+                // 如果有 auth_session,获取详细的封禁信息
+                if let Some(ref session) = auth_session {
+                    println!("Account banned for {:?}, fetching detailed user info", token_id);
+                    match crate::augment_user_info::get_user_info(session).await {
+                        Ok(user_info) => {
+                            println!("Successfully fetched user info for banned account {:?}", token_id);
+                            // 保存 suspensions 信息
+                            if let Some(suspensions) = user_info.suspensions {
+                                suspensions_info = Some(suspensions.clone());
+                                status_result.error_message = Some(format!(
+                                    "Account banned. Suspensions: {}",
+                                    serde_json::to_string(&suspensions).unwrap_or_else(|_| "N/A".to_string())
+                                ));
+                            }
+                        }
+                        Err(err) => {
+                            println!("Failed to fetch user info for banned account {:?}: {}", token_id, err);
+                            // 不影响主流程,只记录错误
+                        }
+                    }
+                }
+
+                return TokenStatusResult {
+                    token_id,
+                    access_token: token,
+                    tenant_url,
+                    portal_url,
+                    status_result,
+                    portal_info: None,
+                    portal_error: None,
+                    suspensions: suspensions_info,
+                };
+            }
+
+            // 4. 如果账号未封禁且有Portal URL，获取Portal信息
+            let (portal_info, portal_error) = if let Some(ref portal_url_ref) = portal_url {
+                match get_portal_info(portal_url_ref).await {
+                    Ok(mut portal_info) => {
+                        // 如果credits_balance为0，检查订阅状态
+                        if portal_info.credits_balance == 0 {
+                            match check_subscription_info(token.clone(), tenant_url.clone()).await {
+                                Ok(can_use) => {
+                                    portal_info.can_still_use = can_use;
+                                }
+                                Err(err) => {
+                                    println!("Failed to check subscription info: {}", err);
+                                    portal_info.can_still_use = false;
+                                }
+                            }
+                        } else {
+                            // 如果有余额，设置为可以使用
+                            portal_info.can_still_use = true;
+                        }
+
+                        // 如果账号状态为 EXPIRED，则无论上面检测结果如何，都视为不可使用
+                        if status_result.status == "EXPIRED" {
+                            portal_info.can_still_use = false;
+                        }
+                        (Some(portal_info), None)
+                    }
+                    Err(err) => (None, Some(err))
+                }
+            } else {
+                (None, None)
+            };
+
+            TokenStatusResult {
+                token_id,
+                access_token: token,
+                tenant_url,
+                portal_url,
+                status_result,
+                portal_info,
+                portal_error,
+                suspensions: None,  // 正常情况下不需要 suspensions
+            }
+        });
+
+        handles.push(handle);
+    }
+
+    let mut results = Vec::new();
+    for (index, handle) in handles.into_iter().enumerate() {
+        match handle.await {
+            Ok(result) => results.push(result),
+            Err(err) => {
+                eprintln!("Task {} failed: {}", index, err);
+                // 创建一个错误状态的结果
+                results.push(TokenStatusResult {
+                    token_id: Some(format!("task_{}", index)),
+                    access_token: "".to_string(),
+                    tenant_url: "".to_string(),
+                    portal_url: None,
+                    status_result: AccountStatus {
+                        is_banned: false,
+                        status: "ERROR".to_string(),
+                        error_message: Some(format!("Task execution failed: {}", err)),
+                        response_code: None,
+                        debug_info: DebugInfo {
+                            request_url: "".to_string(),
+                            request_headers: HashMap::new(),
+                            request_body: "{}".to_string(),
+                            response_headers: HashMap::new(),
+                            response_body: format!("Task Error: {}", err),
+                            response_status_text: "Error".to_string(),
+                        },
+                    },
+                    portal_info: None,
+                    portal_error: Some(format!("Task failed: {}", err)),
+                    suspensions: None,
+                });
+            }
+        }
+    }
+
+    Ok(results)
 }

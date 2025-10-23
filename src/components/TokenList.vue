@@ -75,11 +75,12 @@
               :key="token.id"
               :ref="(el) => setTokenCardRef(el, token.id)"
               :token="token"
+              :is-batch-checking="isRefreshing"
               :statusThresholds="statusThresholds"
               @delete="$emit('delete-token', $event)"
               @copy-success="handleCopySuccess"
               @edit="$emit('edit-token', $event)"
-              @token-updated="$emit('token-updated', $event)"
+              @token-updated="handleTokenUpdated"
             />
           </div>
         </div>
@@ -89,7 +90,8 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from "vue";
+import { ref, onMounted } from "vue";
+import { invoke } from "@tauri-apps/api/core";
 import TokenCard from "./TokenCard.vue";
 
 // Props
@@ -126,7 +128,6 @@ const emit = defineEmits([
   "delete-token",
   "edit-token",
   "copy-success",
-
   "token-updated",
   "add-new-token",
   "auto-check-completed",
@@ -135,6 +136,7 @@ const emit = defineEmits([
 
 // Token card refs for portal refresh
 const tokenCardRefs = ref({});
+const isRefreshing = ref(false);
 
 const setTokenCardRef = (el, tokenId) => {
   if (el) {
@@ -144,16 +146,154 @@ const setTokenCardRef = (el, tokenId) => {
   }
 };
 
-const handleRefresh = () => {
-  emit("refresh");
+const handleTokenUpdated = (updatedToken) => {
+  emit("token-updated", updatedToken);
 };
 
 const handleCopySuccess = (message, type) => {
   emit("copy-success", message, type);
 };
 
+// 检查所有Token的账号状态
+const checkAllAccountStatus = async () => {
+  if (props.tokens.length === 0) {
+    return { success: true, message: "没有需要检查的账号" };
+  }
+
+  isRefreshing.value = true;
+
+  try {
+    // 准备批量检测的数据，过滤掉标记为跳过检测的账号
+    const tokensToCheck = props.tokens.filter((token) => !token.skip_check);
+
+    if (tokensToCheck.length === 0) {
+      emit("copy-success", "所有账号都已禁用检测", "info");
+      return { success: true, message: "所有账号都已禁用检测" };
+    }
+
+    const tokenInfos = tokensToCheck.map((token) => ({
+      id: token.id,
+      access_token: token.access_token,
+      tenant_url: token.tenant_url,
+      portal_url: token.portal_url || null,
+      auth_session: token.auth_session || null,
+    }));
+
+    // 单次批量API调用
+    const results = await invoke("batch_check_tokens_status", {
+      tokens: tokenInfos,
+    });
+
+    // 批量更新tokens状态
+    updateTokensFromResults(results);
+
+    // 通知父组件保存
+    emit("token-updated");
+
+    // 显示检查完成提示
+    emit(
+      "copy-success",
+      `已完成 ${tokensToCheck.length} 个账号的状态检测`,
+      "success"
+    );
+
+    return { success: true, message: "批量检查完成" };
+  } catch (error) {
+    console.error("Batch check error:", error);
+    emit("copy-success", `批量检查失败: ${error}`, "error");
+    return {
+      success: false,
+      message: `批量检查失败: ${error}`,
+    };
+  } finally {
+    isRefreshing.value = false;
+  }
+};
+
+// 根据批量检测结果更新tokens状态
+const updateTokensFromResults = (results) => {
+  results.forEach((result) => {
+    const token = props.tokens.find((t) => t.id === result.token_id);
+    if (token) {
+      const statusResult = result.status_result;
+
+      // 始终更新 access_token、tenant_url 和 portal_url (如果 token 被刷新,这里会是新值)
+      token.access_token = result.access_token;
+      token.tenant_url = result.tenant_url;
+
+      // 如果后端返回了新的 portal_url，更新它
+      if (result.portal_url) {
+        token.portal_url = result.portal_url;
+        console.log(`Updated token ${token.id} portal_url:`, result.portal_url);
+      }
+
+      // 更新ban_status
+      token.ban_status = statusResult.status;
+
+      // 自动禁用封禁或过期的账号检测
+      if (
+        (statusResult.status === "SUSPENDED" ||
+          statusResult.status === "EXPIRED") &&
+        !token.skip_check
+      ) {
+        token.skip_check = true;
+        // 显示通知
+        const autoDisableMsg =
+          statusResult.status === "SUSPENDED"
+            ? "账号已封禁，已自动禁用检测"
+            : "账号已过期，已自动禁用检测";
+        emit("copy-success", autoDisableMsg, "error");
+      }
+
+      // 更新 suspensions 信息（如果有）
+      if (result.suspensions) {
+        token.suspensions = result.suspensions;
+        console.log(
+          `Updated suspensions for token ${token.id}:`,
+          result.suspensions
+        );
+      }
+
+      // 更新Portal信息（如果有）
+      if (result.portal_info) {
+        token.portal_info = {
+          credits_balance: result.portal_info.credits_balance,
+          expiry_date: result.portal_info.expiry_date,
+          can_still_use: result.portal_info.can_still_use,
+        };
+        console.log(
+          `Updated token ${token.id} portal info:`,
+          token.portal_info
+        );
+      } else if (result.portal_error) {
+        console.warn(
+          `Failed to get portal info for token ${token.id}:`,
+          result.portal_error
+        );
+      }
+
+      // 更新时间戳
+      token.updated_at = new Date().toISOString();
+      console.log(
+        `Updated token ${token.id} status to: ${statusResult.status}`
+      );
+    }
+  });
+};
+
+// 关闭所有 TokenCard 的弹窗
+const closeAllTokenCardModals = () => {
+  Object.values(tokenCardRefs.value).forEach((cardRef) => {
+    if (cardRef && cardRef.closeAllModals) {
+      cardRef.closeAllModals();
+    }
+  });
+};
+
 // Expose methods
 defineExpose({
+  checkAllAccountStatus,
+  closeAllTokenCardModals,
   refreshAllPortalInfo: async () => {
     // 刷新所有有portal_url的账号的额度信息
     const refreshOperations = [];

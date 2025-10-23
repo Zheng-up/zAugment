@@ -1,5 +1,14 @@
 <template>
-  <div class="token-card">
+  <div
+    :class="[
+      'token-card',
+      {
+        'menu-open': showCopyMenu,
+        highlighted: isHighlighted,
+      },
+    ]"
+    @click="handleClickOutside"
+  >
     <!-- 状态指示器 -->
     <div
       v-if="(token.portal_url && portalInfo.data) || token.ban_status"
@@ -28,7 +37,7 @@
           <span
             class="tenant-name"
             :style="tenantNameStyle"
-            @click="openTagEditor"
+            @click.stop="openTagEditor"
             title="标签"
           >
             {{ displayUrl }}
@@ -44,7 +53,7 @@
             <span
               v-if="token.email_note"
               class="email-note"
-              @click="copyEmailNote"
+              @click.stop="copyEmailNote"
               @mouseenter="showFullEmail = true"
               @mouseleave="showFullEmail = false"
               title="点击复制"
@@ -65,57 +74,64 @@
           </div>
           <!-- 第二行：Portal信息 -->
           <div class="meta-row portal-row">
-            <template v-if="token.portal_url">
-              <!-- 优先显示Portal数据，无论是来自本地缓存还是网络请求 -->
-              <template v-if="portalInfo.data">
-                <span class="portal-meta" :style="metaStyle">
-                  <span class="portal-info-item expiry">
-                    时间：
-                    <span
-                      class="portal-value"
-                      :style="getExpiryStyle(portalInfo.data.expiry_date)"
-                      >{{ formatExpiryDate(portalInfo.data.expiry_date) }}</span
-                    >
-                  </span>
-                  <span class="portal-separator">|</span>
-                  <span class="portal-info-item balance">
-                    额度：
-                    <span
-                      class="portal-value"
-                      :style="getBalanceStyle(portalInfo.data.credits_balance)"
-                      >{{ portalInfo.data.credits_balance }} 分
-                    </span>
-                  </span>
-                </span>
-              </template>
-              <!-- 如果没有数据且正在加载，显示加载状态 -->
-              <template v-else-if="isLoadingPortalInfo">
-                <span class="portal-meta loading" :style="metaStyle"
-                  >加载中...</span
-                >
-              </template>
-              <!-- 如果有portal_url但获取失败，显示未知信息 -->
-              <template v-else>
-                <span class="portal-meta unknown" :style="metaStyle">
-                  <span class="portal-info-item"
-                    ><span class="portal-value">未知</span></span
-                  >
-                  <span class="portal-separator">|</span>
-                  <span class="portal-info-item"
-                    ><span class="portal-value">未知</span></span
-                  >
-                </span>
-              </template>
+            <!-- 如果没有数据且正在加载，显示加载状态 -->
+            <template
+              v-if="
+                isLoadingPortalInfo ||
+                isCheckingStatus ||
+                (isBatchChecking && !token.skip_check)
+              "
+            >
+              <span class="portal-meta loading">加载中...</span>
             </template>
-            <!-- 如果没有portal_url，显示未知信息 -->
-            <template v-else>
-              <span class="portal-meta unknown" :style="metaStyle">
+            <!-- 如果账号已封禁，固定显示未知 -->
+            <template
+              v-else-if="
+                token.ban_status === 'SUSPENDED' ||
+                token.ban_status === 'EXPIRED'
+              "
+            >
+              <span class="portal-meta unknown">
                 <span class="portal-info-item"
-                  ><span class="portal-value">未知</span></span
+                  ><span class="portal-value">时间：未知</span></span
                 >
                 <span class="portal-separator">|</span>
                 <span class="portal-info-item"
-                  ><span class="portal-value">未知</span></span
+                  ><span class="portal-value">额度：未知</span></span
+                >
+              </span>
+            </template>
+            <!-- 如果有portal_url且有数据，显示Portal数据 -->
+            <template v-else-if="token.portal_url && portalInfo.data">
+              <span class="portal-meta">
+                <span class="portal-info-item expiry">
+                  时间：
+                  <span
+                    class="portal-value"
+                    :style="getExpiryStyle(portalInfo.data.expiry_date)"
+                    >{{ formatExpiryDate(portalInfo.data.expiry_date) }}</span
+                  >
+                </span>
+                <span class="portal-separator">|</span>
+                <span class="portal-info-item balance">
+                  额度：
+                  <span
+                    class="portal-value"
+                    :style="getBalanceStyle(portalInfo.data.credits_balance)"
+                    >{{ portalInfo.data.credits_balance }}
+                  </span>
+                </span>
+              </span>
+            </template>
+            <!-- 其他情况：没有portal_url或获取失败，显示未知信息 -->
+            <template v-else>
+              <span class="portal-meta unknown">
+                <span class="portal-info-item"
+                  ><span class="portal-value">时间：未知</span></span
+                >
+                <span class="portal-separator">|</span>
+                <span class="portal-info-item"
+                  ><span class="portal-value">额度：未知</span></span
                 >
               </span>
             </template>
@@ -125,7 +141,7 @@
 
       <div class="actions">
         <button
-          @click="openEditorModal"
+          @click.stop="openEditorModal"
           class="btn-action vscode"
           title="选择编辑器登录"
         >
@@ -137,32 +153,90 @@
           />
         </button>
 
-        <button
-          @click="checkAccountStatus"
-          :class="['btn-action', 'status-check', { loading: isCheckingStatus }]"
-          :disabled="isCheckingStatus"
-          title="刷新账号数据"
-        >
-          <svg
-            v-if="!isCheckingStatus"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="currentColor"
+        <div class="check-menu-wrapper">
+          <button
+            @click.stop="checkAccountStatus"
+            @mousedown.stop="handleCheckButtonMouseDown"
+            @mouseup.stop="handleCheckButtonMouseUp"
+            @mouseleave="handleCheckButtonMouseLeave"
+            :class="[
+              'btn-action',
+              'status-check',
+              {
+                loading:
+                  isCheckingStatus || (isBatchChecking && !token.skip_check),
+                disabled: token.skip_check,
+                'long-pressing': isLongPressing,
+              },
+            ]"
+            :disabled="
+              isCheckingStatus || (isBatchChecking && !token.skip_check)
+            "
+            :title="
+              token.skip_check
+                ? '检测已禁用（长按启用）'
+                : '刷新账号数据（长按禁用）'
+            "
           >
-            <path
-              d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
-            />
-          </svg>
-          <div v-else class="loading-spinner"></div>
-        </button>
+            <!-- 长按进度圆环 -->
+            <svg
+              v-if="isLongPressing"
+              class="long-press-progress"
+              width="32"
+              height="32"
+              viewBox="0 0 32 32"
+            >
+              <circle
+                class="progress-ring"
+                cx="16"
+                cy="16"
+                r="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+            </svg>
+            <svg
+              v-if="
+                !isCheckingStatus &&
+                !(isBatchChecking && !token.skip_check) &&
+                !token.skip_check
+              "
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path
+                d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+              />
+            </svg>
+            <!-- 禁用检测时显示暂停图标 -->
+            <svg
+              v-if="token.skip_check"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              opacity="0.5"
+            >
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+            </svg>
+            <div
+              v-else-if="
+                isCheckingStatus || (isBatchChecking && !token.skip_check)
+              "
+              class="loading-spinner"
+            ></div>
+          </button>
+        </div>
         <div
           class="copy-button-container"
           @mouseenter="startCopyMenuTimer"
           @mouseleave="handleCopyMenuMouseLeave"
         >
           <button
-            @click="showCopyMenu = !showCopyMenu"
+            @click.stop="showCopyMenu = !showCopyMenu"
             class="btn-action copy"
             title="复制账号信息"
           >
@@ -180,7 +254,7 @@
             @mouseenter="clearCopyMenuTimer"
             @mouseleave="handleCopyMenuMouseLeave"
           >
-            <button @click="copyAccountInfoAsJson" class="copy-menu-item">
+            <button @click.stop="copyAccountInfoAsJson" class="copy-menu-item">
               <svg
                 width="14"
                 height="14"
@@ -195,7 +269,7 @@
             </button>
             <button
               v-if="token.auth_session"
-              @click="copySessionValue"
+              @click.stop="copySessionValue"
               class="copy-menu-item"
             >
               <svg
@@ -214,7 +288,7 @@
         </div>
 
         <button
-          @click="$emit('edit', token)"
+          @click.stop="$emit('edit', token)"
           class="btn-action edit"
           title="编辑账号"
         >
@@ -224,7 +298,11 @@
             />
           </svg>
         </button>
-        <button @click="deleteToken" class="btn-action delete" title="删除账号">
+        <button
+          @click.stop="deleteToken"
+          class="btn-action delete"
+          title="删除账号"
+        >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path
               d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
@@ -611,7 +689,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from "vue";
+import { computed, ref, onMounted, onUnmounted, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import ModalContainer from "./ModalContainer.vue";
 import TagEditorModal from "./TagEditorModal.vue";
@@ -644,6 +722,14 @@ const props = defineProps({
       balanceMax: 100000,
     }),
   },
+  isBatchChecking: {
+    type: Boolean,
+    default: false,
+  },
+  isHighlighted: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 // Emits
@@ -658,9 +744,14 @@ const isModalClosing = ref(false);
 const showTagEditor = ref(false);
 const showFullEmail = ref(false);
 const showCopyMenu = ref(false);
+const isLongPressing = ref(false);
 
 // 复制菜单计时器
 let copyMenuTimer = null;
+
+// 长按计时器
+let longPressTimer = null;
+let isLongPress = false;
 
 // 颜色映射
 const colorMap = {
@@ -856,15 +947,13 @@ const openTagEditor = () => {
 
 // 处理标签确认
 const handleTagConfirm = async ({ tagText, tagColor }) => {
-  // 更新 token 对象
-  const updatedToken = {
-    ...props.token,
-    tag_text: tagText,
-    tag_color: tagColor,
-  };
+  // 直接更新 props.token 对象
+  props.token.tag_text = tagText;
+  props.token.tag_color = tagColor;
+  props.token.updated_at = new Date().toISOString();
 
-  // 发出更新事件，让父组件处理保存
-  emit("token-updated", updatedToken);
+  // 发出更新事件，传递完整的 token 对象让父组件处理保存
+  emit("token-updated", props.token);
 
   // 关闭弹窗
   showTagEditor.value = false;
@@ -887,8 +976,22 @@ const handleKeydown = (event) => {
 };
 
 // 点击外部关闭菜单（已由 handleCardMouseLeave 处理）
-const handleClickOutside = (event) => {
+const handleClickOutside = () => {
   // 菜单关闭由 handleCardMouseLeave 处理，这里保留以兼容其他事件
+};
+
+// 切换跳过检测状态
+const toggleSkipCheck = () => {
+  // 切换 skip_check 状态
+  props.token.skip_check = !props.token.skip_check;
+  props.token.updated_at = new Date().toISOString();
+
+  // 通知父组件有更新
+  emit("token-updated", props.token);
+
+  // 显示提示
+  const message = props.token.skip_check ? "已禁用检测" : "已启用检测";
+  emit("copy-success", message, "info");
 };
 
 // 启动复制菜单计时器（悬浮0.3s后显示）
@@ -914,6 +1017,47 @@ const handleCopyMenuMouseLeave = () => {
   copyMenuTimer = setTimeout(() => {
     showCopyMenu.value = false;
   }, 100);
+};
+
+// 长按刷新按钮处理
+const handleCheckButtonMouseDown = () => {
+  // 如果正在加载，不处理
+  if (
+    isCheckingStatus.value ||
+    (props.isBatchChecking && !props.token.skip_check)
+  ) {
+    return;
+  }
+
+  isLongPress = false;
+  isLongPressing.value = true; // 开始长按动画
+
+  // 设置长按计时器（800ms）
+  longPressTimer = setTimeout(() => {
+    isLongPress = true;
+    isLongPressing.value = false; // 结束长按动画
+    // 长按触发：切换禁用/启用检测
+    toggleSkipCheck();
+  }, 800);
+};
+
+const handleCheckButtonMouseUp = () => {
+  // 清除长按计时器
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  isLongPressing.value = false; // 取消长按动画
+};
+
+const handleCheckButtonMouseLeave = () => {
+  // 鼠标离开时清除长按计时器
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  isLongPress = false;
+  isLongPressing.value = false; // 取消长按动画
 };
 
 // 打开编辑器模态框
@@ -1555,98 +1699,173 @@ const getStatusText = (status) => {
   }
 };
 
-const checkAccountStatus = async () => {
-  console.log("checkAccountStatus called");
-  if (isCheckingStatus.value) return;
+const checkAccountStatus = async (showNotification = true) => {
+  // 如果是长按操作，不执行刷新
+  if (isLongPress) {
+    isLongPress = false;
+    return;
+  }
+
+  // 如果禁用了检测，静默返回
+  if (props.token.skip_check) {
+    return;
+  }
+
+  // 如果正在检测中，或者批量检测中（且未禁用），则返回
+  if (
+    isCheckingStatus.value ||
+    (props.isBatchChecking && !props.token.skip_check)
+  )
+    return;
 
   isCheckingStatus.value = true;
 
+  // 清空Portal数据以显示加载状态
+  if (props.token.portal_url) {
+    portalInfo.value = { data: null, error: null };
+  }
+
   try {
-    // 并行执行两个操作：账号状态检测和Portal信息获取
-    const promises = [];
-
-    // 1. 账号状态检测
-    console.log("Adding account status check promise");
-    const statusCheckPromise = invoke("check_account_status", {
-      token: props.token.access_token,
-      tenantUrl: props.token.tenant_url,
+    // 单次API调用同时获取账号状态和Portal信息
+    const batchResults = await invoke("batch_check_tokens_status", {
+      tokens: [
+        {
+          id: props.token.id,
+          access_token: props.token.access_token,
+          tenant_url: props.token.tenant_url,
+          portal_url: props.token.portal_url || null,
+          auth_session: props.token.auth_session || null,
+        },
+      ],
     });
-    promises.push(statusCheckPromise);
 
-    // 2. Portal信息获取（如果有portal_url）
-    let portalInfoPromise = null;
-    if (props.token.portal_url) {
-      console.log("Adding portal info promise");
-      portalInfoPromise = loadPortalInfo(true); // 强制刷新
-      promises.push(portalInfoPromise);
-    } else {
-      console.log("No portal_url, skipping portal info fetch");
-    }
-
-    // 等待所有操作完成
-    const results = await Promise.allSettled(promises);
-
-    // 处理账号状态检测结果
-    const statusResult = results[0];
+    // 处理结果
     let statusMessage = "";
     let statusType = "info";
 
-    let apiStatus = null;
-    if (statusResult.status === "fulfilled") {
-      const result = statusResult.value;
-      apiStatus = result.status || (result.is_banned ? "SUSPENDED" : "ACTIVE");
+    if (batchResults && batchResults.length > 0) {
+      const result = batchResults[0]; // 取第一个结果对象
+      const statusResult = result.status_result; // 账号状态结果
+
+      // 使用后端返回的具体状态
+      const banStatus = statusResult.status;
+
+      // 始终更新 access_token、tenant_url 和 portal_url (如果 token 被刷新,这里会是新值)
+      props.token.access_token = result.access_token;
+      props.token.tenant_url = result.tenant_url;
+
+      // 如果后端返回了新的 portal_url，更新它
+      if (result.portal_url) {
+        props.token.portal_url = result.portal_url;
+        console.log(
+          `Updated token ${props.token.id} portal_url:`,
+          result.portal_url
+        );
+      }
+
+      // 更新本地token对象 - 账号状态
+      props.token.ban_status = banStatus;
+
+      // 记录是否自动禁用了检测
+      let wasAutoDisabled = false;
+
+      // 自动禁用封禁或过期的账号检测
+      if (
+        (banStatus === "SUSPENDED" || banStatus === "EXPIRED") &&
+        !props.token.skip_check
+      ) {
+        props.token.skip_check = true;
+        wasAutoDisabled = true;
+      }
+
+      // 更新 suspensions 信息（如果有）
+      if (result.suspensions) {
+        props.token.suspensions = result.suspensions;
+        console.log(
+          `Updated suspensions for token ${props.token.id}:`,
+          result.suspensions
+        );
+      }
+
+      // 更新Portal信息（如果有）
+      if (result.portal_info) {
+        props.token.portal_info = {
+          credits_balance: result.portal_info.credits_balance,
+          expiry_date: result.portal_info.expiry_date,
+          can_still_use: result.portal_info.can_still_use,
+        };
+
+        // 更新UI显示
+        portalInfo.value = {
+          data: props.token.portal_info,
+          error: null,
+        };
+      } else if (result.portal_error) {
+        portalInfo.value = {
+          data: null,
+          error: result.portal_error,
+        };
+      }
+
+      // 更新时间戳以确保双向同步时选择正确版本
+      props.token.updated_at = new Date().toISOString();
+
+      // 通知父组件保存更新后的数据
+      emit("token-updated", props.token);
+
+      // 根据具体状态设置消息
+      switch (banStatus) {
+        case "SUSPENDED":
+          statusMessage = "账号已封禁";
+          statusType = "error";
+          // 如果刚刚自动禁用了检测，添加提示
+          if (wasAutoDisabled) {
+            statusMessage += "，已自动禁用检测";
+          }
+          break;
+        case "EXPIRED":
+          statusMessage = "账号已过期";
+          statusType = "warning";
+          // 如果刚刚自动禁用了检测，添加提示
+          if (wasAutoDisabled) {
+            statusMessage += "，已自动禁用检测";
+          }
+          break;
+        case "INVALID_TOKEN":
+          statusMessage = "Token失效";
+          statusType = "warning";
+          break;
+        case "ACTIVE":
+          statusMessage = "账号状态正常";
+          statusType = "success";
+          break;
+        case "ERROR":
+          statusMessage = `状态检查失败: ${
+            statusResult.error_message || "Unknown error"
+          }`;
+          statusType = "error";
+          break;
+        default:
+          statusMessage = `账号状态: ${banStatus}`;
+          statusType = "info";
+      }
     } else {
-      console.error("Account status check failed:", statusResult.reason);
-      statusMessage = `刷新失败: ${statusResult.reason}`;
+      statusMessage = "状态检查失败: No results returned";
       statusType = "error";
     }
 
-    // 处理Portal信息获取结果（静默更新，不在通知中显示）
-    if (portalInfoPromise && results.length > 1) {
-      const portalResult = results[1];
-      if (portalResult.status === "rejected") {
-        console.error("Portal info fetch failed:", portalResult.reason);
-        // 如果有本地数据，继续显示本地数据，不显示错误
-      }
-      // loadPortalInfo方法已经处理了成功和失败的情况
-    }
-
-    // 应用综合状态判断
-    if (apiStatus) {
-      const comprehensiveStatus = getComprehensiveStatus(
-        apiStatus,
-        portalInfo.value
-      );
-
-      // 更新本地token对象
-      props.token.ban_status = comprehensiveStatus;
-      props.token.updated_at = new Date().toISOString();
-
-      // 通知父组件保存更新后的token数据
-      emit("token-updated", props.token);
-
-      statusMessage =
-        comprehensiveStatus === "SUSPENDED"
-          ? "账号已封禁"
-          : comprehensiveStatus === "INVALID_TOKEN"
-          ? "Token失效"
-          : comprehensiveStatus === "EXPIRED"
-          ? "账号已过期"
-          : "账号状态正常";
-      statusType =
-        comprehensiveStatus === "SUSPENDED" ||
-        comprehensiveStatus === "INVALID_TOKEN" ||
-        comprehensiveStatus === "EXPIRED"
-          ? "error"
-          : "success";
-    }
+    // Portal信息现在已经包含在批量API结果中，无需单独处理
 
     // 发送账号状态消息（不包含次数信息）
-    const finalMessage = `刷新完成：${statusMessage}`;
-    emit("copy-success", finalMessage, statusType);
+    if (showNotification) {
+      const finalMessage = `刷新完成：${statusMessage}`;
+      emit("copy-success", finalMessage, statusType);
+    }
   } catch (error) {
     console.error("Account status check failed:", error);
-    emit("copy-success", `刷新失败: ${error}`, "error");
+    if (showNotification) {
+      emit("copy-success", `刷新失败: ${error}`, "error");
+    }
   } finally {
     isCheckingStatus.value = false;
     isLoadingPortalInfo.value = false;
@@ -1673,6 +1892,24 @@ const refreshPortalInfo = async () => {
   }
   return Promise.resolve();
 };
+
+// 监听 token.portal_info 的变化（批量刷新时更新）
+watch(
+  () => props.token.portal_info,
+  (newPortalInfo) => {
+    if (newPortalInfo && props.token.portal_url) {
+      portalInfo.value = {
+        data: {
+          credits_balance: newPortalInfo.credits_balance,
+          expiry_date: newPortalInfo.expiry_date,
+          is_active: newPortalInfo.is_active,
+        },
+        error: null,
+      };
+    }
+  },
+  { deep: true }
+);
 
 // 组件挂载时加载Portal信息
 onMounted(() => {
@@ -1703,6 +1940,12 @@ onUnmounted(() => {
   document.removeEventListener("keydown", handleKeydown);
   document.removeEventListener("click", handleClickOutside);
   clearCopyMenuTimer();
+
+  // 清理长按计时器
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
 });
 
 // 暴露检查账号状态的方法
@@ -1710,10 +1953,18 @@ const refreshAccountStatus = async () => {
   return await checkAccountStatus();
 };
 
+// 关闭所有弹窗
+const closeAllModals = () => {
+  showTagEditor.value = false;
+  showEditorModal.value = false;
+  showCopyMenu.value = false;
+};
+
 // 暴露方法给父组件
 defineExpose({
   refreshPortalInfo,
   refreshAccountStatus,
+  closeAllModals,
 });
 </script>
 
@@ -2025,6 +2276,18 @@ defineExpose({
   align-items: center;
 }
 
+/* 检测菜单容器 */
+.check-menu-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* 检测菜单包装器 */
+.check-menu-wrapper {
+  position: relative;
+}
+
 /* 复制菜单 */
 .copy-menu {
   position: absolute;
@@ -2038,6 +2301,7 @@ defineExpose({
   z-index: 1000;
   min-width: 140px;
   margin-bottom: 8px;
+  pointer-events: auto;
   animation: slideUp 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -2189,9 +2453,25 @@ defineExpose({
   background: rgba(248, 250, 252, 0.8);
 }
 
+/* 禁用检测状态样式 */
+.btn-action.status-check.disabled {
+  color: #64748b;
+  opacity: 0.85;
+}
+
+.btn-action.status-check.disabled:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(100, 116, 139, 0.15),
+    rgba(71, 85, 105, 0.08)
+  );
+  border-color: rgba(100, 116, 139, 0.3);
+  color: #475569;
+}
+
 .loading-spinner {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border: 2px solid transparent;
   border-top: 2px solid currentColor;
   border-radius: 50%;
@@ -2201,6 +2481,39 @@ defineExpose({
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* 长按进度动画 */
+.btn-action.status-check {
+  position: relative;
+}
+
+.long-press-progress {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0.6;
+}
+
+.progress-ring {
+  stroke-dasharray: 87.96; /* 2 * π * 14 */
+  stroke-dashoffset: 87.96;
+  transform-origin: center;
+  transform: rotate(-90deg);
+  animation: longPressProgress 0.8s linear forwards;
+  stroke-linecap: round;
+}
+
+@keyframes longPressProgress {
+  from {
+    stroke-dashoffset: 87.96;
+  }
+  to {
+    stroke-dashoffset: 0;
   }
 }
 
@@ -2539,9 +2852,25 @@ defineExpose({
   }
 
   .loading-spinner {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     border-width: 2px;
   }
+}
+
+/* Dropdown 过渡动画 */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dropdown-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 </style>

@@ -10,7 +10,7 @@ mod storage;
 mod thresholds;
 mod webdav;
 
-use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, extract_token_from_session, AugmentOAuthState, AugmentTokenResponse, AccountStatus};
+use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, extract_token_from_session, batch_check_account_status, AugmentOAuthState, AugmentTokenResponse, AccountStatus, TokenInfo, TokenStatusResult};
 use augment_user_info::get_user_info;
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
@@ -340,6 +340,13 @@ async fn check_account_status(
         access_token: current_token,
         tenant_url: current_tenant_url,
     })
+}
+
+#[tauri::command]
+async fn batch_check_tokens_status(tokens: Vec<TokenInfo>) -> Result<Vec<TokenStatusResult>, String> {
+    batch_check_account_status(tokens)
+        .await
+        .map_err(|e| format!("Failed to batch check tokens status: {}", e))
 }
 
 #[tauri::command]
@@ -3501,37 +3508,102 @@ async fn reset_editor_telemetry(editor_type: String) -> Result<String, String> {
         .map_err(|e| format!("序列化JSON失败: {}", e))?;
     println!("JSON序列化成功，准备写入文件");
 
-    // 写入文件，添加重试机制
+    // 使用临时文件 + 原子性重命名的方式写入，避免权限问题
     println!("开始写入文件，内容大小: {} 字节", new_content.len());
-    let mut write_result = std::fs::write(&storage_path, &new_content);
+
+    // 获取原文件的所有权信息（仅在 Unix 系统上）
+    #[cfg(unix)]
+    let original_ownership = {
+        use std::os::unix::fs::MetadataExt;
+        if let Ok(metadata) = std::fs::metadata(&storage_path) {
+            Some((metadata.uid(), metadata.gid()))
+        } else {
+            None
+        }
+    };
+
+    let temp_path = storage_path.with_extension("json.tmp");
     let mut retry_count = 0;
+    let max_retries = 3;
+    let mut last_error = None;
 
-    while write_result.is_err() && retry_count < 3 {
+    while retry_count < max_retries {
         retry_count += 1;
-        let error = write_result.as_ref().unwrap_err();
-        println!("写入存储文件失败 (第{}次): {} (错误代码: {:?})", retry_count, error, error.kind());
 
-        // 如果是权限问题，尝试再次修改权限
-        if error.kind() == std::io::ErrorKind::PermissionDenied {
-            println!("检测到权限被拒绝，尝试重新设置文件权限...");
-            if let Ok(metadata) = std::fs::metadata(&storage_path) {
-                let mut perms = metadata.permissions();
-                perms.set_readonly(false);
-                if let Err(perm_err) = std::fs::set_permissions(&storage_path, perms) {
-                    println!("设置权限失败: {}", perm_err);
-                } else {
-                    println!("权限设置成功，继续重试...");
+        // 尝试写入临时文件
+        let write_result = std::fs::write(&temp_path, &new_content);
+
+        match write_result {
+            Ok(_) => {
+                println!("临时文件写入成功");
+
+                // 在 Unix 系统上，尝试恢复原文件的所有权
+                #[cfg(unix)]
+                if let Some((uid, gid)) = original_ownership {
+                    use std::os::unix::fs::PermissionsExt;
+
+                    // 尝试使用 chown 命令恢复所有权（需要 root 权限）
+                    let chown_result = std::process::Command::new("chown")
+                        .arg(format!("{}:{}", uid, gid))
+                        .arg(&temp_path)
+                        .output();
+
+                    if let Ok(output) = chown_result {
+                        if output.status.success() {
+                            println!("成功恢复临时文件的所有权: uid={}, gid={}", uid, gid);
+                        } else {
+                            println!("警告: 无法恢复临时文件所有权，但继续执行...");
+                        }
+                    }
+
+                    // 设置文件权限为 644 (rw-r--r--)
+                    if let Ok(metadata) = std::fs::metadata(&temp_path) {
+                        let mut perms = metadata.permissions();
+                        perms.set_mode(0o644);
+                        let _ = std::fs::set_permissions(&temp_path, perms);
+                    }
+                }
+
+                // 尝试原子性重命名
+                let rename_result = std::fs::rename(&temp_path, &storage_path);
+
+                match rename_result {
+                    Ok(_) => {
+                        println!("文件写入成功，遥测ID重置完成");
+                        break;
+                    }
+                    Err(e) => {
+                        println!("重命名文件失败 (第{}次): {} (错误代码: {:?})", retry_count, e, e.kind());
+                        last_error = Some(e);
+
+                        // 清理临时文件
+                        let _ = std::fs::remove_file(&temp_path);
+
+                        if retry_count < max_retries {
+                            std::thread::sleep(std::time::Duration::from_millis(1000));
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                println!("写入临时文件失败 (第{}次): {} (错误代码: {:?})", retry_count, e, e.kind());
+                last_error = Some(e);
+
+                if retry_count < max_retries {
+                    std::thread::sleep(std::time::Duration::from_millis(1000));
                 }
             }
         }
-
-        std::thread::sleep(std::time::Duration::from_millis(1000));
-        write_result = std::fs::write(&storage_path, &new_content);
     }
 
-    write_result.map_err(|e| format!("写入文件失败 (重试{}次后): {} (错误类型: {:?})", retry_count, e, e.kind()))?;
-
-    println!("文件写入成功，遥测ID重置完成");
+    // 如果所有重试都失败，返回错误
+    if retry_count >= max_retries && last_error.is_some() {
+        let error = last_error.unwrap();
+        return Err(format!(
+            "写入文件失败 (重试{}次后): {} (错误类型: {:?})\n提示: 请确保 VS Code 已完全关闭，或尝试手动修改文件权限",
+            retry_count, error, error.kind()
+        ));
+    }
 
     // 统计修改的字段数量
     let modified_count = if let Some(obj) = data.as_object() {
@@ -3660,6 +3732,7 @@ fn main() {
             get_token,
             get_augment_token,
             check_account_status,
+            batch_check_tokens_status,
             add_token_from_session,
             open_url,
             // 新的简化命令

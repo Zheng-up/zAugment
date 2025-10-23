@@ -9,22 +9,23 @@
       <!-- 时间阈值配置 -->
       <div class="config-section">
         <div class="section-header">
-          <h4 class="section-title">时间阈值</h4>
+          <h4 class="section-title">时间阈值（天）</h4>
         </div>
         <div class="input-container">
           <!-- 颜色区域规则说明 -->
           <div class="color-rules">
             <span class="rule-item red">
-              0天 &lt; <span class="color-dot"></span> ≤
-              {{ localTimeThresholds.warning }}天
-            </span>
+              0 &lt; <span class="color-dot"></span> ≤
+              {{ localTimeThresholds.warning }} </span
+            >&nbsp;&nbsp;&nbsp;&nbsp;
             <span class="rule-item yellow">
-              {{ localTimeThresholds.warning }}天 &lt;
-              <span class="color-dot"></span> ≤ {{ localTimeThresholds.safe }}天
-            </span>
+              {{ localTimeThresholds.warning }} &lt;
+              <span class="color-dot"></span> ≤
+              {{ localTimeThresholds.safe }} </span
+            >&nbsp;&nbsp;&nbsp;&nbsp;
             <span class="rule-item green">
-              {{ localTimeThresholds.safe }}天 &lt;
-              <span class="color-dot"></span> ≤ {{ localTimeMax }}天
+              {{ localTimeThresholds.safe }} &lt;
+              <span class="color-dot"></span> ≤ {{ localTimeMax }}
             </span>
           </div>
 
@@ -40,7 +41,7 @@
                 @input="validateTimeThresholds"
                 class="input-threshold"
               />
-              <span class="unit">天</span>
+              <span class="unit"></span>
             </div>
             <div class="input-group">
               <label>黄色上限:</label>
@@ -52,7 +53,7 @@
                 @input="validateTimeThresholds"
                 class="input-threshold"
               />
-              <span class="unit">天</span>
+              <span class="unit"></span>
             </div>
             <div class="input-group">
               <label>绿色上限:</label>
@@ -64,7 +65,7 @@
                 @input="validateTimeMax"
                 class="input-threshold"
               />
-              <span class="unit">天</span>
+              <span class="unit"></span>
             </div>
           </div>
         </div>
@@ -78,17 +79,17 @@
           <!-- 颜色区域规则说明 -->
           <div class="color-rules">
             <span class="rule-item red">
-              0分 &lt; <span class="color-dot"></span> ≤
-              {{ localBalanceThresholds.warning }}分
-            </span>
+              0 &lt; <span class="color-dot"></span> ≤
+              {{ localBalanceThresholds.warning }} </span
+            >&nbsp;&nbsp;&nbsp;&nbsp;
             <span class="rule-item yellow">
-              {{ localBalanceThresholds.warning }}分 &lt;
+              {{ localBalanceThresholds.warning }} &lt;
               <span class="color-dot"></span> ≤
-              {{ localBalanceThresholds.safe }}分
-            </span>
+              {{ localBalanceThresholds.safe }} </span
+            >&nbsp;&nbsp;&nbsp;&nbsp;
             <span class="rule-item green">
-              {{ localBalanceThresholds.safe }}分 &lt;
-              <span class="color-dot"></span> ≤ {{ localBalanceMax }}分
+              {{ localBalanceThresholds.safe }} &lt;
+              <span class="color-dot"></span> ≤ {{ localBalanceMax }}
             </span>
           </div>
 
@@ -105,7 +106,7 @@
                 @input="validateBalanceThresholds"
                 class="input-threshold"
               />
-              <span class="unit">分</span>
+              <span class="unit"></span>
             </div>
             <div class="input-group">
               <label>黄色上限:</label>
@@ -118,7 +119,7 @@
                 @input="validateBalanceThresholds"
                 class="input-threshold"
               />
-              <span class="unit">分</span>
+              <span class="unit"></span>
             </div>
             <div class="input-group">
               <label>绿色上限:</label>
@@ -131,7 +132,7 @@
                 @input="validateBalanceMax"
                 class="input-threshold"
               />
-              <span class="unit">分</span>
+              <span class="unit"></span>
             </div>
           </div>
         </div>

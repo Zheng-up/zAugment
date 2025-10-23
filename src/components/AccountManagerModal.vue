@@ -55,8 +55,8 @@
               <div class="header-info-grid">
                 <div class="header-email-col">邮箱/租户</div>
                 <div class="header-tag-col">标签</div>
-                <div class="header-expiry-col">剩余时间</div>
-                <div class="header-balance-col">剩余额度</div>
+                <div class="header-expiry-col">时间</div>
+                <div class="header-balance-col">额度</div>
                 <div class="header-status-col">状态</div>
               </div>
             </div>
@@ -637,7 +637,13 @@ const getTagStyle = (token) => {
 };
 
 const getTokenExpiryDisplay = (token) => {
-  if (token.portal_info && token.portal_info.expiry_date) {
+  // 如果账号已封禁或已过期，显示未知（与 TokenCard 逻辑一致）
+  if (token.ban_status === "SUSPENDED" || token.ban_status === "EXPIRED") {
+    return "未知";
+  }
+
+  // 如果有 portal_url 且有数据，显示实际数据
+  if (token.portal_url && token.portal_info && token.portal_info.expiry_date) {
     const expiryDate = new Date(token.portal_info.expiry_date);
     const now = new Date();
     const diffTime = expiryDate - now;
@@ -658,16 +664,27 @@ const getTokenExpiryDisplay = (token) => {
       return `${diffDays}天${diffHours}时${diffMinutes}分`;
     }
   }
+
+  // 其他情况：没有 portal_url 或获取失败，显示未知
   return "未知";
 };
 
 const getTokenBalanceDisplay = (token) => {
+  // 如果账号已封禁或已过期，显示未知（与 TokenCard 逻辑一致）
+  if (token.ban_status === "SUSPENDED" || token.ban_status === "EXPIRED") {
+    return "未知";
+  }
+
+  // 如果有 portal_url 且有数据，显示实际数据
   if (
+    token.portal_url &&
     token.portal_info &&
     typeof token.portal_info.credits_balance === "number"
   ) {
     return token.portal_info.credits_balance.toLocaleString();
   }
+
+  // 其他情况：没有 portal_url 或获取失败，显示未知
   return "未知";
 };
 

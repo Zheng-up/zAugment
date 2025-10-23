@@ -60,8 +60,12 @@
     <!-- 底部按钮 -->
     <template #footer>
       <div class="modal-footer">
-        <button @click="handleCancel" class="btn-secondary">取消</button>
-        <button @click="handleConfirm" class="btn-primary" :disabled="!isValid">
+        <button @click.stop="handleCancel" class="btn-secondary">取消</button>
+        <button
+          @click.stop="handleConfirm"
+          class="btn-primary"
+          :disabled="!isValid"
+        >
           确认
         </button>
       </div>

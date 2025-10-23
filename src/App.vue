@@ -1,5 +1,5 @@
 <template>
-  <div class="app" @contextmenu.prevent>
+  <div class="app">
     <!-- 自定义标题栏 -->
     <CustomTitleBar />
 
@@ -68,7 +68,7 @@
       <main class="main-content">
         <!-- Token Generator View -->
         <div
-          v-if="currentView === 'token-generator'"
+          v-show="currentView === 'token-generator'"
           class="token-generator-view"
         >
           <!-- 标题栏 -->
@@ -510,32 +510,52 @@
         </div>
 
         <!-- Token List View -->
-        <div v-if="currentView === 'token-list'" class="token-list-view">
+        <div v-show="currentView === 'token-list'" class="token-list-view">
           <!-- 标题栏 -->
           <div class="view-header-bar">
             <div class="header-left">
               <div class="header-left-title">
                 <h2>账号管理</h2>
 
-                <div class="status-item saved" v-if="savedTokensCount > 0">
-                  <span class="status-label">正常</span>
-                  <span class="status-count">{{ savedTokensCount || 0 }}</span>
-                </div>
-                <div class="status-item banned" v-if="bannedTokensCount > 0">
-                  <span class="status-label">已封禁</span>
-                  <span class="status-count">{{ bannedTokensCount || 0 }}</span>
-                </div>
-                <div class="status-item invalid" v-if="invalidTokensCount > 0">
-                  <span class="status-label">Token失效</span>
-                  <span class="status-count">{{
-                    invalidTokensCount || 0
-                  }}</span>
-                </div>
-                <div class="status-item expired" v-if="expiredTokensCount > 0">
-                  <span class="status-label">已过期</span>
-                  <span class="status-count">{{
-                    expiredTokensCount || 0
-                  }}</span>
+                <!-- 悬浮状态统计 -->
+                <div class="floating-status-stats">
+                  <div class="stats-column">
+                    <div class="status-item saved" v-if="savedTokensCount > 0">
+                      <span class="status-label">正常</span>
+                      <span class="status-count">{{
+                        savedTokensCount || 0
+                      }}</span>
+                    </div>
+                    <div
+                      class="status-item banned"
+                      v-if="bannedTokensCount > 0"
+                    >
+                      <span class="status-label">已封禁</span>
+                      <span class="status-count">{{
+                        bannedTokensCount || 0
+                      }}</span>
+                    </div>
+                  </div>
+                  <div class="stats-column">
+                    <div
+                      class="status-item expired"
+                      v-if="expiredTokensCount > 0"
+                    >
+                      <span class="status-label">已过期</span>
+                      <span class="status-count">{{
+                        expiredTokensCount || 0
+                      }}</span>
+                    </div>
+                    <div
+                      class="status-item invalid"
+                      v-if="invalidTokensCount > 0"
+                    >
+                      <span class="status-label">Token失效</span>
+                      <span class="status-count">{{
+                        invalidTokensCount || 0
+                      }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -602,10 +622,14 @@
             <div class="account-management-container">
               <TokenList
                 ref="tokenListRef"
-                :tokens="sortedTokens"
+                :tokens="tokens"
                 :isLoading="isLoading"
                 :hasUnsavedChanges="hasUnsavedChanges"
                 :statusThresholds="statusThresholds"
+                :savedTokensCount="savedTokensCount"
+                :bannedTokensCount="bannedTokensCount"
+                :invalidTokensCount="invalidTokensCount"
+                :expiredTokensCount="expiredTokensCount"
                 @edit-token="handleEditToken"
                 @delete-token="deleteToken"
                 @refresh="loadTokens"
@@ -619,7 +643,10 @@
         </div>
 
         <!-- Email Manager View -->
-        <div v-if="currentView === 'email-manager'" class="email-manager-view">
+        <div
+          v-show="currentView === 'email-manager'"
+          class="email-manager-view"
+        >
           <!-- 标题栏 -->
           <div class="view-header-bar">
             <div class="header-left">
@@ -685,7 +712,7 @@
         </div>
 
         <!-- Settings View -->
-        <div v-if="currentView === 'settings'" class="settings-view">
+        <div v-show="currentView === 'settings'" class="settings-view">
           <!-- 标题栏 -->
           <div class="view-header-bar">
             <div class="header-left">
@@ -846,37 +873,40 @@
                         <div class="threshold-display">
                           <div class="threshold-rules">
                             <span class="threshold-label">时间:</span>
+                            &nbsp;
                             <span class="rule-item red">
-                              0天 &lt; <span class="color-dot"></span> ≤
-                              {{ statusThresholds.time.warning }}天
+                              0 &lt; <span class="color-dot"></span> ≤
+                              {{ statusThresholds.time.warning }}
                             </span>
+                            &nbsp;&nbsp;&nbsp;&nbsp;
                             <span class="rule-item yellow">
-                              {{ statusThresholds.time.warning }}天 &lt;
+                              {{ statusThresholds.time.warning }} &lt;
                               <span class="color-dot"></span> ≤
-                              {{ statusThresholds.time.safe }}天
-                            </span>
+                              {{ statusThresholds.time.safe }} </span
+                            >&nbsp;&nbsp;&nbsp;&nbsp;
                             <span class="rule-item green">
-                              {{ statusThresholds.time.safe }}天 &lt;
+                              {{ statusThresholds.time.safe }} &lt;
                               <span class="color-dot"></span> ≤
-                              {{ statusThresholds.timeMax }}天
+                              {{ statusThresholds.timeMax }}
                             </span>
                           </div>
 
                           <div class="threshold-rules">
                             <span class="threshold-label">额度:</span>
+                            &nbsp;
                             <span class="rule-item red">
-                              0分 &lt; <span class="color-dot"></span> ≤
-                              {{ statusThresholds.balance.warning }}分
-                            </span>
+                              0 &lt; <span class="color-dot"></span> ≤
+                              {{ statusThresholds.balance.warning }} </span
+                            >&nbsp;&nbsp;&nbsp;&nbsp;
                             <span class="rule-item yellow">
-                              {{ statusThresholds.balance.warning }}分 &lt;
+                              {{ statusThresholds.balance.warning }} &lt;
                               <span class="color-dot"></span> ≤
-                              {{ statusThresholds.balance.safe }}分
-                            </span>
+                              {{ statusThresholds.balance.safe }} </span
+                            >&nbsp;&nbsp;&nbsp;&nbsp;
                             <span class="rule-item green">
-                              {{ statusThresholds.balance.safe }}分 &lt;
+                              {{ statusThresholds.balance.safe }} &lt;
                               <span class="color-dot"></span> ≤
-                              {{ statusThresholds.balanceMax }}分
+                              {{ statusThresholds.balanceMax }}
                             </span>
                           </div>
                         </div>
@@ -2086,68 +2116,9 @@ const hasInitializedEmailManagement = ref(false); // 是否已初始化邮箱管
 // Session 导入事件监听器清理函数
 let unlistenSessionProgress = null;
 
-// 监听视图切换，关闭所有弹窗
-watch(currentView, () => {
-  showPluginModal.value = false;
-  showPluginHomeDialog.value = false;
-
-  showDeleteConfirm.value = false;
-  showForceConfirm.value = false;
-
-  // 关闭账号状态阈值配置弹窗
-  showThresholdConfigModal.value = false;
-  showEditorResetModal.value = false;
-  showPlatformSelector.value = false;
-  showSyncHistoryModal.value = false;
-  showTokenFormModal.value = false;
-  showAppreciationModal.value = false;
-
-  // 处理确认覆盖弹窗关闭
-  if (showDuplicateConfirmModal.value) {
-    showDuplicateConfirmModal.value = false;
-    // 执行取消回调并显示提示
-    if (duplicateConfirmData.value.onCancel) {
-      duplicateConfirmData.value.onCancel();
-    }
-    duplicateConfirmData.value = {
-      existingToken: null,
-      newTokenData: null,
-      onConfirm: null,
-      onCancel: null,
-    };
-    // showStatus("取消保存账号", "info");
-  }
-
-  // 关闭更新检查弹窗（通过组件引用）
-  if (updateChecker.value) {
-    updateChecker.value.closeUpdateModal();
-  }
-});
+// 注意：视图切换时关闭弹窗的逻辑已移至 handleNavClick 函数中
 
 // 监听WebDAV配置状态变化，自动管理自动同步 - 将在onMounted中启用
-
-// 排序后的tokens - 按创建时间排序
-const sortedTokens = computed(() => {
-  return [...tokens.value].sort((a, b) => {
-    // 获取创建时间
-    const getCreatedTime = (token) => {
-      return token.created_at ? new Date(token.created_at) : new Date(0);
-    };
-
-    const timeA = getCreatedTime(a);
-    const timeB = getCreatedTime(b);
-
-    // 按创建时间升序排序（最新创建的在后面）
-    const timeDiff = timeA - timeB;
-
-    // 如果创建时间相同，按ID排序确保稳定排序
-    if (timeDiff === 0) {
-      return a.id.localeCompare(b.id);
-    }
-
-    return timeDiff;
-  });
-});
 
 // (TokenForm 模态框状态已在后续部分定义)
 
@@ -3104,7 +3075,7 @@ const primaryAccountStatus = computed(() => {
   return { type: "unknown", count: status.total, label: "未检测" };
 });
 
-// 智能刷新：只清除动态数据，保留静态信息
+// 智能刷新：使用批量检查 API
 const smartRefresh = async () => {
   if (tokens.value.length === 0) {
     // 如果没有数据，执行完整加载
@@ -3117,27 +3088,21 @@ const smartRefresh = async () => {
   showStatus("正在刷新账号数据...", "info");
 
   try {
-    // 第一步：清除所有账号的动态数据，但保留静态信息
-    tokens.value.forEach((token) => {
-      // 清除动态数据（会变更的信息）
-      token.ban_status = undefined; // 清除状态信息
-      token.portal_info = undefined; // 清除Portal信息
+    // 调用 TokenList 的批量检查方法
+    if (tokenListRef.value && tokenListRef.value.checkAllAccountStatus) {
+      await tokenListRef.value.checkAllAccountStatus();
 
-      // 保留静态数据（不变更的信息）
-      // - token.id (账号ID)
-      // - token.tenant_url (租户URL)
-      // - token.access_token (访问令牌)
-      // - token.created_at (创建时间)
-      // - token.email_note (邮箱备注)
-      // - token.note (用户备注)
-      // - 其他用户设置的静态信息
-    });
+      // 刷新完成后保存
+      await saveTokensToFile(false);
 
-    // 第二步：强制更新状态统计，显示"未检测"状态
-    recalcHeaderCounts();
+      // 更新状态统计
+      recalcHeaderCounts();
 
-    // 第三步：立即开始刷新动态数据（不管理状态，因为已经在smartRefresh中管理了）
-    await refreshAllAccountData(false);
+      showStatus("刷新完成", "success");
+    } else {
+      console.error("TokenList 组件未准备好或没有 checkAllAccountStatus 方法");
+      showStatus("刷新失败：组件未准备好", "error");
+    }
   } catch (error) {
     showStatus("刷新失败", "error");
     console.error("智能刷新错误:", error);
@@ -3153,17 +3118,13 @@ const loadTokens = async (showSuccessMessage = false) => {
     const jsonString = await invoke("load_tokens_json");
     const loadedTokens = JSON.parse(jsonString);
 
-    // 刷新后强制按过期时间升序排序，保持显示与存储一致
-    const sortedByExpiry = [...loadedTokens].sort((a, b) => {
-      const getExpiryTime = (token) => {
-        if (token.portal_info && token.portal_info.expiry_date) {
-          return new Date(token.portal_info.expiry_date);
-        }
-        return new Date(token.created_at);
-      };
-      return getExpiryTime(a) - getExpiryTime(b);
+    // 按创建时间升序排序
+    const sortedByCreated = [...loadedTokens].sort((a, b) => {
+      const timeA = a.created_at ? new Date(a.created_at) : new Date(0);
+      const timeB = b.created_at ? new Date(b.created_at) : new Date(0);
+      return timeA - timeB;
     });
-    tokens.value = sortedByExpiry;
+    tokens.value = sortedByCreated;
 
     // 强制更新状态统计（确保加载后及时同步）
     recalcHeaderCounts();
@@ -3173,15 +3134,6 @@ const loadTokens = async (showSuccessMessage = false) => {
     // 只在明确要求时显示成功消息
     if (showSuccessMessage) {
       showStatus("Token加载成功", "success");
-    }
-
-    // 刷新完成后立即检测账号状态和额度信息（提供即时反馈）
-    if (tokens.value.length > 0) {
-      // 使用 nextTick 确保DOM更新完成后立即开始刷新
-      nextTick(() => {
-        // 同时刷新账号状态和额度信息
-        refreshAllAccountData();
-      });
     }
   } catch (error) {
     showStatus(`加载Token失败: ${error}`, "error");
@@ -3194,15 +3146,11 @@ const loadTokens = async (showSuccessMessage = false) => {
 
 const saveTokensToFile = async (showSuccessMessage = true) => {
   try {
-    // 保存前按过期时间升序排序，确保存储顺序一致
+    // 保存前按创建时间升序排序，确保存储顺序一致
     const sortedForSave = [...tokens.value].sort((a, b) => {
-      const getExpiryTime = (token) => {
-        if (token.portal_info && token.portal_info.expiry_date) {
-          return new Date(token.portal_info.expiry_date);
-        }
-        return new Date(token.created_at);
-      };
-      return getExpiryTime(a) - getExpiryTime(b);
+      const timeA = a.created_at ? new Date(a.created_at) : new Date(0);
+      const timeB = b.created_at ? new Date(b.created_at) : new Date(0);
+      return timeA - timeB;
     });
 
     // 尝试序列化 JSON，捕获可能的循环引用或格式错误
@@ -3222,8 +3170,10 @@ const saveTokensToFile = async (showSuccessMessage = true) => {
         portal_info: token.portal_info || null,
         email_note: token.email_note || null,
         auth_session: token.auth_session || null,
+        suspensions: token.suspensions || null,
         tag_text: token.tag_text || null,
         tag_color: token.tag_color || null,
+        skip_check: token.skip_check || false,
         updated_at: token.updated_at || null,
       }));
       jsonString = JSON.stringify(cleanedTokens, null, 2);
@@ -3637,12 +3587,54 @@ const handleAddTokenFromForm = async (tokenData) => {
 // 处理侧边栏导航点击
 const handleNavClick = (view) => {
   currentView.value = view;
-  // 关闭编辑器重置弹窗并重置其状态
-  showEditorResetModal.value = false;
-  // 关闭账号管理弹窗
-  showAccountManagerModal.value = false;
 
+  // 关闭所有弹窗
+  showPluginModal.value = false;
+  showPluginHomeDialog.value = false;
+  showDeleteConfirm.value = false;
+  showForceConfirm.value = false;
+  showThresholdConfigModal.value = false;
+  showEditorResetModal.value = false;
+  showPlatformSelector.value = false;
+  showSyncHistoryModal.value = false;
+  showTokenFormModal.value = false;
+  showAppreciationModal.value = false;
+  showAccountManagerModal.value = false;
   showSessionHelpModal.value = false;
+
+  // 关闭标签编辑器弹窗
+  if (showTagEditorForImportExport.value) {
+    showTagEditorForImportExport.value = false;
+    pendingImportTokens.value = null;
+    pendingExportData.value = null;
+    pendingExportType.value = null;
+    pendingExportCount.value = 0;
+    pendingExportTokenIds.value = [];
+  }
+
+  // 关闭所有 TokenCard 中的弹窗（标签编辑器、编辑器选择等）
+  if (tokenListRef.value && tokenListRef.value.closeAllTokenCardModals) {
+    tokenListRef.value.closeAllTokenCardModals();
+  }
+
+  // 处理确认覆盖弹窗关闭
+  if (showDuplicateConfirmModal.value) {
+    showDuplicateConfirmModal.value = false;
+    if (duplicateConfirmData.value.onCancel) {
+      duplicateConfirmData.value.onCancel();
+    }
+    duplicateConfirmData.value = {
+      existingToken: null,
+      newTokenData: null,
+      onConfirm: null,
+      onCancel: null,
+    };
+  }
+
+  // 关闭更新检查弹窗
+  if (updateChecker.value) {
+    updateChecker.value.closeUpdateModal();
+  }
 };
 
 // 处理编辑器重置弹窗关闭
@@ -4275,7 +4267,7 @@ const disableAutocompleteForAllInputs = () => {
 onMounted(() => {
   document.addEventListener("keydown", handleKeydown);
 
-  // 全局禁用右键菜单
+  // 屏蔽右键菜单
   document.addEventListener("contextmenu", (e) => {
     e.preventDefault();
     return false;
@@ -4344,12 +4336,6 @@ onUnmounted(() => {
 
   // 清理键盘事件监听器
   document.removeEventListener("keydown", handleKeydown);
-
-  // 清理右键菜单禁用事件监听器
-  document.removeEventListener("contextmenu", (e) => {
-    e.preventDefault();
-    return false;
-  });
 
   // 清理自动上传和自动下载定时器
   stopAutoUpload();
@@ -4847,10 +4833,15 @@ const completeImport = async (
           "success"
         );
 
-        // 导入完成后检测所有新账号状态（批量检测，统一提示）
+        // 导入完成后检测所有新账号状态（使用批量检查 API）
         if (newTokenIds.length > 0) {
-          setTimeout(async () => {
-            await checkBatchAccountStatus(newTokenIds);
+          setTimeout(() => {
+            if (
+              tokenListRef.value &&
+              tokenListRef.value.checkAllAccountStatus
+            ) {
+              tokenListRef.value.checkAllAccountStatus();
+            }
           }, 1000);
         }
       } catch (error) {
@@ -5594,6 +5585,15 @@ onMounted(async () => {
       }
     });
 
+    // 应用启动完成后，延迟执行初始账号检测
+    // 停留在当前视图（token-generator），后台静默检测账号状态
+    if (tokens.value.length > 0) {
+      setTimeout(async () => {
+        console.log("执行初始账号状态检测");
+        await smartRefresh();
+      }, 1000);
+    }
+
     console.log("App.vue onMounted 完成");
   } catch (error) {
     console.error("App.vue onMounted 错误:", error);
@@ -5963,6 +5963,67 @@ body {
   justify-self: start;
   align-items: center;
   gap: 18px;
+  position: relative;
+}
+
+/* 悬浮状态统计样式 */
+.floating-status-stats {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  z-index: 10;
+}
+
+.floating-status-stats .stats-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.floating-status-stats .status-item {
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  min-width: 80px;
+  border: 1px solid transparent;
+}
+
+.floating-status-stats .status-item.saved {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: rgba(21, 128, 61, 0.15);
+}
+
+.floating-status-stats .status-item.banned {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: rgba(185, 28, 28, 0.15);
+}
+
+.floating-status-stats .status-item.expired {
+  background: #fed7aa;
+  color: #c2410c;
+  border-color: rgba(194, 65, 12, 0.15);
+}
+
+.floating-status-stats .status-item.invalid {
+  background: #fef3c7;
+  color: #a16207;
+  border-color: rgba(161, 98, 7, 0.15);
+}
+
+.floating-status-stats .status-label {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.floating-status-stats .status-count {
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .header-right {
@@ -7492,13 +7553,43 @@ textarea.unified-input {
   }
 
   .header-left-title {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 8px;
   }
 
   .header-left-title h2 {
     width: 100%;
     margin-bottom: 4px;
+  }
+
+  /* 响应式悬浮状态统计 */
+  .floating-status-stats {
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px;
+    z-index: 10;
+  }
+
+  .floating-status-stats .stats-column {
+    gap: 4px;
+  }
+
+  .floating-status-stats .status-item {
+    padding: 3px 8px;
+    font-size: 11px;
+    min-width: 70px;
+  }
+
+  .floating-status-stats .status-label {
+    font-size: 10px;
+  }
+
+  .floating-status-stats .status-count {
+    font-size: 10px;
   }
 
   .status-item {
