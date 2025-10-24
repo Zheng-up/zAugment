@@ -13,8 +13,8 @@ pub struct UserInfo {
 pub struct SubscriptionInfo {
     #[serde(rename = "portalUrl")]
     pub portal_url: Option<String>,
-    #[serde(rename = "subscriptionEndDate")]
-    pub subscription_end_date: Option<String>,
+    #[serde(rename = "billingPeriodEnd")]
+    pub billing_period_end: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -143,17 +143,13 @@ pub async fn fetch_app_credits(app_session: &str) -> Result<CreditsInfo, String>
         .map_err(|e| format!("Failed to parse credits info: {}", e))
 }
 
-/// 获取完整的用户信息
-pub async fn get_user_info(auth_session: &str) -> Result<CompleteUserInfo, String> {
-    let app_session = exchange_auth_session_for_app_session(auth_session).await?;
-    
-    println!("App session obtained: {}", &app_session[..20.min(app_session.len())]);
-
+/// 使用已有的 app_session 获取完整的用户信息
+pub async fn get_user_info_with_app_session(app_session: &str) -> Result<CompleteUserInfo, String> {
     // 并发获取所有信息
     let (user_result, subscription_result, credits_result) = tokio::join!(
-        fetch_app_user(&app_session),
-        fetch_app_subscription(&app_session),
-        fetch_app_credits(&app_session)
+        fetch_app_user(app_session),
+        fetch_app_subscription(app_session),
+        fetch_app_credits(app_session)
     );
 
     let user_info = user_result.ok();
@@ -191,9 +187,18 @@ pub async fn get_user_info(auth_session: &str) -> Result<CompleteUserInfo, Strin
         email_note: user_info.as_ref().and_then(|u| u.email.clone()),
         suspensions: user_info.and_then(|u| u.suspensions),
         portal_url: subscription_info.as_ref().and_then(|s| s.portal_url.clone()),
-        expiry_date: subscription_info.and_then(|s| s.subscription_end_date),
+        expiry_date: subscription_info.and_then(|s| s.billing_period_end),
         credits_balance: credits_info.and_then(|c| c.usage_units_available),
         ban_status,
     })
+}
+
+/// 获取完整的用户信息
+pub async fn get_user_info(auth_session: &str) -> Result<CompleteUserInfo, String> {
+    let app_session = exchange_auth_session_for_app_session(auth_session).await?;
+
+    println!("App session obtained: {}", &app_session[..20.min(app_session.len())]);
+
+    get_user_info_with_app_session(&app_session).await
 }
 

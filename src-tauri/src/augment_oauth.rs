@@ -210,7 +210,7 @@ pub async fn complete_augment_oauth_flow(
     })
 }
 
-/// Check account ban status by testing chat-stream API
+/// Check account ban status by testing find-missing API
 pub async fn check_account_ban_status(
     token: &str,
     tenant_url: &str,
@@ -219,16 +219,6 @@ pub async fn check_account_ban_status(
         .timeout(std::time::Duration::from_secs(30))
         .build()?;
 
-    // Prepare test chat request
-    let chat_request = ChatRequest {
-        chat_history: vec![ChatMessage {
-            response_text: "你好 Cube! 我是 Augment，很高兴为你提供帮助。".to_string(),
-            request_message: "你好，我是Cube".to_string(),
-        }],
-        message: "我叫什么名字".to_string(),
-        mode: "CHAT".to_string(),
-    };
-
     // Ensure tenant_url ends with a slash
     let base_url = if tenant_url.ends_with('/') {
         tenant_url.to_string()
@@ -236,10 +226,10 @@ pub async fn check_account_ban_status(
         format!("{}/", tenant_url)
     };
 
-    let chat_url = format!("{}chat-stream", base_url);
+    let api_url = format!("{}find-missing", base_url);
 
-    // Serialize request body for debugging
-    let request_body = serde_json::to_string_pretty(&chat_request)?;
+    // Empty request body for find-missing endpoint
+    let request_body = serde_json::json!({});
 
     // Prepare request headers for debugging
     let mut request_headers = HashMap::new();
@@ -248,18 +238,18 @@ pub async fn check_account_ban_status(
 
     // Print debug info to console
     println!("=== API Request Debug Info ===");
-    println!("URL: {}", chat_url);
+    println!("URL: {}", api_url);
     println!("Method: POST");
     println!("Headers: {:#?}", request_headers);
-    println!("Request Body: {}", request_body);
+    println!("Request Body: {}", request_body.to_string());
     println!("==============================");
 
-    // Send request to chat-stream API
+    // Send request to find-missing API
     let response = client
-        .post(&chat_url)
+        .post(&api_url)
         .header("Content-Type", "application/json")
         .header("Authorization", &format!("Bearer {}", token))
-        .json(&chat_request)
+        .json(&request_body)
         .send()
         .await?;
 
@@ -287,9 +277,9 @@ pub async fn check_account_ban_status(
 
     // Create debug info
     let debug_info = DebugInfo {
-        request_url: chat_url,
+        request_url: api_url.clone(),
         request_headers,
-        request_body,
+        request_body: request_body.to_string(),
         response_headers,
         response_body: response_body.clone(),
         response_status_text: status_text,
@@ -607,7 +597,8 @@ pub async fn check_subscription_info(token: String, tenant_url: String) -> Resul
 
 // 批量检测账号状态
 pub async fn batch_check_account_status(
-    tokens: Vec<TokenInfo>
+    tokens: Vec<TokenInfo>,
+    app_session_cache: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, crate::AppSessionCache>>>,
 ) -> Result<Vec<TokenStatusResult>, String> {
 
     // 创建并发任务并立即spawn
@@ -619,6 +610,7 @@ pub async fn batch_check_account_status(
         let token_id = token_info.id.clone();
         let mut portal_url = token_info.portal_url.clone();
         let auth_session = token_info.auth_session.clone();
+        let cache = app_session_cache.clone();
 
         let handle = tokio::spawn(async move {
             println!("Checking status for token: {:?}", token_id);
@@ -758,10 +750,52 @@ pub async fn batch_check_account_status(
                 };
             }
 
-            // 4. 如果账号未封禁且有Portal URL，获取Portal信息
-            let (portal_info, portal_error) = if let Some(ref portal_url_ref) = portal_url {
-                match get_portal_info(portal_url_ref).await {
-                    Ok(mut portal_info) => {
+            // 4. 获取Portal信息 - 优先使用 auth_session，其次使用 portal_url
+            let (portal_info, portal_error) = if let Some(ref session) = auth_session {
+                // 优先使用 auth_session 获取用户信息
+                println!("Using auth_session to fetch portal info for {:?}", token_id);
+
+                // 检查缓存
+                let cached_app_session = {
+                    let cache_lock = cache.lock().unwrap();
+                    cache_lock.get(session).map(|c| c.app_session.clone())
+                };
+
+                // 使用缓存或获取新的 app_session
+                let user_info_result = if let Some(app_session) = cached_app_session {
+                    println!("Using cached app_session for {:?}", token_id);
+                    crate::augment_user_info::get_user_info_with_app_session(&app_session).await
+                } else {
+                    println!("No cached app_session, exchanging auth_session for {:?}", token_id);
+                    match crate::augment_user_info::exchange_auth_session_for_app_session(session).await {
+                        Ok(new_app_session) => {
+                            println!("Successfully exchanged auth_session for {:?}", token_id);
+                            // 更新缓存
+                            {
+                                let mut cache_lock = cache.lock().unwrap();
+                                cache_lock.insert(session.clone(), crate::AppSessionCache {
+                                    app_session: new_app_session.clone(),
+                                    created_at: std::time::SystemTime::now(),
+                                });
+                            }
+                            crate::augment_user_info::get_user_info_with_app_session(&new_app_session).await
+                        }
+                        Err(err) => {
+                            println!("Failed to exchange auth_session for {:?}: {}", token_id, err);
+                            Err(err)
+                        }
+                    }
+                };
+
+                match user_info_result {
+                    Ok(user_info) => {
+                        println!("Successfully fetched user info via auth_session for {:?}", token_id);
+                        let mut portal_info = PortalInfo {
+                            credits_balance: user_info.credits_balance.unwrap_or(0),
+                            expiry_date: user_info.expiry_date,
+                            can_still_use: true,
+                        };
+
                         // 如果credits_balance为0，检查订阅状态
                         if portal_info.credits_balance == 0 {
                             match check_subscription_info(token.clone(), tenant_url.clone()).await {
@@ -773,12 +807,69 @@ pub async fn batch_check_account_status(
                                     portal_info.can_still_use = false;
                                 }
                             }
-                        } else {
-                            // 如果有余额，设置为可以使用
-                            portal_info.can_still_use = true;
                         }
 
                         // 如果账号状态为 EXPIRED，则无论上面检测结果如何，都视为不可使用
+                        if status_result.status == "EXPIRED" {
+                            portal_info.can_still_use = false;
+                        }
+
+                        (Some(portal_info), None)
+                    }
+                    Err(err) => {
+                        println!("Failed to fetch user info via auth_session for {:?}: {}", token_id, err);
+                        // 如果缓存失效，清除缓存并重试一次
+                        if err.contains("401") || err.contains("Unauthorized") {
+                            println!("App session expired, clearing cache for {:?}", token_id);
+                            {
+                                let mut cache_lock = cache.lock().unwrap();
+                                cache_lock.remove(session);
+                            }
+                        }
+
+                        // 降级到使用 portal_url（如果有）
+                        if let Some(ref portal_url_ref) = portal_url {
+                            println!("Falling back to portal_url for {:?}", token_id);
+                            match get_portal_info(portal_url_ref).await {
+                                Ok(mut portal_info) => {
+                                    if portal_info.credits_balance == 0 {
+                                        match check_subscription_info(token.clone(), tenant_url.clone()).await {
+                                            Ok(can_use) => portal_info.can_still_use = can_use,
+                                            Err(_) => portal_info.can_still_use = false,
+                                        }
+                                    } else {
+                                        portal_info.can_still_use = true;
+                                    }
+                                    if status_result.status == "EXPIRED" {
+                                        portal_info.can_still_use = false;
+                                    }
+                                    (Some(portal_info), None)
+                                }
+                                Err(portal_err) => (None, Some(format!("Auth session failed: {}. Portal URL also failed: {}", err, portal_err)))
+                            }
+                        } else {
+                            (None, Some(format!("Failed to fetch via auth_session: {}", err)))
+                        }
+                    }
+                }
+            } else if let Some(ref portal_url_ref) = portal_url {
+                // 没有 auth_session，使用 portal_url
+                println!("No auth_session, using portal_url for {:?}", token_id);
+                match get_portal_info(portal_url_ref).await {
+                    Ok(mut portal_info) => {
+                        if portal_info.credits_balance == 0 {
+                            match check_subscription_info(token.clone(), tenant_url.clone()).await {
+                                Ok(can_use) => {
+                                    portal_info.can_still_use = can_use;
+                                }
+                                Err(err) => {
+                                    println!("Failed to check subscription info: {}", err);
+                                    portal_info.can_still_use = false;
+                                }
+                            }
+                        } else {
+                            portal_info.can_still_use = true;
+                        }
                         if status_result.status == "EXPIRED" {
                             portal_info.can_still_use = false;
                         }
@@ -787,6 +878,8 @@ pub async fn batch_check_account_status(
                     Err(err) => (None, Some(err))
                 }
             } else {
+                // 既没有 auth_session 也没有 portal_url
+                println!("No auth_session or portal_url for {:?}", token_id);
                 (None, None)
             };
 

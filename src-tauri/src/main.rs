@@ -10,7 +10,7 @@ mod storage;
 mod thresholds;
 mod webdav;
 
-use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, extract_token_from_session, batch_check_account_status, AugmentOAuthState, AugmentTokenResponse, AccountStatus, TokenInfo, TokenStatusResult};
+use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, extract_token_from_session, batch_check_account_status, AugmentOAuthState, AugmentTokenResponse, TokenInfo, TokenStatusResult};
 use augment_user_info::get_user_info;
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
@@ -21,6 +21,8 @@ use webdav::{WebDAVConfig, CloudSync, SecureWebDAVConfig, PasswordManager};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
+use std::collections::HashMap;
+use std::time::SystemTime;
 use tauri::{State, Manager, WebviewWindowBuilder, WebviewUrl, Emitter};
 use chrono;
 use std::fs;
@@ -190,6 +192,13 @@ impl UserDataPackage {
 }
 use std::env;
 
+// App Session 缓存结构 (公开以便其他模块使用)
+#[derive(Clone)]
+pub struct AppSessionCache {
+    pub app_session: String,
+    pub created_at: SystemTime,
+}
+
 // Global state to store OAuth state and storage managers
 struct AppState {
     augment_oauth_state: Mutex<Option<AugmentOAuthState>>,
@@ -201,6 +210,8 @@ struct AppState {
     cloud_sync: Arc<Mutex<Option<CloudSync>>>,
     password_manager: Arc<PasswordManager>,
     thresholds_manager: Arc<Mutex<Option<ThresholdsManager>>>,
+    // App session 缓存: key 为 auth_session, value 为缓存的 app_session
+    app_session_cache: Arc<Mutex<HashMap<String, AppSessionCache>>>,
 }
 
 #[tauri::command]
@@ -343,8 +354,11 @@ async fn check_account_status(
 }
 
 #[tauri::command]
-async fn batch_check_tokens_status(tokens: Vec<TokenInfo>) -> Result<Vec<TokenStatusResult>, String> {
-    batch_check_account_status(tokens)
+async fn batch_check_tokens_status(
+    tokens: Vec<TokenInfo>,
+    state: State<'_, AppState>,
+) -> Result<Vec<TokenStatusResult>, String> {
+    batch_check_account_status(tokens, state.app_session_cache.clone())
         .await
         .map_err(|e| format!("Failed to batch check tokens status: {}", e))
 }
@@ -3719,6 +3733,7 @@ fn main() {
                 cloud_sync: Arc::new(Mutex::new(None)),
                 password_manager: Arc::new(PasswordManager::new()),
                 thresholds_manager: Arc::new(Mutex::new(None)),
+                app_session_cache: Arc::new(Mutex::new(HashMap::new())),
             };
 
             app.manage(app_state);

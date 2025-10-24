@@ -1515,12 +1515,12 @@ const loadPortalInfo = async (forceRefresh = false) => {
   }
 };
 
-// 格式化过期时间为"X天XX时XX分"格式
+// 格式化过期时间为"X天XX时XX分"格式 - 使用本地时间，自动处理时区转换
 const formatExpiryDate = (dateString) => {
   if (!dateString) return "未知";
 
   try {
-    // 直接使用 Date 对象解析，让浏览器自动处理时区
+    // 使用 Date 对象解析，自动处理时区转换（与 augment-token-mng-1.2.0 一致）
     const now = new Date();
     const expiry = new Date(dateString);
 
