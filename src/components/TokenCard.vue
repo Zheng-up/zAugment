@@ -74,35 +74,8 @@
           </div>
           <!-- 第二行：Portal信息 -->
           <div class="meta-row portal-row">
-            <!-- 如果没有数据且正在加载，显示加载状态 -->
-            <template
-              v-if="
-                isLoadingPortalInfo ||
-                isCheckingStatus ||
-                (isBatchChecking && !token.skip_check)
-              "
-            >
-              <span class="portal-meta loading">加载中...</span>
-            </template>
-            <!-- 如果账号已封禁，固定显示未知 -->
-            <template
-              v-else-if="
-                token.ban_status === 'SUSPENDED' ||
-                token.ban_status === 'EXPIRED'
-              "
-            >
-              <span class="portal-meta unknown">
-                <span class="portal-info-item"
-                  ><span class="portal-value">时间：未知</span></span
-                >
-                <span class="portal-separator">|</span>
-                <span class="portal-info-item"
-                  ><span class="portal-value">额度：未知</span></span
-                >
-              </span>
-            </template>
             <!-- 如果有portal_url且有数据，显示Portal数据 -->
-            <template v-else-if="token.portal_url && portalInfo.data">
+            <template v-if="token.portal_url && portalInfo.data">
               <span class="portal-meta">
                 <span class="portal-info-item expiry">
                   时间：
@@ -123,7 +96,7 @@
                 </span>
               </span>
             </template>
-            <!-- 其他情况：没有portal_url或获取失败，显示未知信息 -->
+            <!-- 其他情况：账号已封禁、没有portal_url或获取失败，显示未知信息 -->
             <template v-else>
               <span class="portal-meta unknown">
                 <span class="portal-info-item"
@@ -1383,12 +1356,8 @@ const loadPortalInfo = async (forceRefresh = false) => {
   if (!token) return;
 
   // 处理数据显示逻辑
-  if (forceRefresh) {
-    // 强制刷新时：立即清空数据，显示加载状态
-    console.log("Force refresh: clearing portal data to show loading state");
-    portalInfo.value = { data: null, error: null };
-  } else if (props.token.portal_info) {
-    // 非强制刷新且有缓存数据：显示缓存数据
+  if (props.token.portal_info) {
+    // 有缓存数据：显示缓存数据（无论是否强制刷新）
     console.log("Using cached portal info");
     portalInfo.value = {
       data: {
@@ -1398,10 +1367,6 @@ const loadPortalInfo = async (forceRefresh = false) => {
       },
       error: null,
     };
-  } else {
-    // 没有缓存数据：清空状态
-    console.log("No cached data, clearing error state");
-    portalInfo.value = { data: null, error: null };
   }
 
   // 在后台获取最新信息
@@ -1496,19 +1461,10 @@ const loadPortalInfo = async (forceRefresh = false) => {
     }
   } catch (error) {
     console.error("Failed to load portal info:", error);
-
-    // 错误处理：根据是否为强制刷新决定如何处理
+    // 错误处理：保持现有数据不变，静默处理
+    // 如果强制刷新失败，抛出错误以便上层处理
     if (forceRefresh) {
-      // 强制刷新失败：清空数据，不显示错误信息
-      portalInfo.value = { data: null, error: null };
-      // 抛出错误以便上层处理
       throw error;
-    } else {
-      // 非强制刷新失败：保持现有数据不变，静默处理
-      if (!props.token.portal_info) {
-        portalInfo.value = { data: null, error: null };
-      }
-      // 不抛出错误，静默处理
     }
   } finally {
     isLoadingPortalInfo.value = false;
@@ -1720,11 +1676,6 @@ const checkAccountStatus = async (showNotification = true) => {
 
   isCheckingStatus.value = true;
 
-  // 清空Portal数据以显示加载状态
-  if (props.token.portal_url) {
-    portalInfo.value = { data: null, error: null };
-  }
-
   try {
     // 单次API调用同时获取账号状态和Portal信息
     const batchResults = await invoke("batch_check_tokens_status", {
@@ -1877,11 +1828,6 @@ const checkAccountStatus = async (showNotification = true) => {
 // 暴露刷新Portal信息的方法
 const refreshPortalInfo = async () => {
   if (props.token.portal_url) {
-    // 立即设置加载状态，提供即时视觉反馈
-    isLoadingPortalInfo.value = true;
-    // 立即清空当前显示的数据，显示加载状态
-    portalInfo.value = { data: null, error: null };
-
     try {
       return await loadPortalInfo(true); // 强制刷新
     } catch (error) {
