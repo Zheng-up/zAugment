@@ -74,40 +74,34 @@
           </div>
           <!-- 第二行：Portal信息 -->
           <div class="meta-row portal-row">
-            <!-- 如果有portal_url且有数据，显示Portal数据 -->
-            <template v-if="token.portal_url && portalInfo.data">
+            <!-- 如果有portal_url，显示Portal信息 -->
+            <template v-if="token.portal_url">
               <span class="portal-meta">
                 <span class="portal-info-item expiry">
                   时间：
                   <span
                     class="portal-value"
-                    :style="getExpiryStyle(portalInfo.data.expiry_date)"
-                    >{{ formatExpiryDate(portalInfo.data.expiry_date) }}</span
+                    :style="getExpiryStyle(portalInfo.data?.expiry_date)"
+                    >{{ formatExpiryDate(portalInfo.data?.expiry_date) }}</span
                   >
                 </span>
-                <span class="portal-separator">|</span>
-                <span class="portal-info-item balance">
+                <span class="portal-separator"></span>
+                <span
+                  class="portal-info-item balance"
+                  :class="{ clickable: token.auth_session }"
+                  @click.stop="handleBalanceClick"
+                  :title="token.auth_session ? '点击查看用量统计' : ''"
+                >
                   额度：
                   <span
                     class="portal-value"
-                    :style="getBalanceStyle(portalInfo.data.credits_balance)"
-                    >{{ portalInfo.data.credits_balance }}
+                    :style="getBalanceStyle(portalInfo.data?.credits_balance)"
+                    >{{ formatBalance(portalInfo.data?.credits_balance) }}
                   </span>
                 </span>
               </span>
             </template>
-            <!-- 其他情况：账号已封禁、没有portal_url或获取失败，显示未知信息 -->
-            <template v-else>
-              <span class="portal-meta unknown">
-                <span class="portal-info-item"
-                  ><span class="portal-value">时间：未知</span></span
-                >
-                <span class="portal-separator">|</span>
-                <span class="portal-info-item"
-                  ><span class="portal-value">额度：未知</span></span
-                >
-              </span>
-            </template>
+            <!-- 没有portal_url时不显示 -->
           </div>
         </div>
       </div>
@@ -659,6 +653,20 @@
       </div>
     </div>
   </ModalContainer>
+
+  <!-- Credit 使用统计弹窗 -->
+  <ModalContainer
+    :visible="showCreditUsageModal"
+    title="用量统计"
+    size="medium"
+    @close="showCreditUsageModal = false"
+  >
+    <CreditUsageContent
+      v-if="showCreditUsageModal && token.auth_session"
+      :auth-session="token.auth_session"
+      :credits-balance="portalInfo.data?.credits_balance"
+    />
+  </ModalContainer>
 </template>
 
 <script setup>
@@ -666,6 +674,7 @@ import { computed, ref, onMounted, onUnmounted, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import ModalContainer from "./ModalContainer.vue";
 import TagEditorModal from "./TagEditorModal.vue";
+import CreditUsageContent from "./CreditUsageContent.vue";
 
 // 防抖函数
 function debounce(func, wait) {
@@ -718,6 +727,7 @@ const showTagEditor = ref(false);
 const showFullEmail = ref(false);
 const showCopyMenu = ref(false);
 const isLongPressing = ref(false);
+const showCreditUsageModal = ref(false);
 
 // 复制菜单计时器
 let copyMenuTimer = null;
@@ -1033,6 +1043,13 @@ const handleCheckButtonMouseLeave = () => {
   isLongPressing.value = false; // 取消长按动画
 };
 
+// 处理额度点击事件
+const handleBalanceClick = () => {
+  if (props.token.auth_session) {
+    showCreditUsageModal.value = true;
+  }
+};
+
 // 打开编辑器模态框
 const openEditorModal = () => {
   showEditorModal.value = true;
@@ -1332,145 +1349,6 @@ const handleEditorClick = async (editorType) => {
   }
 };
 
-const extractTokenFromPortalUrl = (portalUrl) => {
-  try {
-    const url = new URL(portalUrl);
-    return url.searchParams.get("token");
-  } catch {
-    return null;
-  }
-};
-
-const loadPortalInfo = async (forceRefresh = false) => {
-  console.log("loadPortalInfo called with forceRefresh:", forceRefresh);
-  console.log("token.portal_url:", props.token.portal_url);
-  console.log("token.portal_info:", props.token.portal_info);
-
-  if (!props.token.portal_url) {
-    console.log("No portal_url, returning");
-    return;
-  }
-
-  const token = extractTokenFromPortalUrl(props.token.portal_url);
-  console.log("Extracted token:", token ? "found" : "not found");
-  if (!token) return;
-
-  // 处理数据显示逻辑
-  if (props.token.portal_info) {
-    // 有缓存数据：显示缓存数据（无论是否强制刷新）
-    console.log("Using cached portal info");
-    portalInfo.value = {
-      data: {
-        credits_balance: props.token.portal_info.credits_balance,
-        expiry_date: props.token.portal_info.expiry_date,
-        is_active: props.token.portal_info.is_active,
-      },
-      error: null,
-    };
-  }
-
-  // 在后台获取最新信息
-  console.log("Starting background fetch");
-  // 只有在未设置加载状态时才设置（避免重复设置）
-  if (!isLoadingPortalInfo.value) {
-    isLoadingPortalInfo.value = true;
-  }
-
-  try {
-    // 首先获取customer信息
-    console.log("Calling get_customer_info...");
-    const customerResponse = await invoke("get_customer_info", { token });
-    console.log("Customer response received:", customerResponse);
-    const customerData = JSON.parse(customerResponse);
-    console.log("Customer data parsed:", customerData);
-
-    if (
-      customerData.customer &&
-      customerData.customer.ledger_pricing_units &&
-      customerData.customer.ledger_pricing_units.length > 0
-    ) {
-      const customerId = customerData.customer.id;
-      const pricingUnitId = customerData.customer.ledger_pricing_units[0].id;
-      console.log(
-        "Customer ID:",
-        customerId,
-        "Pricing Unit ID:",
-        pricingUnitId
-      );
-
-      // 获取ledger summary
-      console.log("Calling get_ledger_summary...");
-      const ledgerResponse = await invoke("get_ledger_summary", {
-        customerId,
-        pricingUnitId,
-        token,
-      });
-      console.log("Ledger response received:", ledgerResponse);
-      const ledgerData = JSON.parse(ledgerResponse);
-      console.log("Ledger data parsed:", ledgerData);
-
-      // 处理credits_balance数据，无论credit_blocks是否为空
-      if (ledgerData.credits_balance !== undefined) {
-        console.log("Credits balance found:", ledgerData.credits_balance);
-
-        // 构建Portal数据对象
-        const newPortalData = {
-          credits_balance: parseInt(ledgerData.credits_balance) || 0,
-        };
-
-        // 如果有credit_blocks数据，添加过期时间和状态信息
-        if (ledgerData.credit_blocks && ledgerData.credit_blocks.length > 0) {
-          console.log("Credit blocks found:", ledgerData.credit_blocks.length);
-          newPortalData.expiry_date = ledgerData.credit_blocks[0].expiry_date;
-          newPortalData.is_active = ledgerData.credit_blocks[0].is_active;
-        } else {
-          console.log("No credit blocks, but credits_balance available");
-          // 当没有credit_blocks时，设置默认值
-          newPortalData.expiry_date = null;
-          newPortalData.is_active = false;
-        }
-
-        console.log("New portal data:", newPortalData);
-
-        // 先更新本地token对象（避免数据闪烁）
-        const updatedPortalInfo = {
-          credits_balance: newPortalData.credits_balance,
-          expiry_date: newPortalData.expiry_date,
-          is_active: newPortalData.is_active,
-        };
-
-        // 原子性更新：同时更新token和UI显示
-        props.token.portal_info = updatedPortalInfo;
-        portalInfo.value = {
-          data: newPortalData,
-          error: null,
-        };
-
-        console.log("Updated token portal_info and UI:", updatedPortalInfo);
-      } else {
-        // 如果没有credits_balance数据且没有本地数据，静默处理
-        if (!props.token.portal_info) {
-          portalInfo.value = { data: null, error: null };
-        }
-      }
-    } else {
-      // 如果没有本地数据，静默处理，不显示错误信息
-      if (!props.token.portal_info) {
-        portalInfo.value = { data: null, error: null };
-      }
-    }
-  } catch (error) {
-    console.error("Failed to load portal info:", error);
-    // 错误处理：保持现有数据不变，静默处理
-    // 如果强制刷新失败，抛出错误以便上层处理
-    if (forceRefresh) {
-      throw error;
-    }
-  } finally {
-    isLoadingPortalInfo.value = false;
-  }
-};
-
 // 格式化过期时间为"X天XX时XX分"格式 - 使用本地时间，自动处理时区转换
 const formatExpiryDate = (dateString) => {
   if (!dateString) return "未知";
@@ -1502,11 +1380,19 @@ const formatExpiryDate = (dateString) => {
   }
 };
 
+// 格式化额度显示
+const formatBalance = (balance) => {
+  if (balance === null || balance === undefined) return "未知";
+  if (balance === 0) return "0";
+  return balance;
+};
+
 // 过期时间样式：根据剩余时间显示不同颜色（只改变文字颜色）
 const getExpiryStyle = (dateString) => {
+  // 如果没有数据，返回灰色（未知状态）
   if (!dateString)
     return {
-      color: "#b91c1c",
+      color: "#64748b",
     };
 
   try {
@@ -1543,14 +1429,22 @@ const getExpiryStyle = (dateString) => {
       color,
     };
   } catch {
+    // 解析失败时返回灰色
     return {
-      color: "#b91c1c",
+      color: "#64748b",
     };
   }
 };
 
 // 剩余额度样式：根据额度数量显示不同颜色（只改变文字颜色）
 const getBalanceStyle = (balance) => {
+  // 如果没有数据，返回灰色（未知状态）
+  if (balance === null || balance === undefined || balance === 0) {
+    return {
+      color: "#64748b",
+    };
+  }
+
   // 使用配置的阈值
   const safeThreshold = props.statusThresholds.balance.safe;
   const warningThreshold = props.statusThresholds.balance.warning;
@@ -1558,7 +1452,7 @@ const getBalanceStyle = (balance) => {
   let color;
 
   // 颜色区域规则：
-  // 红色：0 < 值 ≤ warning
+  // 红色：0 ≤ 值 ≤ warning
   // 黄色：warning < 值 ≤ safe
   // 绿色：safe < 值 ≤ max
   if (balance > safeThreshold) {
@@ -1568,7 +1462,7 @@ const getBalanceStyle = (balance) => {
     // 额度 > 警告阈值 且 ≤ 安全阈值：深黄文字
     color = "#a16207";
   } else {
-    // 额度 ≤ 警告阈值：深红文字
+    // 额度 ≤ 警告阈值（包括0）：深红文字
     color = "#b91c1c";
   }
 
@@ -1693,6 +1587,7 @@ const checkAccountStatus = async (showNotification = true) => {
     // 处理结果
     let statusMessage = "";
     let statusType = "info";
+    let portalStatusMessage = "";
 
     if (batchResults && batchResults.length > 0) {
       const result = batchResults[0]; // 取第一个结果对象
@@ -1751,11 +1646,25 @@ const checkAccountStatus = async (showNotification = true) => {
           data: props.token.portal_info,
           error: null,
         };
+        portalStatusMessage = "信息已更新";
       } else if (result.portal_error) {
-        portalInfo.value = {
-          data: null,
-          error: result.portal_error,
-        };
+        // 只有在没有 portal_info 时才设置错误状态
+        // 保留现有数据（如果有）
+        if (!props.token.portal_info) {
+          portalInfo.value = {
+            data: null,
+            error: result.portal_error,
+          };
+          portalStatusMessage = "信息获取失败";
+        } else {
+          // 如果有现有数据，保持不变，提示使用缓存数据
+          portalStatusMessage = "Portal信息获取失败，使用缓存";
+        }
+        // 记录错误日志
+        console.warn(
+          "Portal info fetch failed but keeping existing data:",
+          result.portal_error
+        );
       }
 
       // 更新时间戳以确保双向同步时选择正确版本
@@ -1791,7 +1700,7 @@ const checkAccountStatus = async (showNotification = true) => {
           statusType = "success";
           break;
         case "ERROR":
-          statusMessage = `状态检查失败: ${
+          statusMessage = `刷新失败: ${
             statusResult.error_message || "Unknown error"
           }`;
           statusType = "error";
@@ -1805,11 +1714,12 @@ const checkAccountStatus = async (showNotification = true) => {
       statusType = "error";
     }
 
-    // Portal信息现在已经包含在批量API结果中，无需单独处理
-
-    // 发送账号状态消息（不包含次数信息）
+    // 发送账号状态消息（包含Portal信息状态）
     if (showNotification) {
-      const finalMessage = `刷新完成：${statusMessage}`;
+      let finalMessage = `刷新完成：${statusMessage}`;
+      if (portalStatusMessage) {
+        finalMessage += `，${portalStatusMessage}`;
+      }
       emit("copy-success", finalMessage, statusType);
     }
   } catch (error) {
@@ -1825,18 +1735,9 @@ const checkAccountStatus = async (showNotification = true) => {
 
 // 移除了防抖，直接调用状态检测方法
 
-// 暴露刷新Portal信息的方法
+// 暴露刷新Portal信息的方法（统一使用 checkAccountStatus）
 const refreshPortalInfo = async () => {
-  if (props.token.portal_url) {
-    try {
-      return await loadPortalInfo(true); // 强制刷新
-    } catch (error) {
-      // 确保即使出错也重置加载状态
-      isLoadingPortalInfo.value = false;
-      throw error;
-    }
-  }
-  return Promise.resolve();
+  return await checkAccountStatus(false); // 静默刷新，不显示通知
 };
 
 // 监听 token.portal_info 的变化（批量刷新时更新）
@@ -1848,7 +1749,7 @@ watch(
         data: {
           credits_balance: newPortalInfo.credits_balance,
           expiry_date: newPortalInfo.expiry_date,
-          is_active: newPortalInfo.is_active,
+          can_still_use: newPortalInfo.can_still_use,
         },
         error: null,
       };
@@ -1866,13 +1767,13 @@ onMounted(() => {
         data: {
           credits_balance: props.token.portal_info.credits_balance,
           expiry_date: props.token.portal_info.expiry_date,
-          is_active: props.token.portal_info.is_active,
+          can_still_use: props.token.portal_info.can_still_use,
         },
         error: null,
       };
     }
-    // 然后在后台刷新数据
-    loadPortalInfo(false);
+    // 然后在后台刷新数据（静默模式）
+    checkAccountStatus(false);
   }
 
   // 添加键盘事件监听器
@@ -1904,6 +1805,7 @@ const closeAllModals = () => {
   showTagEditor.value = false;
   showEditorModal.value = false;
   showCopyMenu.value = false;
+  showCreditUsageModal.value = false;
 };
 
 // 暴露方法给父组件
@@ -2120,9 +2022,80 @@ defineExpose({
   font-weight: 400;
 }
 
+/* Credit 统计按钮 */
+.credit-stats-btn {
+  background: transparent;
+  border: 1px solid rgba(210, 215, 223, 0.6);
+  border-radius: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+  color: #6366f1;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.credit-stats-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: #6366f1;
+  transform: translateY(-1px);
+}
+
+.credit-stats-btn svg {
+  display: block;
+  flex-shrink: 0;
+}
+
 .portal-info-item {
   white-space: nowrap;
   color: #64748b; /* 和时间、邮箱的默认颜色一致 */
+}
+
+.portal-info-item.clickable {
+  cursor: pointer;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: 6px;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+}
+
+.portal-info-item.clickable::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(148, 163, 184, 0.3) 50%,
+    transparent 100%
+  );
+  transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.portal-info-item.clickable:hover::before {
+  left: 100%;
+}
+
+.portal-info-item.clickable:hover {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.portal-info-item.clickable:active {
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.portal-info-item.clickable .portal-value {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-block;
 }
 
 .portal-value {

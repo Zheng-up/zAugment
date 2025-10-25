@@ -11,12 +11,12 @@ mod thresholds;
 mod webdav;
 
 use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, extract_token_from_session, batch_check_account_status, AugmentOAuthState, AugmentTokenResponse, TokenInfo, TokenStatusResult};
-use augment_user_info::get_user_info;
+use augment_user_info::{get_user_info, exchange_auth_session_for_app_session};
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
 use outlook_manager::{OutlookManager, OutlookCredentials, EmailListResponse, EmailDetailsResponse, AccountStatus as OutlookAccountStatus};
 use storage::{LocalFileStorage, TokenStorage};
-use thresholds::{ThresholdsManager, StatusThresholds};
+use thresholds::StatusThresholds;
 use webdav::{WebDAVConfig, CloudSync, SecureWebDAVConfig, PasswordManager};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
@@ -92,18 +92,10 @@ impl UserDataPackage {
                 .map_err(|e| format!("解析bookmarks.json失败: {}", e))?;
         }
 
-        // 5. 收集阈值配置
-        let mut manager_guard = state.thresholds_manager.lock().unwrap();
-        if manager_guard.is_none() {
-            *manager_guard = Some(ThresholdsManager::new(data_dir.clone()));
+        // 5. 收集阈值配置（从 unified_config 中读取）
+        if let Some(ref config) = package.unified_config {
+            package.status_thresholds = config.status_thresholds.clone();
         }
-        let manager = manager_guard.as_ref().unwrap();
-
-        // 优先从云端文件加载，失败则从本地文件加载
-        if let Ok(thresholds) = manager.load_from_cloud().or_else(|_| manager.load_from_local()) {
-            package.status_thresholds = Some(thresholds);
-        }
-        drop(manager_guard);
 
         // 更新时间戳
         package.timestamp = chrono::Utc::now();
@@ -162,18 +154,8 @@ impl UserDataPackage {
                 .map_err(|e| format!("写入bookmarks.json失败: {}", e))?;
         }
 
-        // 5. 恢复阈值配置
-        if let Some(ref thresholds) = self.status_thresholds {
-            let mut manager_guard = state.thresholds_manager.lock().unwrap();
-            if manager_guard.is_none() {
-                *manager_guard = Some(ThresholdsManager::new(data_dir.clone()));
-            }
-            let manager = manager_guard.as_ref().unwrap();
-
-            // 同时保存到本地和云端文件
-            manager.save_to_local(thresholds)?;
-            manager.save_to_cloud(thresholds)?;
-        }
+        // 5. 恢复阈值配置（已经包含在 unified_config 中，无需单独处理）
+        // 阈值配置会随着 unified_config 一起恢复
 
         Ok(())
     }
@@ -199,6 +181,47 @@ pub struct AppSessionCache {
     pub created_at: SystemTime,
 }
 
+// ============ Credit Consumption 相关结构体 ============
+
+/// Credit 消费数据点
+#[derive(Debug, Serialize, Deserialize)]
+struct CreditDataPoint {
+    #[serde(rename(serialize = "group_key", deserialize = "groupKey"))]
+    group_key: Option<String>, // 模型名称
+    #[serde(rename(serialize = "date_range", deserialize = "dateRange"))]
+    date_range: Option<DateRange>,
+    #[serde(rename(serialize = "credits_consumed", deserialize = "creditsConsumed"), default = "default_credits_consumed")]
+    credits_consumed: String,
+}
+
+/// 默认值函数：当 creditsConsumed 字段缺失时返回 "0"
+fn default_credits_consumed() -> String {
+    "0".to_string()
+}
+
+/// 日期范围
+#[derive(Debug, Serialize, Deserialize)]
+struct DateRange {
+    #[serde(rename(serialize = "start_date_iso", deserialize = "startDateIso"))]
+    start_date_iso: String,
+    #[serde(rename(serialize = "end_date_iso", deserialize = "endDateIso"))]
+    end_date_iso: String,
+}
+
+/// Credit 消费响应
+#[derive(Debug, Serialize, Deserialize)]
+struct CreditConsumptionResponse {
+    #[serde(rename(serialize = "data_points", deserialize = "dataPoints"), default)]
+    data_points: Vec<CreditDataPoint>,
+}
+
+/// 批量获取 Credit 消费数据的响应
+#[derive(Debug, Serialize, Deserialize)]
+struct BatchCreditConsumptionResponse {
+    stats_data: CreditConsumptionResponse,
+    chart_data: CreditConsumptionResponse,
+}
+
 // Global state to store OAuth state and storage managers
 struct AppState {
     augment_oauth_state: Mutex<Option<AugmentOAuthState>>,
@@ -209,7 +232,6 @@ struct AppState {
     webdav_config: Arc<Mutex<Option<SecureWebDAVConfig>>>,
     cloud_sync: Arc<Mutex<Option<CloudSync>>>,
     password_manager: Arc<PasswordManager>,
-    thresholds_manager: Arc<Mutex<Option<ThresholdsManager>>>,
     // App session 缓存: key 为 auth_session, value 为缓存的 app_session
     app_session_cache: Arc<Mutex<HashMap<String, AppSessionCache>>>,
 }
@@ -361,6 +383,132 @@ async fn batch_check_tokens_status(
     batch_check_account_status(tokens, state.app_session_cache.clone())
         .await
         .map_err(|e| format!("Failed to batch check tokens status: {}", e))
+}
+
+/// 批量获取 Credit 消费数据(stats 和 chart),使用缓存的 app_session
+#[tauri::command]
+async fn fetch_batch_credit_consumption(
+    auth_session: String,
+    state: State<'_, AppState>,
+) -> Result<BatchCreditConsumptionResponse, String> {
+    // 1. 检查缓存中是否有有效的 app_session
+    let cached_app_session = {
+        let cache = state.app_session_cache.lock().unwrap();
+        cache.get(&auth_session).map(|c| c.app_session.clone())
+    };
+
+    // 2. 获取或刷新 app_session
+    let app_session = if let Some(app_session) = cached_app_session {
+        println!("[Credit] Using cached app_session");
+        println!("[Credit] App session (first 20 chars): {}...", &app_session.chars().take(20).collect::<String>());
+        app_session
+    } else {
+        // 使用 auth_session 交换新的 app_session
+        println!("[Credit] Exchanging auth_session for new app_session");
+        println!("[Credit] Auth session (first 20 chars): {}...", &auth_session.chars().take(20).collect::<String>());
+
+        let new_app_session = exchange_auth_session_for_app_session(&auth_session).await?;
+
+        println!("[Credit] Successfully exchanged app_session");
+        println!("[Credit] New app session (first 20 chars): {}...", &new_app_session.chars().take(20).collect::<String>());
+
+        // 缓存新的 app_session
+        {
+            let mut cache = state.app_session_cache.lock().unwrap();
+            cache.insert(
+                auth_session.clone(),
+                AppSessionCache {
+                    app_session: new_app_session.clone(),
+                    created_at: SystemTime::now(),
+                },
+            );
+            println!("[Credit] App session cached for future use");
+        }
+
+        new_app_session
+    };
+
+    // 3. 创建 HTTP 客户端
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+
+    // 4. 并行获取两个数据
+    let stats_url = "https://app.augmentcode.com/api/credit-consumption?groupBy=NONE&granularity=DAY&billingCycle=CURRENT_BILLING_CYCLE";
+    let chart_url = "https://app.augmentcode.com/api/credit-consumption?groupBy=MODEL_NAME&granularity=TOTAL&billingCycle=CURRENT_BILLING_CYCLE";
+
+    println!("[Credit] Fetching stats from: {}", stats_url);
+    println!("[Credit] Fetching chart from: {}", chart_url);
+    println!("[Credit] Cookie header: _session={}...", &app_session.chars().take(20).collect::<String>());
+
+    let (stats_result, chart_result) = tokio::join!(
+        async {
+            let response = client
+                .get(stats_url)
+                .header("Cookie", format!("_session={}", urlencoding::encode(&app_session)))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("Accept", "application/json")
+                .send()
+                .await
+                .map_err(|e| format!("Failed to fetch stats data: {}", e))?;
+
+            let status = response.status();
+            println!("[Credit] Stats API response status: {}", status);
+
+            if !status.is_success() {
+                let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                println!("[Credit] Stats API error body: {}", error_body);
+                return Err(format!("Stats API returned status {}: {}", status, error_body));
+            }
+
+            let response_text = response.text().await
+                .map_err(|e| format!("Failed to read stats response body: {}", e))?;
+
+            println!("[Credit] Stats response (first 200 chars): {}...",
+                &response_text.chars().take(200).collect::<String>());
+
+            serde_json::from_str::<CreditConsumptionResponse>(&response_text)
+                .map_err(|e| format!("Failed to parse stats response: {}. Response body: {}", e, response_text))
+        },
+        async {
+            let response = client
+                .get(chart_url)
+                .header("Cookie", format!("_session={}", urlencoding::encode(&app_session)))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("Accept", "application/json")
+                .send()
+                .await
+                .map_err(|e| format!("Failed to fetch chart data: {}", e))?;
+
+            let status = response.status();
+            println!("[Credit] Chart API response status: {}", status);
+
+            if !status.is_success() {
+                let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                println!("[Credit] Chart API error body: {}", error_body);
+                return Err(format!("Chart API returned status {}: {}", status, error_body));
+            }
+
+            let response_text = response.text().await
+                .map_err(|e| format!("Failed to read chart response body: {}", e))?;
+
+            println!("[Credit] Chart response (first 200 chars): {}...",
+                &response_text.chars().take(200).collect::<String>());
+
+            serde_json::from_str::<CreditConsumptionResponse>(&response_text)
+                .map_err(|e| format!("Failed to parse chart response: {}. Response body: {}", e, response_text))
+        }
+    );
+
+    let stats_data = stats_result?;
+    let chart_data = chart_result?;
+
+    Ok(BatchCreditConsumptionResponse {
+        stats_data,
+        chart_data,
+    })
 }
 
 #[tauri::command]
@@ -2342,18 +2490,21 @@ fn load_webdav_config(app: &tauri::AppHandle) -> Option<WebDAVConfig> {
 pub struct UnifiedAppConfig {
     pub version: String,
     pub last_updated: chrono::DateTime<chrono::Utc>,
-    
+
     // 应用基础设置
     pub app_settings: AppSettings,
-    
+
     // 数据目录设置
     pub custom_data_dir: Option<String>,
-    
+
     // WebDAV配置（直接存储明文密码）
     pub webdav_config: Option<WebDAVConfig>,
-    
+
     // UI设置
     pub ui_settings: UiSettings,
+
+    // 账号状态阈值配置
+    pub status_thresholds: Option<StatusThresholds>,
 }
 
 // 应用基础设置
@@ -2403,6 +2554,7 @@ impl Default for UnifiedAppConfig {
             custom_data_dir: None,
             webdav_config: None,
             ui_settings: UiSettings::default(),
+            status_thresholds: Some(StatusThresholds::default()),
         }
     }
 }
@@ -2653,21 +2805,15 @@ async fn save_status_thresholds(
     state: State<'_, AppState>,
     app: tauri::AppHandle
 ) -> Result<String, String> {
-    // 初始化 thresholds_manager（如果还没有初始化）
-    let data_dir = get_effective_data_dir(&app, &state)?;
+    // 加载现有配置
+    let mut config = load_unified_config_with_state(&app, &state);
 
-    let mut manager_guard = state.thresholds_manager.lock().unwrap();
-    if manager_guard.is_none() {
-        *manager_guard = Some(ThresholdsManager::new(data_dir.clone()));
-    }
+    // 更新阈值配置
+    config.status_thresholds = Some(thresholds);
+    config.last_updated = chrono::Utc::now();
 
-    let manager = manager_guard.as_ref().unwrap();
-
-    // 保存到本地文件
-    manager.save_to_local(&thresholds)?;
-
-    // 保存到云端文件（用于WebDAV同步）
-    manager.save_to_cloud(&thresholds)?;
+    // 保存到 config.json
+    save_unified_config_with_state(&app, &config, &state)?;
 
     Ok("阈值配置已保存".to_string())
 }
@@ -2678,21 +2824,11 @@ async fn load_status_thresholds(
     state: State<'_, AppState>,
     app: tauri::AppHandle
 ) -> Result<StatusThresholds, String> {
-    // 初始化 thresholds_manager（如果还没有初始化）
-    let data_dir = get_effective_data_dir(&app, &state)?;
+    // 从 config.json 加载配置
+    let config = load_unified_config_with_state(&app, &state);
 
-    let mut manager_guard = state.thresholds_manager.lock().unwrap();
-    if manager_guard.is_none() {
-        *manager_guard = Some(ThresholdsManager::new(data_dir.clone()));
-    }
-
-    let manager = manager_guard.as_ref().unwrap();
-
-    // 先尝试从云端文件加载
-    let thresholds = manager.load_from_cloud()
-        .or_else(|_| manager.load_from_local())?;
-
-    Ok(thresholds)
+    // 返回阈值配置，如果不存在则返回默认值
+    Ok(config.status_thresholds.unwrap_or_default())
 }
 
 // ================================
@@ -2709,7 +2845,7 @@ pub struct EditorInfo {
 
 /// 获取编辑器配置路径
 fn get_editor_paths(editor_type: &str) -> Result<(Option<PathBuf>, Option<PathBuf>), String> {
-    let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
+    let _home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
 
     match editor_type {
         "vscode" => {
@@ -3732,7 +3868,6 @@ fn main() {
                 webdav_config: Arc::new(Mutex::new(None)),
                 cloud_sync: Arc::new(Mutex::new(None)),
                 password_manager: Arc::new(PasswordManager::new()),
-                thresholds_manager: Arc::new(Mutex::new(None)),
                 app_session_cache: Arc::new(Mutex::new(HashMap::new())),
             };
 
@@ -3748,6 +3883,7 @@ fn main() {
             get_augment_token,
             check_account_status,
             batch_check_tokens_status,
+            fetch_batch_credit_consumption,
             add_token_from_session,
             open_url,
             // 新的简化命令

@@ -184,18 +184,29 @@ const checkAllAccountStatus = async () => {
       tokens: tokenInfos,
     });
 
-    // 批量更新tokens状态
-    updateTokensFromResults(results);
+    // 批量更新tokens状态并获取统计信息
+    const stats = updateTokensFromResults(results);
 
     // 通知父组件保存
     emit("token-updated");
 
-    // 显示检查完成提示
-    emit(
-      "copy-success",
-      `已完成 ${tokensToCheck.length} 个账号的状态检测`,
-      "success"
-    );
+    // 显示检查完成提示（包含详细统计）
+    let message = `刷新完成：刷新状态 ${stats.statusSuccess} 个`;
+    if (stats.statusFailed > 0) {
+      message += `，失败 ${stats.statusFailed} 个`;
+    }
+
+    // 添加 Portal 信息统计
+    if (stats.portalSuccess > 0 || stats.portalFailed > 0) {
+      message += ` | 刷新信息 ${stats.portalSuccess} 个`;
+      if (stats.portalFailed > 0) {
+        message += `，失败 ${stats.portalFailed} 个`;
+      }
+    }
+
+    // 根据失败数量决定提示类型
+    const messageType = stats.statusFailed > 0 ? "warning" : "success";
+    emit("copy-success", message, messageType);
 
     return { success: true, message: "批量检查完成" };
   } catch (error) {
@@ -212,10 +223,23 @@ const checkAllAccountStatus = async () => {
 
 // 根据批量检测结果更新tokens状态
 const updateTokensFromResults = (results) => {
+  // 统计信息
+  let statusSuccess = 0;
+  let statusFailed = 0;
+  let portalSuccess = 0;
+  let portalFailed = 0;
+
   results.forEach((result) => {
     const token = props.tokens.find((t) => t.id === result.token_id);
     if (token) {
       const statusResult = result.status_result;
+
+      // 统计状态检测结果
+      if (statusResult.status && statusResult.status !== "ERROR") {
+        statusSuccess++;
+      } else {
+        statusFailed++;
+      }
 
       // 始终更新 access_token、tenant_url 和 portal_url (如果 token 被刷新,这里会是新值)
       token.access_token = result.access_token;
@@ -265,11 +289,13 @@ const updateTokensFromResults = (results) => {
           `Updated token ${token.id} portal info:`,
           token.portal_info
         );
+        portalSuccess++;
       } else if (result.portal_error) {
         console.warn(
           `Failed to get portal info for token ${token.id}:`,
           result.portal_error
         );
+        portalFailed++;
       }
 
       // 更新时间戳
@@ -279,6 +305,14 @@ const updateTokensFromResults = (results) => {
       );
     }
   });
+
+  // 返回统计信息
+  return {
+    statusSuccess,
+    statusFailed,
+    portalSuccess,
+    portalFailed,
+  };
 };
 
 // 关闭所有 TokenCard 的弹窗

@@ -33,6 +33,11 @@
               </button>
             </div>
 
+            <!-- 标题右侧自定义内容 slot -->
+            <div v-if="$slots['header-actions']" class="modal-header-actions">
+              <slot name="header-actions"></slot>
+            </div>
+
             <button
               v-if="showCloseButton"
               class="modal-close-btn"
@@ -248,6 +253,14 @@ const handleEscKey = (e) => {
   font-size: 20px;
   font-weight: 600;
   color: #1e293b;
+}
+
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  margin-right: auto;
 }
 
 /* Tab 样式 - 简化版 */

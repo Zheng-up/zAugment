@@ -2374,15 +2374,15 @@ const createTagOnImportExport = ref(false);
 const showThresholdConfigModal = ref(false);
 const statusThresholds = ref({
   time: {
-    warning: 3, // 警告阈值（天）
-    safe: 5, // 安全阈值（天）
+    warning: 0,
+    safe: 0,
   },
   balance: {
-    warning: 10, // 警告阈值（积分）
-    safe: 30, // 安全阈值（积分）
+    warning: 0,
+    safe: 0,
   },
-  timeMax: 365, // 时间最大值（天）
-  balanceMax: 100000, // 额度最大值（积分）
+  timeMax: 0,
+  balanceMax: 0,
 });
 
 // 保存自动上传状态到本地存储
@@ -2472,12 +2472,16 @@ const loadCreateTagOnImportExportState = () => {
 // 保存账号状态阈值配置到本地存储和云端
 const saveStatusThresholds = async () => {
   try {
-    // 保存到本地存储
+    // 保存到 localStorage
     localStorage.setItem(
       "status_thresholds",
       JSON.stringify(statusThresholds.value)
     );
-    console.log("账号状态阈值已保存:", statusThresholds.value);
+
+    // 保存到后端（config.json）
+    await invoke("save_status_thresholds", {
+      thresholds: statusThresholds.value,
+    });
 
     // 如果启用了自动上传且WebDAV已配置，同步到云端
     if (autoUploadEnabled.value && isWebDAVConfigured.value) {
@@ -2503,46 +2507,36 @@ const saveStatusThresholdsToCloud = async () => {
 // 从本地存储加载账号状态阈值配置
 const loadStatusThresholds = async () => {
   try {
-    // 如果启用了自动下载且WebDAV已配置，先从云端加载
-    if (autoDownloadEnabled.value && isWebDAVConfigured.value) {
-      await loadStatusThresholdsFromCloud();
+    // 优先从后端加载（后端会自动处理：云端 -> 本地文件 -> 默认值）
+    const result = await invoke("load_status_thresholds");
+    if (result) {
+      statusThresholds.value = {
+        time: result.time,
+        balance: result.balance,
+        timeMax: result.timeMax,
+        balanceMax: result.balanceMax,
+      };
+      // 同步到 localStorage
+      localStorage.setItem(
+        "status_thresholds",
+        JSON.stringify(statusThresholds.value)
+      );
+      console.log("账号状态阈值已从后端加载:", statusThresholds.value);
     }
-
+  } catch (error) {
+    console.error("从后端加载账号状态阈值失败:", error);
+    // 如果后端加载失败，尝试从 localStorage 加载
     const saved = localStorage.getItem("status_thresholds");
     if (saved !== null) {
       const parsed = JSON.parse(saved);
-      // 合并保存的配置和默认值，确保所有字段都存在
       statusThresholds.value = {
-        time: parsed.time || { warning: 3, safe: 5 },
-        balance: parsed.balance || { warning: 10, safe: 30 },
-        timeMax: parsed.timeMax || 365,
-        balanceMax: parsed.balanceMax || 100000,
+        time: parsed.time,
+        balance: parsed.balance,
+        timeMax: parsed.timeMax,
+        balanceMax: parsed.balanceMax,
       };
-      console.log("账号状态阈值已恢复:", statusThresholds.value);
+      console.log("从 localStorage 恢复账号状态阈值:", statusThresholds.value);
     }
-  } catch (error) {
-    console.error("加载账号状态阈值失败:", error);
-    // 出错时使用默认值
-    statusThresholds.value = {
-      time: { warning: 3, safe: 5 },
-      balance: { warning: 10, safe: 30 },
-      timeMax: 365,
-      balanceMax: 100000,
-    };
-  }
-};
-
-// 从云端加载阈值配置
-const loadStatusThresholdsFromCloud = async () => {
-  try {
-    const result = await invoke("load_status_thresholds");
-    if (result) {
-      // 保存到本地存储
-      localStorage.setItem("status_thresholds", JSON.stringify(result));
-      console.log("从云端加载阈值配置成功:", result);
-    }
-  } catch (error) {
-    console.error("从云端加载阈值配置失败:", error);
   }
 };
 
@@ -3098,7 +3092,8 @@ const smartRefresh = async () => {
       // 更新状态统计
       recalcHeaderCounts();
 
-      showStatus("刷新完成", "success");
+      // ✅ 不再显示 "刷新完成"，让 checkAllAccountStatus 的详细统计消息显示
+      // showStatus("刷新完成", "success");
     } else {
       console.error("TokenList 组件未准备好或没有 checkAllAccountStatus 方法");
       showStatus("刷新失败：组件未准备好", "error");
@@ -5115,8 +5110,9 @@ const forceDownloadFromCloud = async () => {
     );
     updateSyncStatus(false);
 
-    // 重新加载tokens以显示最新数据
+    // 重新加载所有数据以显示最新内容
     await loadTokens();
+    await loadStatusThresholds(); // 重新加载阈值配置
   } catch (error) {
     const duration = Date.now() - startTime;
     syncStatus.value = {
