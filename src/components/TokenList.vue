@@ -291,8 +291,11 @@ const updateTokensFromResults = (results) => {
         );
         portalSuccess++;
       } else if (result.portal_error) {
+        // 🔧 方案 B：批量刷新失败时清空 portal_info
+        // 防止 TokenCard 的 watch 恢复旧数据
+        token.portal_info = null;
         console.warn(
-          `Failed to get portal info for token ${token.id}:`,
+          `Failed to get portal info for token ${token.id}, cleared cache:`,
           result.portal_error
         );
         portalFailed++;

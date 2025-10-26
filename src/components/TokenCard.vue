@@ -74,7 +74,6 @@
           </div>
           <!-- 第二行：Portal信息 -->
           <div class="meta-row portal-row">
-            <!-- 如果有portal_url，显示Portal信息 -->
             <template v-if="token.portal_url">
               <span class="portal-meta">
                 <span class="portal-info-item expiry">
@@ -101,7 +100,6 @@
                 </span>
               </span>
             </template>
-            <!-- 没有portal_url时不显示 -->
           </div>
         </div>
       </div>
@@ -1351,6 +1349,11 @@ const handleEditorClick = async (editorType) => {
 
 // 格式化过期时间为"X天XX时XX分"格式 - 使用本地时间，自动处理时区转换
 const formatExpiryDate = (dateString) => {
+  // 🔧 如果账号被封禁，显示"未知"而不是旧数据
+  if (props.token.ban_status === "SUSPENDED") {
+    return "未知";
+  }
+
   if (!dateString) return "未知";
 
   try {
@@ -1382,6 +1385,11 @@ const formatExpiryDate = (dateString) => {
 
 // 格式化额度显示
 const formatBalance = (balance) => {
+  // 🔧 如果账号被封禁，显示"未知"而不是旧数据
+  if (props.token.ban_status === "SUSPENDED") {
+    return "未知";
+  }
+
   if (balance === null || balance === undefined) return "未知";
   if (balance === 0) return "0";
   return balance;
@@ -1389,6 +1397,13 @@ const formatBalance = (balance) => {
 
 // 过期时间样式：根据剩余时间显示不同颜色（只改变文字颜色）
 const getExpiryStyle = (dateString) => {
+  // 🔧 如果账号被封禁，返回灰色（未知状态）
+  if (props.token.ban_status === "SUSPENDED") {
+    return {
+      color: "#64748b",
+    };
+  }
+
   // 如果没有数据，返回灰色（未知状态）
   if (!dateString)
     return {
@@ -1438,6 +1453,13 @@ const getExpiryStyle = (dateString) => {
 
 // 剩余额度样式：根据额度数量显示不同颜色（只改变文字颜色）
 const getBalanceStyle = (balance) => {
+  // 🔧 如果账号被封禁，返回灰色（未知状态）
+  if (props.token.ban_status === "SUSPENDED") {
+    return {
+      color: "#64748b",
+    };
+  }
+
   // 如果没有数据，返回灰色（未知状态）
   if (balance === null || balance === undefined || balance === 0) {
     return {
@@ -1648,23 +1670,15 @@ const checkAccountStatus = async (showNotification = true) => {
         };
         portalStatusMessage = "信息已更新";
       } else if (result.portal_error) {
-        // 只有在没有 portal_info 时才设置错误状态
-        // 保留现有数据（如果有）
-        if (!props.token.portal_info) {
-          portalInfo.value = {
-            data: null,
-            error: result.portal_error,
-          };
-          portalStatusMessage = "信息获取失败";
-        } else {
-          // 如果有现有数据，保持不变，提示使用缓存数据
-          portalStatusMessage = "Portal信息获取失败，使用缓存";
-        }
-        // 记录错误日志
-        console.warn(
-          "Portal info fetch failed but keeping existing data:",
-          result.portal_error
-        );
+        // 🔧 方案 B：单账号刷新失败时清空 portal_info
+        // ⚠️ 关键：必须清空 props.token.portal_info，防止 watch 恢复旧数据
+        props.token.portal_info = null;
+
+        portalInfo.value = {
+          data: null,
+          error: result.portal_error,
+        };
+        portalStatusMessage = "信息获取失败";
       }
 
       // 更新时间戳以确保双向同步时选择正确版本

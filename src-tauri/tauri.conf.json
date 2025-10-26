@@ -1,6 +1,6 @@
 {
   "productName": "ZAugment",
-  "version": "0.4.3",
+  "version": "0.3.5",
   "identifier": "com.cubezhao.atm",
   "build": {
     "beforeDevCommand": "npm run dev",

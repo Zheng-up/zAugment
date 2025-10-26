@@ -750,7 +750,7 @@ pub async fn batch_check_account_status(
                 };
             }
 
-            // 4. 获取Portal信息 - 优先使用 auth_session，其次使用 portal_url
+            // 4. 获取Portal信息 - 优先使用 auth_session，其次使用 portal_url            
             let (portal_info, portal_error) = if let Some(ref session) = auth_session {
                 // 优先使用 auth_session 获取用户信息
                 println!("Using auth_session to fetch portal info for {:?}", token_id);
