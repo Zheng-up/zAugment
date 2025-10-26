@@ -283,7 +283,6 @@ const updateTokensFromResults = (results) => {
         token.portal_info = {
           credits_balance: result.portal_info.credits_balance,
           expiry_date: result.portal_info.expiry_date,
-          can_still_use: result.portal_info.can_still_use,
         };
         console.log(
           `Updated token ${token.id} portal info:`,
@@ -291,8 +290,7 @@ const updateTokensFromResults = (results) => {
         );
         portalSuccess++;
       } else if (result.portal_error) {
-        // 🔧 方案 B：批量刷新失败时清空 portal_info
-        // 防止 TokenCard 的 watch 恢复旧数据
+        // 批量刷新失败时清空 portal_info
         token.portal_info = null;
         console.warn(
           `Failed to get portal info for token ${token.id}, cleared cache:`,

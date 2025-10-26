@@ -1660,7 +1660,6 @@ const checkAccountStatus = async (showNotification = true) => {
         props.token.portal_info = {
           credits_balance: result.portal_info.credits_balance,
           expiry_date: result.portal_info.expiry_date,
-          can_still_use: result.portal_info.can_still_use,
         };
 
         // 更新UI显示
@@ -1670,8 +1669,7 @@ const checkAccountStatus = async (showNotification = true) => {
         };
         portalStatusMessage = "信息已更新";
       } else if (result.portal_error) {
-        // 🔧 方案 B：单账号刷新失败时清空 portal_info
-        // ⚠️ 关键：必须清空 props.token.portal_info，防止 watch 恢复旧数据
+        // 保存错误信息到 token
         props.token.portal_info = null;
 
         portalInfo.value = {
@@ -1737,6 +1735,12 @@ const checkAccountStatus = async (showNotification = true) => {
       emit("copy-success", finalMessage, statusType);
     }
   } catch (error) {
+    // 设置错误状态，让UI显示网络错误
+    portalInfo.value = {
+      data: null,
+      error: String(error),
+    };
+
     console.error("Account status check failed:", error);
     if (showNotification) {
       emit("copy-success", `刷新失败: ${error}`, "error");
@@ -1763,7 +1767,6 @@ watch(
         data: {
           credits_balance: newPortalInfo.credits_balance,
           expiry_date: newPortalInfo.expiry_date,
-          can_still_use: newPortalInfo.can_still_use,
         },
         error: null,
       };
@@ -1781,7 +1784,6 @@ onMounted(() => {
         data: {
           credits_balance: props.token.portal_info.credits_balance,
           expiry_date: props.token.portal_info.expiry_date,
-          can_still_use: props.token.portal_info.can_still_use,
         },
         error: null,
       };
