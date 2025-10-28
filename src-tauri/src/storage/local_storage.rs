@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::fs;
 use std::sync::Mutex;
 use tauri::Manager;
+use uuid::Uuid;
 
 pub struct LocalFileStorage {
     storage_path: PathBuf,
@@ -47,22 +48,44 @@ impl LocalFileStorage {
 
     async fn write_file_content(&self, content: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _guard = self._lock.lock().unwrap();
-        
+
         // 确保父目录存在
         if let Some(parent) = self.storage_path.parent() {
             fs::create_dir_all(parent)?;
         }
 
-        let temp_path = self.storage_path.with_extension("tmp");
+        // 使用同一目录下的唯一临时文件名，确保在同一文件系统上
+        let parent_dir = self.storage_path.parent()
+            .ok_or("Failed to get parent directory")?;
+        let temp_path = parent_dir.join(format!("tokens.{}.tmp", uuid::Uuid::new_v4()));
 
         // 验证JSON格式
         serde_json::from_str::<serde_json::Value>(content)?;
 
         // 原子性写入
         fs::write(&temp_path, content)?;
-        fs::rename(&temp_path, &self.storage_path)?;
 
-        Ok(())
+        // 尝试原子性重命名，如果失败则使用复制+删除的方式
+        match fs::rename(&temp_path, &self.storage_path) {
+            Ok(_) => Ok(()),
+            Err(rename_err) => {
+                // 如果 rename 失败（可能是跨文件系统），尝试复制+删除
+                eprintln!("Rename failed, trying copy+delete: {}", rename_err);
+
+                match fs::copy(&temp_path, &self.storage_path) {
+                    Ok(_) => {
+                        // 复制成功，删除临时文件
+                        let _ = fs::remove_file(&temp_path);
+                        Ok(())
+                    }
+                    Err(copy_err) => {
+                        // 复制也失败，清理临时文件并返回错误
+                        let _ = fs::remove_file(&temp_path);
+                        Err(format!("Failed to save file (rename: {}, copy: {})", rename_err, copy_err).into())
+                    }
+                }
+            }
+        }
     }
 
     async fn parse_tokens_from_content(&self, content: &str) -> Result<Vec<TokenData>, Box<dyn std::error::Error + Send + Sync>> {

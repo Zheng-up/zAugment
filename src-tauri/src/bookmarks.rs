@@ -121,11 +121,43 @@ impl BookmarkManager {
     pub fn save_bookmarks(&self, storage: &BookmarkStorage) -> Result<(), Box<dyn std::error::Error>> {
         let content = serde_json::to_string_pretty(storage)
             .map_err(|e| format!("Failed to serialize bookmarks: {}", e))?;
-        
-        fs::write(&self.storage_path, content)
-            .map_err(|e| format!("Failed to write bookmarks file: {}", e))?;
-        
-        Ok(())
+
+        // 确保父目录存在
+        if let Some(parent) = self.storage_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create parent directory: {}", e))?;
+        }
+
+        // 使用同一目录下的唯一临时文件名，确保在同一文件系统上
+        let parent_dir = self.storage_path.parent()
+            .ok_or("Failed to get parent directory")?;
+        let temp_path = parent_dir.join(format!("bookmarks.{}.tmp", Uuid::new_v4()));
+
+        // 写入临时文件
+        fs::write(&temp_path, &content)
+            .map_err(|e| format!("Failed to write temp file: {}", e))?;
+
+        // 尝试原子性重命名，如果失败则使用复制+删除的方式
+        match fs::rename(&temp_path, &self.storage_path) {
+            Ok(_) => Ok(()),
+            Err(rename_err) => {
+                // 如果 rename 失败（可能是跨文件系统），尝试复制+删除
+                eprintln!("Rename failed, trying copy+delete: {}", rename_err);
+
+                match fs::copy(&temp_path, &self.storage_path) {
+                    Ok(_) => {
+                        // 复制成功，删除临时文件
+                        let _ = fs::remove_file(&temp_path);
+                        Ok(())
+                    }
+                    Err(copy_err) => {
+                        // 复制也失败，清理临时文件并返回错误
+                        let _ = fs::remove_file(&temp_path);
+                        Err(format!("Failed to save file (rename: {}, copy: {})", rename_err, copy_err).into())
+                    }
+                }
+            }
+        }
     }
 
     pub fn add_bookmark(&self, name: String, url: String, description: Option<String>, category: String) -> Result<String, Box<dyn std::error::Error>> {

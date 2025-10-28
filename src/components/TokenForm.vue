@@ -47,7 +47,7 @@
         </div>
 
         <div class="form-group">
-          <label for="portalUrl">View usage URL (可选)</label>
+          <label for="portalUrl">Portal URL (可选)</label>
           <input
             id="portalUrl"
             v-model="formData.portalUrl"
@@ -71,7 +71,7 @@
             id="emailNote"
             v-model="formData.emailNote"
             type="text"
-            placeholder="如有View usage URL将自动获取，也可手动输入"
+            placeholder="如有Portal URL将自动获取，也可手动输入"
             :disabled="isLoading"
             autocomplete="off"
             autocapitalize="off"
@@ -79,8 +79,7 @@
             spellcheck="false"
           />
           <div class="help-text">
-            如果填写了View usage
-            URL，系统会自动从API获取邮箱信息；也可手动输入邮箱备注
+            如果填写了Portal URL，系统会自动从API获取邮箱信息；也可手动输入邮箱备注
           </div>
           <div v-if="errors.emailNote" class="error-message">
             {{ errors.emailNote }}

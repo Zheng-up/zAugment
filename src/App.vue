@@ -283,11 +283,11 @@
                     <h3>通过授权URL获取需要的JSON数据</h3>
                   </div>
                   <!-- <div class="field-container">
-                      <label>View usage URL:</label>
+                      <label>Portal URL:</label>
                       <input
                         type="text"
                         v-model="portalUrl"
-                        placeholder="粘贴  View usage 页面地址栏 URL"
+                        placeholder="粘贴  Payment history 页面地址栏 URL"
                         class="field-input"
                       />
                     </div> -->
@@ -313,7 +313,24 @@
                 <div class="step-item">
                   <div class="step-header">
                     <div class="step-number">3</div>
-                    <h3>获取 View usage URL</h3>
+                    <h3>获取 Portal URL</h3>
+                    <button
+                      @click="copyAccountUrl"
+                      class="integrated-btn primary "
+                      title="复制后台URL"
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path
+                          d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+                        />
+                      </svg>
+                      复制后台URL
+                    </button>
                   </div>
                   <div class="token-section">
                     <!-- 隐藏访问令牌部分 -->
@@ -369,35 +386,14 @@
 
                     <!-- Additional Fields -->
                     <div class="additional-fields">
-                      <div class="result-container">
-                        <div class="token-container">
-                          <input
-                            type="text"
-                            value="https://app.augmentcode.com/account"
-                            readonly
-                            ref="accessTokenInput"
-                          />
-                          <button
-                            @click="copyAccountUrl"
-                            class="integrated-btn primary"
-                            title="复制URL"
-                          >
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="currentColor"
-                            >
-                              <path
-                                d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
-                              />
-                            </svg>
-                            复制
-                          </button>
-                          <!-- <button @click="copyAccountUrl" class="btn secondary">
-                        复制
-                      </button> -->
-                        </div>
+                      <div class="field-container">
+                        <label>Portal URL:</label>
+                        <input
+                          type="text"
+                          v-model="portalUrl"
+                          placeholder="Payment history 地址栏 URL"
+                          class="field-input"
+                        />
                         <div class="info-hint">
                           <svg
                             width="16"
@@ -409,25 +405,16 @@
                               d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
                             />
                           </svg>
-                          复制URL 进入账号管理后台点击 View usage 进入新页面后
+                          复制后台URL  进入后台点击 Payment history 按钮 进入新页面后
                           复制地址栏URL
                         </div>
-                      </div>
-                      <div class="field-container">
-                        <label>View usage URL:</label>
-                        <input
-                          type="text"
-                          v-model="portalUrl"
-                          placeholder="View usage 地址栏 URL"
-                          class="field-input"
-                        />
                       </div>
                       <div class="field-container">
                         <label>邮箱账号:</label>
                         <input
                           type="text"
                           v-model="emailNote"
-                          placeholder="如有 View usage URL 将自动获取 也可手动输入"
+                          placeholder="如有 Portal URL 将自动获取 也可手动输入"
                           class="field-input"
                         />
                       </div>
@@ -1644,7 +1631,7 @@
             在浏览器中登录你的 Augment 账户：
             <code
               class="copyable-code"
-              @click="copyToClipboard('https://login.augmentcode.com')"
+              @click="copyLoginUrl"
               title="点击复制"
             >
               <b>https://login.augmentcode.com</b>
@@ -1654,7 +1641,7 @@
             然后访问：
             <code
               class="copyable-code"
-              @click="copyToClipboard('https://auth.augmentcode.com')"
+              @click="copyAuthPageUrl"
               title="点击复制"
             >
               <b>https://auth.augmentcode.com</b>
@@ -3088,7 +3075,8 @@ const smartRefresh = async () => {
 
   // 立即设置刷新状态
   isRefreshing.value = true;
-  showStatus("正在刷新账号数据...", "info");
+  // 显示持久化的加载提示（duration = 0 表示不自动消失）
+  const loadingStatusId = showStatus("正在刷新账号数据...", "info", 0);
 
   try {
     // 调用 TokenList 的批量检查方法
@@ -3101,13 +3089,20 @@ const smartRefresh = async () => {
       // 更新状态统计
       recalcHeaderCounts();
 
+      // 手动移除加载提示
+      removeStatusMessage(loadingStatusId);
+
       // ✅ 不再显示 "刷新完成"，让 checkAllAccountStatus 的详细统计消息显示
       // showStatus("刷新完成", "success");
     } else {
       console.error("TokenList 组件未准备好或没有 checkAllAccountStatus 方法");
+      // 移除加载提示
+      removeStatusMessage(loadingStatusId);
       showStatus("刷新失败：组件未准备好", "error");
     }
   } catch (error) {
+    // 移除加载提示
+    removeStatusMessage(loadingStatusId);
     showStatus("刷新失败", "error");
     console.error("智能刷新错误:", error);
   } finally {
@@ -3251,11 +3246,9 @@ const onTokenSaved = () => {
 const copyToClipboard = async (text) => {
   try {
     await navigator.clipboard.writeText(text);
-    showStatus("已复制到剪贴板！", "success");
     return true;
   } catch (error) {
     console.error("Failed to copy to clipboard:", error);
-    showStatus("复制失败，请重试", "error");
     return false;
   }
 };
@@ -3289,7 +3282,7 @@ const generateAuthUrl = async () => {
 const copyAuthUrl = async () => {
   const success = await copyToClipboard(authUrl.value);
   showStatus(
-    success ? "URL已复制到剪贴板!" : "复制URL失败",
+    success ? "授权URL已复制到剪贴板!" : "复制URL失败",
     success ? "success" : "error"
   );
 };
@@ -3324,7 +3317,7 @@ const copyAccessToken = async () => {
 const copyAccountUrl = async () => {
   const success = await copyToClipboard("https://app.augmentcode.com/account");
   showStatus(
-    success ? "账号管理URL已复制到剪贴板!" : "复制URL失败",
+    success ? "后台URL已复制到剪贴板!" : "复制URL失败",
     success ? "success" : "error"
   );
 };
@@ -3333,6 +3326,24 @@ const copyTenantUrl = async () => {
   const success = await copyToClipboard(tokenResult.value.tenant_url);
   showStatus(
     success ? "租户URL已复制到剪贴板!" : "复制租户URL失败",
+    success ? "success" : "error"
+  );
+};
+
+// 复制登录URL
+const copyLoginUrl = async () => {
+  const success = await copyToClipboard('https://login.augmentcode.com');
+  showStatus(
+    success ? "登录URL已复制到剪贴板!" : "复制URL失败",
+    success ? "success" : "error"
+  );
+};
+
+// 复制认证URL
+const copyAuthPageUrl = async () => {
+  const success = await copyToClipboard('https://auth.augmentcode.com');
+  showStatus(
+    success ? "认证URL已复制到剪贴板!" : "复制URL失败",
     success ? "success" : "error"
   );
 };
@@ -6822,6 +6833,18 @@ body {
   font-weight: 600;
   margin: 0;
   flex: 1;
+}
+
+/* 步骤标题中的复制按钮 - 覆盖 integrated-btn 的宽高和圆角 */
+.step-header .integrated-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border-left: none;
+}
+
+.step-header .integrated-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* 步骤动画 */

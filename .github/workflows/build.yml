@@ -102,7 +102,8 @@ jobs:
             ## 🚀 ZAugment ${{ github.ref_name }} 发布
 
             ### 更新内容
-            1. **深度链接**:跟进ATM 支持深度链接外部session导入 zaugment://import?session=xxx
+            1. **修复打开报错**:修复 保存Token失败：Failedtorenametempfile:系统找不到指定的文件。（oserror2)  自动保存失败，请手动保存   报错 
+            2. **优化OAuth流程**:优化OAuth流程说明
            
 
             ### 📥 下载文件

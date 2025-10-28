@@ -545,19 +545,21 @@ async fn save_tokens_json(json_string: String, app: tauri::AppHandle, state: Sta
     // 获取有效的数据目录（优先使用自定义目录）
     let data_dir = get_effective_data_dir(&app, &state)?;
 
-    // 确保目录存在
+    // 确保目录存在并且可写
     fs::create_dir_all(&data_dir)
         .map_err(|e| format!("Failed to create data directory: {}", e))?;
 
     let storage_path = data_dir.join("tokens.json");
-    let temp_path = storage_path.with_extension("tmp");
+
+    // 使用同一目录下的临时文件，确保在同一文件系统上
+    let temp_path = data_dir.join(format!("tokens.{}.tmp", uuid::Uuid::new_v4()));
 
     // 基本的 JSON 格式验证
     serde_json::from_str::<serde_json::Value>(&json_string)
         .map_err(|e| format!("Invalid JSON format: {}", e))?;
 
     // 原子性写入：先写临时文件，再重命名
-    {
+    let write_result = (|| -> Result<(), String> {
         let mut temp_file = fs::File::create(&temp_path)
             .map_err(|e| format!("Failed to create temp file: {}", e))?;
 
@@ -566,13 +568,41 @@ async fn save_tokens_json(json_string: String, app: tauri::AppHandle, state: Sta
 
         temp_file.sync_all()
             .map_err(|e| format!("Failed to sync temp file: {}", e))?;
+
+        // 显式关闭文件
+        drop(temp_file);
+
+        Ok(())
+    })();
+
+    // 如果写入失败，清理临时文件
+    if let Err(e) = write_result {
+        let _ = fs::remove_file(&temp_path);
+        return Err(e);
     }
 
-    // 原子性重命名
-    fs::rename(&temp_path, &storage_path)
-        .map_err(|e| format!("Failed to rename temp file: {}", e))?;
+    // 尝试原子性重命名，如果失败则使用复制+删除的方式
+    let rename_result = fs::rename(&temp_path, &storage_path);
 
-    Ok(())
+    if let Err(rename_err) = rename_result {
+        // 如果 rename 失败（可能是跨文件系统），尝试复制+删除
+        println!("Rename failed, trying copy+delete: {}", rename_err);
+
+        match fs::copy(&temp_path, &storage_path) {
+            Ok(_) => {
+                // 复制成功，删除临时文件
+                let _ = fs::remove_file(&temp_path);
+                Ok(())
+            }
+            Err(copy_err) => {
+                // 复制也失败，清理临时文件并返回错误
+                let _ = fs::remove_file(&temp_path);
+                Err(format!("Failed to save file (rename failed: {}, copy failed: {})", rename_err, copy_err))
+            }
+        }
+    } else {
+        Ok(())
+    }
 }
 
 
@@ -1109,9 +1139,45 @@ async fn save_file_dialog(default_filename: String) -> Result<Option<String>, St
 #[tauri::command]
 async fn write_file_content(file_path: String, content: String) -> Result<(), String> {
     use std::fs;
-    fs::write(&file_path, content)
-        .map_err(|e| format!("写入文件失败: {}", e))?;
-    Ok(())
+    use std::path::Path;
+
+    let target_path = Path::new(&file_path);
+
+    // 确保父目录存在
+    if let Some(parent) = target_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("创建目录失败: {}", e))?;
+    }
+
+    // 使用同一目录下的唯一临时文件名，确保在同一文件系统上
+    let parent_dir = target_path.parent()
+        .ok_or("无法获取父目录")?;
+    let file_name = target_path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("file");
+    let temp_path = parent_dir.join(format!("{}.{}.tmp", file_name, uuid::Uuid::new_v4()));
+
+    // 写入临时文件
+    fs::write(&temp_path, &content)
+        .map_err(|e| format!("写入临时文件失败: {}", e))?;
+
+    // 尝试原子性重命名，如果失败则使用复制+删除的方式
+    match fs::rename(&temp_path, target_path) {
+        Ok(_) => Ok(()),
+        Err(rename_err) => {
+            // 如果 rename 失败（可能是跨文件系统），尝试复制+删除
+            match fs::copy(&temp_path, target_path) {
+                Ok(_) => {
+                    let _ = fs::remove_file(&temp_path);
+                    Ok(())
+                }
+                Err(copy_err) => {
+                    let _ = fs::remove_file(&temp_path);
+                    Err(format!("写入文件失败 (rename: {}, copy: {})", rename_err, copy_err))
+                }
+            }
+        }
+    }
 }
 
 #[tauri::command]
@@ -2562,18 +2628,38 @@ impl Default for UnifiedAppConfig {
 // 保存统一配置到文件（注意：需要AppState来获取有效数据目录）
 fn save_unified_config_with_state(app: &tauri::AppHandle, config: &UnifiedAppConfig, state: &State<'_, AppState>) -> Result<(), String> {
     let data_dir = get_effective_data_dir(app, state)?;
-    
+
     fs::create_dir_all(&data_dir)
         .map_err(|e| format!("Failed to create data directory: {}", e))?;
-    
+
     let config_path = data_dir.join("config.json");
     let config_json = serde_json::to_string_pretty(config)
         .map_err(|e| format!("Failed to serialize unified config: {}", e))?;
-    
-    fs::write(&config_path, config_json)
-        .map_err(|e| format!("Failed to write unified config file: {}", e))?;
-    
-    Ok(())
+
+    // 使用同一目录下的唯一临时文件名，确保在同一文件系统上
+    let temp_path = data_dir.join(format!("config.{}.tmp", uuid::Uuid::new_v4()));
+
+    // 写入临时文件
+    fs::write(&temp_path, &config_json)
+        .map_err(|e| format!("Failed to write temp file: {}", e))?;
+
+    // 尝试原子性重命名，如果失败则使用复制+删除的方式
+    match fs::rename(&temp_path, &config_path) {
+        Ok(_) => Ok(()),
+        Err(rename_err) => {
+            // 如果 rename 失败（可能是跨文件系统），尝试复制+删除
+            match fs::copy(&temp_path, &config_path) {
+                Ok(_) => {
+                    let _ = fs::remove_file(&temp_path);
+                    Ok(())
+                }
+                Err(copy_err) => {
+                    let _ = fs::remove_file(&temp_path);
+                    Err(format!("Failed to save config (rename: {}, copy: {})", rename_err, copy_err))
+                }
+            }
+        }
+    }
 }
 
 // 保存统一配置到默认应用目录（用于初始化或没有state时）
@@ -2582,18 +2668,38 @@ fn save_unified_config(app: &tauri::AppHandle, config: &UnifiedAppConfig) -> Res
         .path()
         .app_data_dir()
         .map_err(|e| format!("Failed to get app data directory: {}", e))?;
-    
+
     fs::create_dir_all(&data_dir)
         .map_err(|e| format!("Failed to create app data directory: {}", e))?;
-    
+
     let config_path = data_dir.join("config.json");
     let config_json = serde_json::to_string_pretty(config)
         .map_err(|e| format!("Failed to serialize unified config: {}", e))?;
-    
-    fs::write(&config_path, config_json)
-        .map_err(|e| format!("Failed to write unified config file: {}", e))?;
-    
-    Ok(())
+
+    // 使用同一目录下的唯一临时文件名，确保在同一文件系统上
+    let temp_path = data_dir.join(format!("config.{}.tmp", uuid::Uuid::new_v4()));
+
+    // 写入临时文件
+    fs::write(&temp_path, &config_json)
+        .map_err(|e| format!("Failed to write temp file: {}", e))?;
+
+    // 尝试原子性重命名，如果失败则使用复制+删除的方式
+    match fs::rename(&temp_path, &config_path) {
+        Ok(_) => Ok(()),
+        Err(rename_err) => {
+            // 如果 rename 失败（可能是跨文件系统），尝试复制+删除
+            match fs::copy(&temp_path, &config_path) {
+                Ok(_) => {
+                    let _ = fs::remove_file(&temp_path);
+                    Ok(())
+                }
+                Err(copy_err) => {
+                    let _ = fs::remove_file(&temp_path);
+                    Err(format!("Failed to save config (rename: {}, copy: {})", rename_err, copy_err))
+                }
+            }
+        }
+    }
 }
 
 // 从文件加载统一配置（支持迁移旧配置）
@@ -3672,7 +3778,11 @@ async fn reset_editor_telemetry(editor_type: String) -> Result<String, String> {
         }
     };
 
-    let temp_path = storage_path.with_extension("json.tmp");
+    // 使用同一目录下的唯一临时文件名，确保在同一文件系统上
+    let parent_dir = storage_path.parent()
+        .ok_or("无法获取父目录")?;
+    let temp_path = parent_dir.join(format!("storage.{}.tmp", uuid::Uuid::new_v4()));
+
     let mut retry_count = 0;
     let max_retries = 3;
     let mut last_error = None;
@@ -3714,7 +3824,7 @@ async fn reset_editor_telemetry(editor_type: String) -> Result<String, String> {
                     }
                 }
 
-                // 尝试原子性重命名
+                // 尝试原子性重命名，如果失败则使用复制+删除的方式
                 let rename_result = std::fs::rename(&temp_path, &storage_path);
 
                 match rename_result {
@@ -3722,15 +3832,27 @@ async fn reset_editor_telemetry(editor_type: String) -> Result<String, String> {
                         println!("文件写入成功，遥测ID重置完成");
                         break;
                     }
-                    Err(e) => {
-                        println!("重命名文件失败 (第{}次): {} (错误代码: {:?})", retry_count, e, e.kind());
-                        last_error = Some(e);
+                    Err(rename_err) => {
+                        println!("重命名文件失败 (第{}次): {} (错误代码: {:?})", retry_count, rename_err, rename_err.kind());
 
-                        // 清理临时文件
-                        let _ = std::fs::remove_file(&temp_path);
+                        // 如果 rename 失败，尝试复制+删除
+                        match std::fs::copy(&temp_path, &storage_path) {
+                            Ok(_) => {
+                                println!("使用复制方式写入成功");
+                                let _ = std::fs::remove_file(&temp_path);
+                                break;
+                            }
+                            Err(copy_err) => {
+                                println!("复制文件也失败: {} (错误代码: {:?})", copy_err, copy_err.kind());
+                                last_error = Some(rename_err);
 
-                        if retry_count < max_retries {
-                            std::thread::sleep(std::time::Duration::from_millis(1000));
+                                // 清理临时文件
+                                let _ = std::fs::remove_file(&temp_path);
+
+                                if retry_count < max_retries {
+                                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                                }
+                            }
                         }
                     }
                 }
