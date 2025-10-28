@@ -1,6 +1,6 @@
 {
   "productName": "ZAugment",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "identifier": "com.cubezhao.atm",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -36,6 +36,12 @@
   "plugins": {
     "shell": {
       "open": true
+    },
+    "deep-link": {
+      "mobile": [],
+      "desktop": {
+        "schemes": ["zaugment"]
+      }
     }
   },
   "bundle": {

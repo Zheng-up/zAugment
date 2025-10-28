@@ -2116,6 +2116,10 @@ const hasInitializedEmailManagement = ref(false); // 是否已初始化邮箱管
 // Session 导入事件监听器清理函数
 let unlistenSessionProgress = null;
 
+// Deep-Link 导入队列相关状态
+const importQueue = ref([]);
+const isImportingFromQueue = ref(false);
+
 // 注意：视图切换时关闭弹窗的逻辑已移至 handleNavClick 函数中
 
 // 监听WebDAV配置状态变化，自动管理自动同步 - 将在onMounted中启用
@@ -2949,7 +2953,7 @@ const importFromSession = async () => {
   }
 };
 
-const showStatus = (message, type = "info") => {
+const showStatus = (message, type = "info", duration = 4000) => {
   const id = ++statusIdCounter;
   const statusItem = {
     id,
@@ -2969,10 +2973,15 @@ const showStatus = (message, type = "info") => {
   // 添加新提示到队列末尾
   statusMessages.value.push(statusItem);
 
-  // 4秒后开始淡出动画
-  setTimeout(() => {
-    removeStatusMessage(id);
-  }, 4000);
+  // 如果 duration > 0，则自动消失；如果 duration = 0，则不自动消失
+  if (duration > 0) {
+    setTimeout(() => {
+      removeStatusMessage(id);
+    }, duration);
+  }
+
+  // 返回 id，以便手动控制消失
+  return id;
 };
 
 const removeStatusMessage = (id) => {
@@ -5500,6 +5509,55 @@ const confirmForceSync = async () => {
   cancelForceSync();
 };
 
+// ============ Deep-Link 导入队列处理 ============
+/**
+ * 处理导入队列中的 session
+ * 确保多个 session 导入时不会冲突
+ */
+const processImportQueue = async () => {
+  while (importQueue.value.length > 0) {
+    // 如果正在导入，等待
+    if (isImportingFromQueue.value) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      continue;
+    }
+
+    const session = importQueue.value.shift();
+    isImportingFromQueue.value = true;
+
+    // 显示导入中的提示，不自动消失
+    const importingStatusId = showStatus("正在导入 Token...", "info", 0);
+
+    try {
+      // 打开 TokenList
+      currentView.value = "token-list";
+      await nextTick();
+
+      // 等待 TokenList 准备好
+      if (tokenListRef.value?.waitUntilReady) {
+        await tokenListRef.value.waitUntilReady();
+      }
+
+      // 设置 session 输入
+      sessionInput.value = session;
+
+      // 调用导入方法
+      await importFromSession();
+
+      // 移除导入中的提示
+      removeStatusMessage(importingStatusId);
+    } catch (error) {
+      // 移除导入中的提示
+      removeStatusMessage(importingStatusId);
+
+      // 显示错误提示
+      showStatus(`❌ Token 导入失败: ${error.message}`, "error", 5000);
+    } finally {
+      isImportingFromQueue.value = false;
+    }
+  }
+};
+
 onMounted(async () => {
   console.log("App.vue onMounted 开始");
 
@@ -5613,6 +5671,30 @@ onMounted(async () => {
     );
   } catch (error) {
     console.error("Failed to listen to session-import-progress:", error);
+  }
+
+  // 监听 Deep-Link Session 接收事件（由后端发送，前端处理导入）
+  // 这个事件在用户点击 zaugment://import?session=xxx 链接时触发
+  try {
+    await listen("deep-link-session-received", async (event) => {
+      if (event.payload && event.payload.session) {
+        // 将 session 加入队列
+        importQueue.value.push(event.payload.session);
+
+        // 显示队列状态提示
+        if (isImportingFromQueue.value) {
+          // 如果正在导入，提示等待
+          showStatus(`已加入导入队列，当前待导入 ${importQueue.value.length} 个`, "info", 3000);
+        }
+
+        // 处理队列
+        await processImportQueue();
+      } else {
+        showStatus("❌ Deep-Link 数据无效", "error", 5000);
+      }
+    });
+  } catch (error) {
+    console.error("Failed to listen to deep-link-session-received:", error);
   }
 
   // 应用启动完成后，异步初始化邮箱管理（不阻塞界面渲染）

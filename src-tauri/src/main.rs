@@ -23,7 +23,8 @@ use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
 use std::collections::HashMap;
 use std::time::SystemTime;
-use tauri::{State, Manager, WebviewWindowBuilder, WebviewUrl, Emitter};
+use tauri::{State, Manager, WebviewWindowBuilder, WebviewUrl, Emitter, Listener};
+use tauri_plugin_deep_link::DeepLinkExt;
 use chrono;
 use std::fs;
 use uuid::Uuid;
@@ -2844,7 +2845,7 @@ pub struct EditorInfo {
 
 /// 获取编辑器配置路径
 fn get_editor_paths(editor_type: &str) -> Result<(Option<PathBuf>, Option<PathBuf>), String> {
-    let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
+    let _home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
 
     match editor_type {
         "vscode" => {
@@ -3851,12 +3852,56 @@ async fn reset_jetbrains_session_id() -> Result<String, String> {
 }
 
 fn main() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    // 在桌面平台上添加 single-instance 插件
+    // 这个插件必须是第一个注册的插件，用于防止多实例运行
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            // 聚焦主窗口
+            if let Some(main_window) = app.get_webview_window("main") {
+                let _ = main_window.set_focus();
+                let _ = main_window.unminimize();
+            }
+
+            // 处理 deep-link URL（从 argv 中查找）
+            for arg in argv {
+                if arg.starts_with("zaugment://") {
+                    // 解析 URL 获取 session 参数
+                    if let Ok(parsed_url) = url::Url::parse(&arg) {
+                        if let Some(session) = parsed_url.query_pairs().find(|(k, _)| k == "session").map(|(_, v)| v.to_string()) {
+                            // 发送 session 到前端
+                            let app_handle = app.app_handle().clone();
+                            let session_clone = session.clone();
+
+                            // 等待一下确保前端已经准备好
+                            std::thread::spawn(move || {
+                                std::thread::sleep(std::time::Duration::from_millis(1000));
+
+                                let _ = app_handle.emit(
+                                    "deep-link-session-received",
+                                    serde_json::json!({
+                                        "session": session_clone
+                                    })
+                                );
+                            });
+                        }
+                    }
+
+                    break;
+                }
+            }
+        }));
+    }
+
+    builder
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
             println!("应用启动中...");
-            
+
             // 最小化状态管理
             let app_state = AppState {
                 augment_oauth_state: Mutex::new(None),
@@ -3871,8 +3916,68 @@ fn main() {
             };
 
             app.manage(app_state);
-            
+
             println!("状态管理器初始化完成");
+
+            // 注册 Deep-Link 协议处理
+            // 在 Windows 和 Linux 上总是注册，macOS 通过 bundle 配置
+            #[cfg(any(target_os = "linux", windows))]
+            {
+                let _ = app.deep_link().register_all();
+            }
+
+            // 处理 Deep-Link 事件（仅在首次启动时触发）
+            let app_handle = app.app_handle().clone();
+            app.listen("deep-link://new-deep-link", move |event| {
+                // 从 URL 中提取 session 参数
+                let payload = event.payload();
+
+                if let Ok(url_str) = serde_json::from_str::<Vec<String>>(payload) {
+                    if let Some(url) = url_str.first() {
+                        // 解析 URL 获取 session 参数
+                        if let Ok(parsed_url) = url::Url::parse(url) {
+                            if let Some(session) = parsed_url.query_pairs().find(|(k, _)| k == "session").map(|(_, v)| v.to_string()) {
+                                // 等待主窗口加载完成（最多等待 10 秒）
+                                let app_handle_clone = app_handle.clone();
+                                let session_clone = session.clone();
+
+                                tokio::spawn(async move {
+                                    let mut attempts = 0;
+                                    let max_attempts = 100; // 100 * 100ms = 10 秒
+
+                                    while attempts < max_attempts {
+                                        if let Some(main_window) = app_handle_clone.get_webview_window("main") {
+                                            // 窗口存在，再等待一小段时间确保前端事件监听器已注册
+                                            tokio::time::sleep(tokio::time::Duration::from_millis(800)).await;
+
+                                            // 聚焦主窗口
+                                            let _ = main_window.set_focus();
+                                            let _ = main_window.unminimize();
+
+                                            // 发送 session 到前端，由前端调用导入方法
+                                            let _ = app_handle_clone.emit(
+                                                "deep-link-session-received",
+                                                serde_json::json!({
+                                                    "session": session_clone
+                                                })
+                                            );
+                                            break;
+                                        }
+
+                                        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                                        attempts += 1;
+                                    }
+
+                                    if attempts >= max_attempts {
+                                        eprintln!("⚠️ Timeout waiting for main window to be ready");
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
