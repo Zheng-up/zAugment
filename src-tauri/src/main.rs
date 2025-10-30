@@ -2951,7 +2951,7 @@ pub struct EditorInfo {
 
 /// 获取编辑器配置路径
 fn get_editor_paths(editor_type: &str) -> Result<(Option<PathBuf>, Option<PathBuf>), String> {
-    let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
+    let _home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
 
     match editor_type {
         "vscode" => {
@@ -3894,6 +3894,361 @@ async fn reset_editor_telemetry(editor_type: String) -> Result<String, String> {
     Ok(format!("重置遥测: {} 成功重置 {} 个遥测字段", editor_display_name, modified_count))
 }
 
+/// 清除 Augment 聊天记录
+#[tauri::command]
+async fn clear_augment_chat_history(editor_type: String) -> Result<String, String> {
+    use walkdir::WalkDir;
+
+    let _home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
+
+    // 获取编辑器显示名称
+    let editor_display_name = match editor_type.as_str() {
+        "vscode" => "VS Code",
+        "cursor" => "Cursor",
+        "kiro" => "Kiro",
+        "trae" => "Trae",
+        "windsurf" => "Windsurf",
+        "qoder" => "Qoder",
+        "vscodium" => "VSCodium",
+        "codebuddy" => "CodeBuddy",
+        "idea" => "IntelliJ IDEA",
+        "pycharm" => "PyCharm",
+        "goland" => "GoLand",
+        "rustrover" => "RustRover",
+        "webstorm" => "WebStorm",
+        "phpstorm" => "PhpStorm",
+        "clion" => "CLion",
+        "datagrip" => "DataGrip",
+        "rider" => "Rider",
+        "rubymine" => "RubyMine",
+        "aqua" => "Aqua",
+        "androidstudio" => "Android Studio",
+        _ => &editor_type,
+    };
+
+    // 获取 workspaceStorage 路径
+    let workspace_storage_path = match editor_type.as_str() {
+        // VSCode 系列编辑器
+        "vscode" => {
+            #[cfg(target_os = "windows")]
+            {
+                let appdata = std::env::var("APPDATA").map_err(|_| "无法获取APPDATA环境变量")?;
+                PathBuf::from(appdata).join("Code").join("User").join("workspaceStorage")
+            }
+            #[cfg(target_os = "macos")]
+            {
+                home_dir.join("Library").join("Application Support").join("Code").join("User").join("workspaceStorage")
+            }
+            #[cfg(target_os = "linux")]
+            {
+                home_dir.join(".config").join("Code").join("User").join("workspaceStorage")
+            }
+        },
+        "cursor" => {
+            #[cfg(target_os = "windows")]
+            {
+                let appdata = std::env::var("APPDATA").map_err(|_| "无法获取APPDATA环境变量")?;
+                PathBuf::from(appdata).join("Cursor").join("User").join("workspaceStorage")
+            }
+            #[cfg(target_os = "macos")]
+            {
+                home_dir.join("Library").join("Application Support").join("Cursor").join("User").join("workspaceStorage")
+            }
+            #[cfg(target_os = "linux")]
+            {
+                home_dir.join(".config").join("Cursor").join("User").join("workspaceStorage")
+            }
+        },
+        "kiro" => {
+            #[cfg(target_os = "windows")]
+            {
+                let appdata = std::env::var("APPDATA").map_err(|_| "无法获取APPDATA环境变量")?;
+                PathBuf::from(appdata).join("Kiro").join("User").join("workspaceStorage")
+            }
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            {
+                home_dir.join(".config").join("Kiro").join("User").join("workspaceStorage")
+            }
+        },
+        "trae" => {
+            #[cfg(target_os = "windows")]
+            {
+                let appdata = std::env::var("APPDATA").map_err(|_| "无法获取APPDATA环境变量")?;
+                PathBuf::from(appdata).join("Trae").join("User").join("workspaceStorage")
+            }
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            {
+                home_dir.join(".config").join("Trae").join("User").join("workspaceStorage")
+            }
+        },
+        "windsurf" => {
+            #[cfg(target_os = "windows")]
+            {
+                let appdata = std::env::var("APPDATA").map_err(|_| "无法获取APPDATA环境变量")?;
+                PathBuf::from(appdata).join("Windsurf").join("User").join("workspaceStorage")
+            }
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            {
+                home_dir.join(".config").join("Windsurf").join("User").join("workspaceStorage")
+            }
+        },
+        "qoder" => {
+            #[cfg(target_os = "windows")]
+            {
+                let appdata = std::env::var("APPDATA").map_err(|_| "无法获取APPDATA环境变量")?;
+                PathBuf::from(appdata).join("Qoder").join("User").join("workspaceStorage")
+            }
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            {
+                home_dir.join(".config").join("Qoder").join("User").join("workspaceStorage")
+            }
+        },
+        "vscodium" => {
+            #[cfg(target_os = "windows")]
+            {
+                let appdata = std::env::var("APPDATA").map_err(|_| "无法获取APPDATA环境变量")?;
+                PathBuf::from(appdata).join("VSCodium").join("User").join("workspaceStorage")
+            }
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            {
+                home_dir.join(".config").join("VSCodium").join("User").join("workspaceStorage")
+            }
+        },
+        "codebuddy" => {
+            #[cfg(target_os = "windows")]
+            {
+                let appdata = std::env::var("APPDATA").map_err(|_| "无法获取APPDATA环境变量")?;
+                PathBuf::from(appdata).join("CodeBuddy").join("User").join("workspaceStorage")
+            }
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            {
+                home_dir.join(".config").join("CodeBuddy").join("User").join("workspaceStorage")
+            }
+        },
+
+        // JetBrains 系列 - 返回空路径，后面会特殊处理
+        "idea" | "pycharm" | "goland" | "rustrover" | "webstorm" | "phpstorm" |
+        "clion" | "datagrip" | "rider" | "rubymine" | "aqua" | "androidstudio" => {
+            return clear_jetbrains_chat_history(&editor_type, editor_display_name);
+        },
+
+        _ => return Err(format!("不支持的编辑器类型: {}", editor_type)),
+    };
+
+    if !workspace_storage_path.exists() {
+        return Ok(format!("清除聊天记录: {} 的 workspaceStorage 目录不存在，跳过清除", editor_display_name));
+    }
+
+    println!("开始清除 {} 的聊天记录，路径: {:?}", editor_display_name, workspace_storage_path);
+
+    let mut deleted_count = 0;
+    let mut error_count = 0;
+
+    // 遍历 workspaceStorage 下的所有工作区文件夹
+    for entry in WalkDir::new(&workspace_storage_path)
+        .min_depth(1)
+        .max_depth(2)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let path = entry.path();
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+        // 查找 Augment 相关的聊天记录文件
+        if file_name.contains("augment") &&
+           (file_name.ends_with(".json") ||
+            file_name.contains("chat") ||
+            file_name.contains("conversation") ||
+            file_name.contains("history")) {
+
+            println!("找到 Augment 聊天记录文件: {:?}", path);
+
+            match std::fs::remove_file(path) {
+                Ok(_) => {
+                    println!("成功删除: {:?}", path);
+                    deleted_count += 1;
+                },
+                Err(e) => {
+                    println!("删除失败: {:?}, 错误: {}", path, e);
+                    error_count += 1;
+                }
+            }
+        }
+
+        // 同时检查目录名，如果是 augmentcode.augment-* 开头的目录，删除整个目录
+        if path.is_dir() && file_name.starts_with("augmentcode.augment") {
+            println!("找到 Augment 扩展目录: {:?}", path);
+
+            match std::fs::remove_dir_all(path) {
+                Ok(_) => {
+                    println!("成功删除目录: {:?}", path);
+                    deleted_count += 1;
+                },
+                Err(e) => {
+                    println!("删除目录失败: {:?}, 错误: {}", path, e);
+                    error_count += 1;
+                }
+            }
+        }
+    }
+
+    if deleted_count == 0 && error_count == 0 {
+        Ok(format!("清除聊天记录: {} 未找到 Augment 聊天记录", editor_display_name))
+    } else if error_count > 0 {
+        Ok(format!("清除聊天记录: {} 删除了 {} 个文件/目录，{} 个失败",
+            editor_display_name, deleted_count, error_count))
+    } else {
+        Ok(format!("清除聊天记录: {} 成功删除 {} 个文件/目录",
+            editor_display_name, deleted_count))
+    }
+}
+
+/// 清除 JetBrains 系列编辑器的 Augment 聊天记录
+fn clear_jetbrains_chat_history(editor_type: &str, editor_display_name: &str) -> Result<String, String> {
+    use walkdir::WalkDir;
+
+    let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
+
+    // JetBrains 配置目录路径
+    let config_base = if cfg!(target_os = "windows") {
+        let appdata = std::env::var("APPDATA").map_err(|_| "无法获取APPDATA环境变量")?;
+        PathBuf::from(appdata).join("JetBrains")
+    } else if cfg!(target_os = "macos") {
+        home_dir.join("Library").join("Application Support").join("JetBrains")
+    } else {
+        home_dir.join(".config").join("JetBrains")
+    };
+
+    // 根据编辑器类型确定配置目录前缀
+    let dir_prefix = match editor_type {
+        "idea" => "IntelliJIdea",
+        "pycharm" => "PyCharm",
+        "goland" => "GoLand",
+        "rustrover" => "RustRover",
+        "webstorm" => "WebStorm",
+        "phpstorm" => "PhpStorm",
+        "clion" => "CLion",
+        "datagrip" => "DataGrip",
+        "rider" => "Rider",
+        "rubymine" => "RubyMine",
+        "aqua" => "Aqua",
+        "androidstudio" => "AndroidStudio",
+        _ => return Err(format!("不支持的 JetBrains 编辑器: {}", editor_type)),
+    };
+
+    if !config_base.exists() {
+        return Ok(format!("清除聊天记录: {} 配置目录不存在，跳过清除", editor_display_name));
+    }
+
+    println!("开始清除 {} 的聊天记录，配置目录: {:?}", editor_display_name, config_base);
+
+    let mut deleted_count = 0;
+    let mut error_count = 0;
+
+    // 遍历 JetBrains 配置目录，查找对应编辑器的版本目录
+    for entry in std::fs::read_dir(&config_base).map_err(|e| format!("无法读取目录: {}", e))? {
+        let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
+        let path = entry.path();
+
+        if !path.is_dir() {
+            continue;
+        }
+
+        let dir_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+        // 检查是否是目标编辑器的配置目录（例如：IntelliJIdea2024.1）
+        if !dir_name.starts_with(dir_prefix) {
+            continue;
+        }
+
+        println!("找到 {} 配置目录: {:?}", editor_display_name, path);
+
+        // 在配置目录中查找 Augment 相关文件
+        // JetBrains 插件数据通常存储在：
+        // - options/ 目录下的 XML 文件
+        // - workspace/ 目录
+        let options_dir = path.join("options");
+        let workspace_dir = path.join("workspace");
+
+        // 清除 options 目录中的 Augment 配置
+        if options_dir.exists() {
+            for file_entry in WalkDir::new(&options_dir)
+                .max_depth(2)
+                .into_iter()
+                .filter_map(|e| e.ok())
+            {
+                let file_path = file_entry.path();
+                let file_name = file_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+                if file_name.to_lowercase().contains("augment") {
+                    println!("找到 Augment 配置文件: {:?}", file_path);
+
+                    match std::fs::remove_file(file_path) {
+                        Ok(_) => {
+                            println!("成功删除: {:?}", file_path);
+                            deleted_count += 1;
+                        },
+                        Err(e) => {
+                            println!("删除失败: {:?}, 错误: {}", file_path, e);
+                            error_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 清除 workspace 目录中的 Augment 数据
+        if workspace_dir.exists() {
+            for file_entry in WalkDir::new(&workspace_dir)
+                .max_depth(3)
+                .into_iter()
+                .filter_map(|e| e.ok())
+            {
+                let file_path = file_entry.path();
+                let file_name = file_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+                if file_name.to_lowercase().contains("augment") {
+                    println!("找到 Augment 工作区文件: {:?}", file_path);
+
+                    if file_path.is_dir() {
+                        match std::fs::remove_dir_all(file_path) {
+                            Ok(_) => {
+                                println!("成功删除目录: {:?}", file_path);
+                                deleted_count += 1;
+                            },
+                            Err(e) => {
+                                println!("删除目录失败: {:?}, 错误: {}", file_path, e);
+                                error_count += 1;
+                            }
+                        }
+                    } else {
+                        match std::fs::remove_file(file_path) {
+                            Ok(_) => {
+                                println!("成功删除: {:?}", file_path);
+                                deleted_count += 1;
+                            },
+                            Err(e) => {
+                                println!("删除失败: {:?}, 错误: {}", file_path, e);
+                                error_count += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if deleted_count == 0 && error_count == 0 {
+        Ok(format!("清除聊天记录: {} 未找到 Augment 聊天记录", editor_display_name))
+    } else if error_count > 0 {
+        Ok(format!("清除聊天记录: {} 删除了 {} 个文件/目录，{} 个失败",
+            editor_display_name, deleted_count, error_count))
+    } else {
+        Ok(format!("清除聊天记录: {} 成功删除 {} 个文件/目录",
+            editor_display_name, deleted_count))
+    }
+}
+
 async fn reset_jetbrains_session_id() -> Result<String, String> {
     let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
     let new_session_id = Uuid::new_v4().to_string();
@@ -4196,7 +4551,8 @@ fn main() {
             check_editor_processes,
             close_editor_processes,
             clean_editor_database,
-            reset_editor_telemetry
+            reset_editor_telemetry,
+            clear_augment_chat_history
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

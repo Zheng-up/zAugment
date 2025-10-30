@@ -549,6 +549,13 @@ onMounted(async () => {
   }
 }
 
+@media (max-width: 1200px) {
+  .token-grid {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 10px;
+  }
+}
+
 @media (max-width: 768px) {
   .token-grid {
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));

@@ -78,6 +78,23 @@
             </div>
             <div class="header-right">
               <button
+                @click="openPurchaseLink"
+                class="btn-header-unified purchase"
+                title="购买账号"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path
+                    d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"
+                  />
+                </svg>
+                购买账号
+              </button>
+              <button
                 @click="showEditorResetModal = true"
                 class="btn-header-unified danger"
                 title="重置编辑器中的Augment配置"
@@ -1348,6 +1365,27 @@
                     </div>
                   </div>
                   <div class="info-item">
+                    <span class="info-label">QQ交流群</span>
+                    <div class="info-value-with-action">
+                      <button
+                        @click="showCommunityModal = true"
+                        class="info-action-btn primary"
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                        >
+                          <path
+                            d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"
+                          />
+                        </svg>
+                        加入交流群
+                      </button>
+                    </div>
+                  </div>
+                  <div class="info-item">
                     <span class="info-label">GitHub</span>
                     <div class="info-value-with-action">
                       <div class="github-content">
@@ -1578,7 +1616,7 @@
               </svg>
             </div>
             <h4>JetBrains 系列</h4>
-            <p>适用于 IntelliJ IDEA、WebStorm 等（暂不防封）</p>
+            <p>适用于 IntelliJ IDEA、WebStorm 等（暂无相应防封插件）</p>
             <button
               @click="openJetBrainsPlugin"
               class="plugin-btn jetbrains-btn"
@@ -1708,6 +1746,33 @@
         </div>
         <div class="appreciation-text">
           <p>感谢每一位用户的理解与支持 🙏</p>
+        </div>
+      </div>
+    </ModalContainer>
+
+    <!-- 交流群弹窗 -->
+    <ModalContainer
+      :visible="showCommunityModal"
+      title="💬 加入交流群"
+      size="small"
+      @close="showCommunityModal = false"
+    >
+      <div class="appreciation-content">
+        <p
+          style="
+            margin-bottom: 24px;
+            color: #666;
+            text-align: center;
+            line-height: 1.5;
+          "
+        >
+          群内不定时发放 augment、cursor、codex 等AI账号福利
+        </p>
+        <div class="appreciation-qr-container">
+          <img :src="communityQR" alt="交流群二维码" class="appreciation-qr" />
+        </div>
+        <div class="appreciation-text">
+          <p>期待与您在群里交流 🎉</p>
         </div>
       </div>
     </ModalContainer>
@@ -2071,6 +2136,7 @@ import UpdateChecker from "./components/UpdateChecker.vue";
 import EditorResetModal from "./components/EditorResetModal.vue";
 import ThresholdConfigModal from "./components/ThresholdConfigModal.vue";
 import appreciationQR from "/赞赏.png";
+import communityQR from "/交流群.png";
 
 // 简化的状态管理
 const tokens = ref([]);
@@ -2645,6 +2711,9 @@ const forceConfirmMessage = ref("");
 
 // Appreciation modal
 const showAppreciationModal = ref(false);
+
+// Community modal
+const showCommunityModal = ref(false);
 
 // Computed properties
 
@@ -3614,6 +3683,7 @@ const handleNavClick = (view) => {
   showSyncHistoryModal.value = false;
   showTokenFormModal.value = false;
   showAppreciationModal.value = false;
+  showCommunityModal.value = false;
   showAccountManagerModal.value = false;
   showSessionHelpModal.value = false;
 
@@ -3655,6 +3725,16 @@ const handleNavClick = (view) => {
 // 处理编辑器重置弹窗关闭
 const handleEditorResetModalClose = () => {
   showEditorResetModal.value = false;
+};
+
+// 打开购买链接
+const openPurchaseLink = async () => {
+  try {
+    await invoke("open_url", { url: "https://pay.ldxp.cn/shop/V6VSA2G8" });
+  } catch (error) {
+    console.error("打开购买链接失败:", error);
+    showStatus("打开购买链接失败", "error");
+  }
 };
 
 // 处理编辑器重置完成
@@ -4364,26 +4444,19 @@ onUnmounted(() => {
 
 const openVSCodePlugin = async () => {
   showPluginHomeDialog.value = false;
-  const url = "https://www.123684.com/s/f1TeTd-dNvHd?pwd=zu8D";
+  const url = "https://github.com/Zheng-up/augment-code-z";
 
   try {
     await invoke("open_url", { url });
   } catch (error) {
-    console.error("Failed to open VSCode 插件:", error);
-    showStatus("打开 VSCode 插件失败", "error");
+    console.error("Failed to open GitHub repository:", error);
+    showStatus("打开 GitHub 仓库失败", "error");
   }
 };
 
 const openJetBrainsPlugin = async () => {
   showPluginHomeDialog.value = false;
-  const url = "https://www.123684.com/s/f1TeTd-3NvHd?pwd=Rtrb";
-
-  try {
-    await invoke("open_url", { url });
-  } catch (error) {
-    console.error("Failed to open JetBrains 插件:", error);
-    showStatus("打开 JetBrains 插件失败", "error");
-  }
+  showStatus("暂无相应防封插件", "error");
 };
 
 const openBalancePluginDownload = async () => {
@@ -6383,6 +6456,7 @@ body {
 .view-content-card {
   background: transparent;
   padding: 10px;
+  padding-right: 4px;
   position: relative;
   flex: 1;
   overflow-y: auto;
@@ -6393,25 +6467,36 @@ body {
 /* 现代化滚动条样式 - 应用到所有内容卡片 */
 .token-generator-card::-webkit-scrollbar,
 .view-content-card::-webkit-scrollbar {
-  width: 6px;
+  width: 16px;
 }
 
 .token-generator-card::-webkit-scrollbar-track,
 .view-content-card::-webkit-scrollbar-track {
-  background: rgba(241, 245, 249, 0.3);
+  background: transparent;
+  border-radius: 10px;
+  margin: 4px 0;
 }
 
 .token-generator-card::-webkit-scrollbar-thumb,
 .view-content-card::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
-
-  transition: all 0.3s ease;
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  border: 4px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.2s ease;
 }
 
 .token-generator-card::-webkit-scrollbar-thumb:hover,
 .view-content-card::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%);
-  transform: scaleX(1.2);
+  background: rgba(100, 116, 139, 0.5);
+  background-clip: padding-box;
+}
+
+/* Firefox 滚动条样式 */
+.token-generator-card,
+.view-content-card {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
 }
 
 /* 卡片容器样式 */
@@ -7635,6 +7720,17 @@ textarea.unified-input {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+  /* 移动端滚动条 */
+  .token-generator-card::-webkit-scrollbar,
+  .view-content-card::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  .token-generator-card::-webkit-scrollbar-thumb,
+  .view-content-card::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+  }
+
   .app-header {
     padding: 8px 12px;
     min-height: 56px;
@@ -11808,6 +11904,18 @@ textarea.unified-input {
   border-color: rgba(148, 163, 184, 0.8);
   transform: translateY(-2px);
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-header-unified.purchase {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 2px 12px rgba(16, 185, 129, 0.25);
+}
+
+.btn-header-unified.purchase:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
 }
 
 .btn-header-unified.danger {

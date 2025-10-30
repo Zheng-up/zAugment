@@ -7,17 +7,57 @@
   >
     <div class="editor-reset-content">
       <div class="editor-selection">
-        <div class="warning-section">
+        <div class="warning-section" :class="{ processing: isProcessing }">
           <div class="warning-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+            <!-- 处理中显示加载图标 -->
+            <svg
+              v-if="isProcessing"
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              class="processing-icon"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-dasharray="31.4 31.4"
+                stroke-dashoffset="0"
+              >
+                <animateTransform
+                  attributeName="transform"
+                  type="rotate"
+                  from="0 12 12"
+                  to="360 12 12"
+                  dur="1s"
+                  repeatCount="indefinite"
+                />
+              </circle>
+            </svg>
+            <!-- 未处理时显示警告图标 -->
+            <svg
+              v-else
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
               <path
                 d="M12 2L1 21H23L12 2M12 6L19.53 19H4.47L12 6M11 10V14H13V10H11M11 16V18H13V16H11Z"
               />
             </svg>
           </div>
           <div class="warning-text">
-            <h4>重要提醒 此操作将会：</h4>
-            <p>关闭编辑器进程，清理 Augment 数据，重置遥测标识</p>
+            <h4 v-if="!isProcessing">重要提醒 此操作将会：</h4>
+            <h4 v-else>正在处理...</h4>
+            <p v-if="!isProcessing">
+              关闭进程，清理数据，清除聊天记录，重置遥测标识
+            </p>
+            <p v-else>{{ currentStep }}</p>
           </div>
         </div>
         <div class="editor-grid">
@@ -401,14 +441,6 @@
           </div>
         </div>
       </div>
-
-      <div v-if="isProcessing" class="processing-status">
-        <div class="processing-spinner"></div>
-        <div class="processing-text">
-          <h4>正在处理...</h4>
-          <p>{{ currentStep }}</p>
-        </div>
-      </div>
     </div>
 
     <template #footer>
@@ -576,8 +608,26 @@ const startReset = async () => {
       hasWarnings = true;
     }
 
-    // 步骤3: 修改遥测ID
-    console.log("=== 开始步骤3: 重置遥测ID ===");
+    // 步骤3: 清除聊天记录
+    console.log("=== 开始步骤3: 清除聊天记录 ===");
+    currentStep.value = "正在清除 Augment 聊天记录...";
+
+    try {
+      const clearChatResult = await invoke("clear_augment_chat_history", {
+        editorType: selectedEditor.value,
+      });
+      console.log("清除聊天记录结果:", clearChatResult);
+      stepResults.push(`✅ 步骤3: ${clearChatResult}`);
+    } catch (clearChatError) {
+      console.warn("清除聊天记录时出现错误:", clearChatError);
+      stepResults.push(
+        `⚠️ 步骤3: 聊天记录清除时出现问题: ${clearChatError.message || clearChatError}`
+      );
+      hasWarnings = true;
+    }
+
+    // 步骤4: 重置遥测ID
+    console.log("=== 开始步骤4: 重置遥测ID ===");
     currentStep.value = "正在重置遥测标识...";
 
     try {
@@ -585,11 +635,11 @@ const startReset = async () => {
         editorType: selectedEditor.value,
       });
       console.log("重置遥测结果:", resetResult);
-      stepResults.push(`✅ 步骤3: ${resetResult}`);
+      stepResults.push(`✅ 步骤4: ${resetResult}`);
     } catch (resetError) {
       console.warn("重置遥测时出现错误:", resetError);
       stepResults.push(
-        `⚠️ 步骤3: 遥测重置时出现问题: ${resetError.message || resetError}`
+        `⚠️ 步骤4: 遥测重置时出现问题: ${resetError.message || resetError}`
       );
       hasWarnings = true;
     }
@@ -627,11 +677,11 @@ const startReset = async () => {
       details: stepResults,
     });
   } finally {
-    // 无论成功失败，都在1秒后关闭弹窗并重置状态
+    // 无论成功失败，都在3秒后关闭弹窗并重置状态
     setTimeout(() => {
       resetState();
       emit("close");
-    }, 1000);
+    }, 3000);
   }
 };
 </script>
@@ -657,11 +707,30 @@ const startReset = async () => {
   );
   border: 1px solid rgba(239, 68, 68, 0.1);
   border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.warning-section.processing {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.05),
+    rgba(99, 102, 241, 0.05)
+  );
+  border: 1px solid rgba(59, 130, 246, 0.1);
 }
 
 .warning-icon {
   color: #f59e0b;
   flex-shrink: 0;
+  transition: color 0.3s ease;
+}
+
+.warning-section.processing .warning-icon {
+  color: #3b82f6;
+}
+
+.processing-icon {
+  color: #3b82f6;
 }
 
 .warning-text h4 {
@@ -669,12 +738,23 @@ const startReset = async () => {
   color: #dc2626;
   font-size: 16px;
   font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+.warning-section.processing .warning-text h4 {
+  color: #3b82f6;
 }
 
 .warning-text p {
   margin: 0 0 8px 0;
   color: #666;
   line-height: 1.5;
+  transition: color 0.3s ease;
+}
+
+.warning-section.processing .warning-text p {
+  color: #3b82f6;
+  font-weight: 500;
 }
 
 .warning-text ul {

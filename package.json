@@ -1,7 +1,7 @@
 {
   "name": "ZAugment",
   "private": true,
-  "version": "0.4.7",
+  "version": "0.4.8",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,7 +15,8 @@
     "@tauri-apps/api": "^2.0.0",
     "chart.js": "^4.5.1",
     "vue": "^3.5.0",
-    "vue-chartjs": "^5.3.2"
+    "vue-chartjs": "^5.3.2",
+    "vue-virtual-scroller": "^2.0.0-beta.8"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",

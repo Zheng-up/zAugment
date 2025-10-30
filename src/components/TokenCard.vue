@@ -1834,18 +1834,21 @@ defineExpose({
 
 <style scoped>
 .token-card {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(226, 232, 240, 0.6);
   border-radius: 12px;
   padding: 10px;
   margin: 0px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   height: fit-content;
   min-height: 100px;
   position: relative;
-  backdrop-filter: blur(20px);
   overflow: hidden;
+  /* 性能优化 */
+  will-change: box-shadow;
+  contain: layout style paint;
 }
 
 .status-indicator {
@@ -1981,11 +1984,12 @@ defineExpose({
   border: 1px solid rgba(210, 215, 223, 0.4);
   padding: 3px 4px;
   border-radius: 8px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
 
 .email-note:hover {
@@ -1993,6 +1997,11 @@ defineExpose({
   background: rgba(232, 234, 235, 0.8);
   border-color: rgba(203, 213, 225, 0.5);
   box-shadow: 0 1px 3px rgba(100, 116, 139, 0.08);
+}
+
+.email-note:active {
+  background: rgba(220, 224, 228, 0.9);
+  box-shadow: 0 1px 2px rgba(100, 116, 139, 0.12);
 }
 
 .email-icon {
@@ -2008,7 +2017,6 @@ defineExpose({
 .email-text {
   display: inline-block;
   white-space: nowrap;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .portal-meta {
@@ -2102,11 +2110,12 @@ defineExpose({
 }
 
 .portal-info-item.clickable:hover {
-  background: rgba(148, 163, 184, 0.12);
+  color: #1e293b;
+  background: rgba(148, 163, 184, 0.18);
 }
 
 .portal-info-item.clickable:active {
-  background: rgba(148, 163, 184, 0.18);
+  background: rgba(148, 163, 184, 0.24);
 }
 
 .portal-info-item.clickable .portal-value {
@@ -2138,13 +2147,15 @@ defineExpose({
 }
 
 .btn-action {
-  background: rgba(248, 250, 252, 0.8);
+  background: rgba(248, 250, 252, 0.95);
   border: 1px solid rgba(226, 232, 240, 0.6);
   border-radius: 8px;
   padding: 8px;
   cursor: pointer;
   color: #64748b;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2154,7 +2165,6 @@ defineExpose({
   font-weight: 500;
   position: relative;
   overflow: hidden;
-  backdrop-filter: blur(10px);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -2232,7 +2242,6 @@ defineExpose({
   border: 1px solid rgba(226, 232, 240, 0.6);
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(10px);
   z-index: 1000;
   min-width: 140px;
   margin-bottom: 8px;
@@ -2502,11 +2511,9 @@ defineExpose({
 @keyframes fadeIn {
   from {
     opacity: 0;
-    backdrop-filter: blur(0px);
   }
   to {
     opacity: 1;
-    backdrop-filter: blur(12px);
   }
 }
 
@@ -2571,7 +2578,7 @@ defineExpose({
   padding: 12px;
   border: 2px solid rgba(226, 232, 240, 0.4);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.95);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-decoration: none;
@@ -2581,7 +2588,6 @@ defineExpose({
   font-family: inherit;
   font-size: inherit;
   box-sizing: border-box;
-  backdrop-filter: blur(10px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
@@ -2619,11 +2625,10 @@ defineExpose({
   border-radius: 8px;
   background: linear-gradient(
     135deg,
-    rgba(248, 250, 252, 0.9) 0%,
-    rgba(241, 245, 249, 0.7) 100%
+    rgba(248, 250, 252, 0.95) 0%,
+    rgba(241, 245, 249, 0.9) 100%
   );
   border: 1px solid rgba(226, 232, 240, 0.5);
-  backdrop-filter: blur(8px);
   transition: all 0.3s ease;
 }
 
