@@ -152,7 +152,7 @@ pub async fn get_user_info_with_app_session(app_session: &str) -> Result<Complet
 
     let user_info = user_result.ok();
     let subscription_info = subscription_result.ok();
-    let credits_info = credits_result.ok();
+    let _credits_info = credits_result.ok();
 
     // 计算 ban_status
     let ban_status = if let Some(ref user) = user_info {

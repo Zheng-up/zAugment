@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use std::fs;
 use std::sync::Mutex;
 use tauri::Manager;
-use uuid::Uuid;
 
 pub struct LocalFileStorage {
     storage_path: PathBuf,

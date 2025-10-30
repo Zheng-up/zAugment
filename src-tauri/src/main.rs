@@ -3899,7 +3899,7 @@ async fn reset_editor_telemetry(editor_type: String) -> Result<String, String> {
 async fn clear_augment_chat_history(editor_type: String) -> Result<String, String> {
     use walkdir::WalkDir;
 
-    let _home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
+    let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
 
     // 获取编辑器显示名称
     let editor_display_name = match editor_type.as_str() {
