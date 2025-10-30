@@ -2951,7 +2951,7 @@ pub struct EditorInfo {
 
 /// 获取编辑器配置路径
 fn get_editor_paths(editor_type: &str) -> Result<(Option<PathBuf>, Option<PathBuf>), String> {
-    let _home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
+    let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
 
     match editor_type {
         "vscode" => {
