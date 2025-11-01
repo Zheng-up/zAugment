@@ -1,6 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod api_server;
 mod augment_oauth;
 mod augment_user_info;
 mod bookmarks;
@@ -11,7 +12,7 @@ mod thresholds;
 mod webdav;
 
 use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, extract_token_from_session, batch_check_account_status, AugmentOAuthState, AugmentTokenResponse, TokenInfo, TokenStatusResult};
-use augment_user_info::{get_user_info, exchange_auth_session_for_app_session};
+use augment_user_info::{exchange_auth_session_for_app_session, fetch_app_subscription};
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
 use outlook_manager::{OutlookManager, OutlookCredentials, EmailListResponse, EmailDetailsResponse, AccountStatus as OutlookAccountStatus};
@@ -36,7 +37,9 @@ use rusqlite::Connection;
 pub struct TokenFromSessionResponse {
     pub access_token: String,
     pub tenant_url: String,
-    pub user_info: augment_user_info::CompleteUserInfo,
+    pub email: Option<String>,           // 从 get-models API 获取的邮箱
+    pub credits_balance: Option<i32>,    // 从 get-credit-info 获取的余额
+    pub expiry_date: Option<String>,     // 从 get-credit-info 获取的过期时间
 }
 
 // 用户数据同步包结构
@@ -45,9 +48,9 @@ pub struct UserDataPackage {
     pub version: String,
     pub timestamp: chrono::DateTime<chrono::Utc>,
     pub tokens: Option<serde_json::Value>,           // tokens.json 内容
-    pub unified_config: Option<UnifiedAppConfig>,    // 统一配置（包含WebDAV配置）
+    pub unified_config: Option<UnifiedAppConfig>,    // 统一配置（包含WebDAV配置和阈值配置）
     pub bookmarks: Option<serde_json::Value>,        // 书签数据
-    pub status_thresholds: Option<StatusThresholds>, // 账号状态阈值配置
+    // 注意：status_thresholds 已经在 unified_config 中，不再单独存储
 }
 
 impl Default for UserDataPackage {
@@ -58,7 +61,6 @@ impl Default for UserDataPackage {
             tokens: None,
             unified_config: None,
             bookmarks: None,
-            status_thresholds: None,
         }
     }
 }
@@ -93,10 +95,8 @@ impl UserDataPackage {
                 .map_err(|e| format!("解析bookmarks.json失败: {}", e))?;
         }
 
-        // 5. 收集阈值配置（从 unified_config 中读取）
-        if let Some(ref config) = package.unified_config {
-            package.status_thresholds = config.status_thresholds.clone();
-        }
+        // 注意：不再单独收集 status_thresholds，因为它已经在 unified_config 中了
+        // 移除重复的 status_thresholds 字段，避免数据冗余
 
         // 更新时间戳
         package.timestamp = chrono::Utc::now();
@@ -221,12 +221,14 @@ struct CreditConsumptionResponse {
 struct BatchCreditConsumptionResponse {
     stats_data: CreditConsumptionResponse,
     chart_data: CreditConsumptionResponse,
+    portal_url: Option<String>,  // 添加 portal_url 字段
 }
 
 // Global state to store OAuth state and storage managers
-struct AppState {
+pub struct AppState {
     augment_oauth_state: Mutex<Option<AugmentOAuthState>>,
     http_server: Mutex<Option<HttpServer>>,
+    api_server: Arc<Mutex<Option<api_server::ApiServer>>>,
     outlook_manager: Mutex<OutlookManager>,
     storage_manager: Arc<Mutex<Option<Arc<LocalFileStorage>>>>,
     custom_data_dir: Arc<Mutex<Option<PathBuf>>>,
@@ -235,6 +237,7 @@ struct AppState {
     password_manager: Arc<PasswordManager>,
     // App session 缓存: key 为 auth_session, value 为缓存的 app_session
     app_session_cache: Arc<Mutex<HashMap<String, AppSessionCache>>>,
+    pub app_handle: tauri::AppHandle,
 }
 
 #[tauri::command]
@@ -389,8 +392,11 @@ async fn batch_check_tokens_status(
 #[tauri::command]
 async fn fetch_batch_credit_consumption(
     auth_session: String,
+    fetch_portal_url: Option<bool>,  // 是否获取 portal_url，默认为 false
     state: State<'_, AppState>,
 ) -> Result<BatchCreditConsumptionResponse, String> {
+    let should_fetch_portal_url = fetch_portal_url.unwrap_or(false);
+    println!("[Credit] fetch_batch_credit_consumption called with fetch_portal_url: {:?}, should_fetch: {}", fetch_portal_url, should_fetch_portal_url);
     // 1. 检查缓存中是否有有效的 app_session
     let cached_app_session = {
         let cache = state.app_session_cache.lock().unwrap();
@@ -505,29 +511,69 @@ async fn fetch_batch_credit_consumption(
     let stats_data = stats_result?;
     let chart_data = chart_result?;
 
+    // 5. 如果需要，获取 portal_url
+    let portal_url = if should_fetch_portal_url {
+        println!("[Credit] Fetching portal_url from subscription API...");
+        match fetch_app_subscription(&app_session).await {
+            Ok(subscription) => {
+                println!("[Credit] Got portal_url: {:?}", subscription.portal_url);
+                subscription.portal_url
+            }
+            Err(e) => {
+                println!("[Credit] Failed to fetch subscription info: {}", e);
+                None
+            }
+        }
+    } else {
+        println!("[Credit] Skipping portal_url fetch (not requested)");
+        None
+    };
+
     Ok(BatchCreditConsumptionResponse {
         stats_data,
         chart_data,
+        portal_url,
+    })
+}
+
+// 内部函数：从 session 导入 token（供 API 服务器使用）
+pub async fn add_token_from_session_internal(session: &str, _app: &tauri::AppHandle) -> Result<TokenFromSessionResponse, String> {
+    // 从 session 提取 token (包含 email, credits_balance, expiry_date)
+    let token_response = extract_token_from_session(session).await?;
+
+    Ok(TokenFromSessionResponse {
+        access_token: token_response.access_token,
+        tenant_url: token_response.tenant_url,
+        email: token_response.email,
+        credits_balance: token_response.credits_balance,
+        expiry_date: token_response.expiry_date,
     })
 }
 
 #[tauri::command]
 async fn add_token_from_session(session: String, app: tauri::AppHandle) -> Result<TokenFromSessionResponse, String> {
-    // 1. 从 session 提取 token
+    // 从 session 提取 token (包含 email, credits_balance, expiry_date)
     let _ = app.emit("session-import-progress", "sessionImportExtractingToken");
     let token_response = extract_token_from_session(&session).await?;
 
-    // 2. 获取用户信息
-    let _ = app.emit("session-import-progress", "sessionImportGettingUserInfo");
-    let user_info = get_user_info(&session).await?;
-
     let _ = app.emit("session-import-progress", "sessionImportComplete");
 
-    Ok(TokenFromSessionResponse {
+    let response = TokenFromSessionResponse {
         access_token: token_response.access_token,
         tenant_url: token_response.tenant_url,
-        user_info,
-    })
+        email: token_response.email.clone(),
+        credits_balance: token_response.credits_balance,
+        expiry_date: token_response.expiry_date.clone(),
+    };
+
+    println!("=== Session 导入返回数据 ===");
+    println!("Email: {:?}", response.email);
+    println!("Credits Balance: {:?}", response.credits_balance);
+    println!("Expiry Date: {:?}", response.expiry_date);
+    println!("Credits Balance: {:?}", response.credits_balance);
+    println!("Expiry Date: {:?}", response.expiry_date);
+
+    Ok(response)
 }
 
 #[tauri::command]
@@ -554,16 +600,30 @@ async fn save_tokens_json(json_string: String, app: tauri::AppHandle, state: Sta
     // 使用同一目录下的临时文件，确保在同一文件系统上
     let temp_path = data_dir.join(format!("tokens.{}.tmp", uuid::Uuid::new_v4()));
 
-    // 基本的 JSON 格式验证
-    serde_json::from_str::<serde_json::Value>(&json_string)
+    // 解析 JSON 并清理废弃字段
+    let mut tokens = serde_json::from_str::<serde_json::Value>(&json_string)
         .map_err(|e| format!("Invalid JSON format: {}", e))?;
+
+    // 如果是数组，清理每个 token 对象中的废弃字段
+    if let serde_json::Value::Array(ref mut tokens_array) = tokens {
+        for token in tokens_array.iter_mut() {
+            if let serde_json::Value::Object(ref mut obj) = token {
+                // 移除废弃的 balance_color_mode 字段
+                obj.remove("balance_color_mode");
+            }
+        }
+    }
+
+    // 将清理后的数据序列化为字符串
+    let cleaned_json_string = serde_json::to_string_pretty(&tokens)
+        .map_err(|e| format!("Failed to serialize cleaned tokens: {}", e))?;
 
     // 原子性写入：先写临时文件，再重命名
     let write_result = (|| -> Result<(), String> {
         let mut temp_file = fs::File::create(&temp_path)
             .map_err(|e| format!("Failed to create temp file: {}", e))?;
 
-        temp_file.write_all(json_string.as_bytes())
+        temp_file.write_all(cleaned_json_string.as_bytes())
             .map_err(|e| format!("Failed to write temp file: {}", e))?;
 
         temp_file.sync_all()
@@ -619,8 +679,6 @@ async fn load_tokens_json(app: tauri::AppHandle, state: State<'_, AppState>) -> 
         let content = fs::read_to_string(&effective_storage_path)
             .map_err(|e| format!("Failed to read tokens file: {}", e))?;
 
-        println!("从有效目录读取到的文件内容: {}", content);
-
         // 如果文件为空，返回空数组的 JSON
         if content.trim().is_empty() {
             return Ok("[]".to_string());
@@ -637,14 +695,10 @@ async fn load_tokens_json(app: tauri::AppHandle, state: State<'_, AppState>) -> 
 
     let default_storage_path = default_app_data_dir.join("tokens.json");
 
-    println!("尝试读取默认文件路径: {:?}", default_storage_path);
-
     // 尝试从默认目录读取（用于数据迁移）
     if default_storage_path.exists() {
         let content = fs::read_to_string(&default_storage_path)
             .map_err(|e| format!("Failed to read tokens file: {}", e))?;
-
-        println!("从默认目录读取到的文件内容: {}", content);
 
         // 如果文件为空，返回空数组的 JSON
         if content.trim().is_empty() {
@@ -741,26 +795,42 @@ fn get_old_app_data_dir() -> Result<PathBuf, String> {
 fn process_token_content(content: String) -> Result<String, String> {
     // 尝试解析 JSON 内容
     match serde_json::from_str::<serde_json::Value>(&content) {
-        Ok(value) => {
+        Ok(mut value) => {
             // 如果解析成功，检查是否需要转换格式
             match value {
-                serde_json::Value::Array(_) => {
-                    // 如果已经是数组格式，直接返回原内容
-                    Ok(content)
+                serde_json::Value::Array(ref mut tokens) => {
+                    // 清理每个 token 对象中的废弃字段
+                    for token in tokens.iter_mut() {
+                        if let serde_json::Value::Object(ref mut obj) = token {
+                            // 移除废弃的 balance_color_mode 字段
+                            obj.remove("balance_color_mode");
+                        }
+                    }
+                    // 返回清理后的数组
+                    Ok(serde_json::to_string_pretty(&tokens)
+                        .map_err(|e| format!("Failed to serialize tokens: {}", e))?)
                 }
                 serde_json::Value::Object(ref obj) => {
                     // 检查是否是旧格式 {tokens: [...]}
                     if let Some(tokens_array) = obj.get("tokens") {
-                        if tokens_array.is_array() {
-                            // 旧格式，提取 tokens 数组
-                            Ok(serde_json::to_string_pretty(tokens_array)
+                        if let serde_json::Value::Array(tokens) = tokens_array {
+                            // 旧格式，提取 tokens 数组并清理废弃字段
+                            let mut cleaned_tokens = tokens.clone();
+                            for token in cleaned_tokens.iter_mut() {
+                                if let serde_json::Value::Object(ref mut obj) = token {
+                                    obj.remove("balance_color_mode");
+                                }
+                            }
+                            Ok(serde_json::to_string_pretty(&cleaned_tokens)
                                 .map_err(|e| format!("Failed to serialize tokens: {}", e))?)
                         } else {
                             Ok("[]".to_string())
                         }
                     } else {
-                        // 如果是单个对象格式，包装成数组
-                        let array = serde_json::Value::Array(vec![value]);
+                        // 如果是单个对象格式，包装成数组并清理废弃字段
+                        let mut obj = value.as_object().unwrap().clone();
+                        obj.remove("balance_color_mode");
+                        let array = serde_json::Value::Array(vec![serde_json::Value::Object(obj)]);
                         Ok(serde_json::to_string_pretty(&array)
                             .map_err(|e| format!("Failed to serialize tokens: {}", e))?)
                     }
@@ -2937,6 +3007,13 @@ async fn load_status_thresholds(
     Ok(config.status_thresholds.unwrap_or_default())
 }
 
+// Tauri命令：获取系统预设的默认阈值配置
+#[tauri::command]
+async fn get_default_status_thresholds() -> Result<StatusThresholds, String> {
+    // 直接返回系统预设的默认值
+    Ok(StatusThresholds::default())
+}
+
 // ================================
 // 编辑器重置功能相关命令
 // ================================
@@ -2951,6 +3028,7 @@ pub struct EditorInfo {
 
 /// 获取编辑器配置路径
 fn get_editor_paths(editor_type: &str) -> Result<(Option<PathBuf>, Option<PathBuf>), String> {
+    #[cfg(not(target_os = "windows"))]
     let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
 
     match editor_type {
@@ -3899,6 +3977,7 @@ async fn reset_editor_telemetry(editor_type: String) -> Result<String, String> {
 async fn clear_augment_chat_history(editor_type: String) -> Result<String, String> {
     use walkdir::WalkDir;
 
+    #[cfg(not(target_os = "windows"))]
     let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
 
     // 获取编辑器显示名称
@@ -4328,6 +4407,84 @@ async fn reset_jetbrains_session_id() -> Result<String, String> {
     }
 }
 
+// ==================== API 服务器命令 ====================
+
+/// 启动 API 服务器
+#[tauri::command]
+async fn start_api_server(state: State<'_, AppState>) -> Result<String, String> {
+    // 检查是否已经在运行
+    {
+        let api_server_guard = state.api_server.lock().unwrap();
+        if api_server_guard.is_some() {
+            return Err("API server is already running".to_string());
+        }
+    } // MutexGuard 在这里被释放
+
+    // 创建新的 API 服务器实例
+    let mut server = api_server::ApiServer::new(8766);
+
+    // 创建 Arc<AppState> 用于传递给服务器
+    let app_state = Arc::new(AppState {
+        augment_oauth_state: Mutex::new(None),
+        http_server: Mutex::new(None),
+        api_server: state.api_server.clone(),
+        outlook_manager: Mutex::new(OutlookManager::new()),
+        storage_manager: state.storage_manager.clone(),
+        custom_data_dir: state.custom_data_dir.clone(),
+        webdav_config: state.webdav_config.clone(),
+        cloud_sync: state.cloud_sync.clone(),
+        password_manager: state.password_manager.clone(),
+        app_session_cache: state.app_session_cache.clone(),
+        app_handle: state.app_handle.clone(),
+    });
+
+    // 启动服务器
+    server.start(app_state).await?;
+
+    let port = server.get_port();
+
+    // 保存服务器实例
+    {
+        let mut api_server_guard = state.api_server.lock().unwrap();
+        *api_server_guard = Some(server);
+    }
+
+    Ok(format!("API server started on port {}", port))
+}
+
+/// 停止 API 服务器
+#[tauri::command]
+async fn stop_api_server(state: State<'_, AppState>) -> Result<String, String> {
+    let mut api_server_guard = state.api_server.lock().unwrap();
+
+    if let Some(mut server) = api_server_guard.take() {
+        server.shutdown();
+        Ok("API server stopped".to_string())
+    } else {
+        Err("API server is not running".to_string())
+    }
+}
+
+/// 获取 API 服务器状态
+#[tauri::command]
+async fn get_api_server_status(state: State<'_, AppState>) -> Result<api_server::ApiServerStatus, String> {
+    let api_server_guard = state.api_server.lock().unwrap();
+
+    if let Some(server) = api_server_guard.as_ref() {
+        Ok(api_server::ApiServerStatus {
+            running: true,
+            port: Some(server.get_port()),
+            address: Some(format!("http://127.0.0.1:{}", server.get_port())),
+        })
+    } else {
+        Ok(api_server::ApiServerStatus {
+            running: false,
+            port: None,
+            address: None,
+        })
+    }
+}
+
 fn main() {
     let mut builder = tauri::Builder::default();
 
@@ -4383,6 +4540,7 @@ fn main() {
             let app_state = AppState {
                 augment_oauth_state: Mutex::new(None),
                 http_server: Mutex::new(None),
+                api_server: Arc::new(Mutex::new(None)),
                 outlook_manager: Mutex::new(OutlookManager::new()),
                 storage_manager: Arc::new(Mutex::new(None)),
                 custom_data_dir: Arc::new(Mutex::new(None)),
@@ -4390,11 +4548,25 @@ fn main() {
                 cloud_sync: Arc::new(Mutex::new(None)),
                 password_manager: Arc::new(PasswordManager::new()),
                 app_session_cache: Arc::new(Mutex::new(HashMap::new())),
+                app_handle: app.app_handle().clone(),
             };
 
             app.manage(app_state);
 
             println!("状态管理器初始化完成");
+
+            // 异步初始化存储管理器
+            let app_handle_for_storage = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let state = app_handle_for_storage.state::<AppState>();
+
+                // 初始化存储管理器
+                if let Err(e) = initialize_storage_manager(&app_handle_for_storage, &state).await {
+                    eprintln!("❌ Failed to initialize storage manager: {}", e);
+                } else {
+                    println!("✅ Storage manager initialized successfully");
+                }
+            });
 
             // 注册 Deep-Link 协议处理
             // 在 Windows 和 Linux 上总是注册，macOS 通过 bundle 配置
@@ -4451,6 +4623,77 @@ fn main() {
                                 });
                             }
                         }
+                    }
+                }
+            });
+
+            // 启动 API 服务器（默认启动）
+            let app_handle_for_api = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let state = app_handle_for_api.state::<AppState>();
+
+                // 等待主窗口加载完成
+                let mut attempts = 0;
+                let max_attempts = 100; // 100 * 100ms = 10 秒
+
+                while attempts < max_attempts {
+                    if app_handle_for_api.get_webview_window("main").is_some() {
+                        break;
+                    }
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                    attempts += 1;
+                }
+
+                // 等待 storage_manager 初始化完成
+                println!("⏳ Waiting for storage manager to initialize...");
+                let mut storage_attempts = 0;
+                let max_storage_attempts = 50; // 50 * 100ms = 5 秒
+
+                while storage_attempts < max_storage_attempts {
+                    let storage_ready = {
+                        let storage_guard = state.storage_manager.lock().unwrap();
+                        storage_guard.is_some()
+                    };
+
+                    if storage_ready {
+                        println!("✅ Storage manager is ready");
+                        break;
+                    }
+
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                    storage_attempts += 1;
+                }
+
+                if storage_attempts >= max_storage_attempts {
+                    eprintln!("⚠️ Storage manager initialization timeout, API server may not work properly");
+                }
+
+                // 创建 API 服务器实例
+                let mut server = api_server::ApiServer::new(8766);
+
+                // 创建 AppState 用于 API 服务器
+                let api_state = Arc::new(AppState {
+                    augment_oauth_state: Mutex::new(None),
+                    http_server: Mutex::new(None),
+                    api_server: state.api_server.clone(),
+                    outlook_manager: Mutex::new(OutlookManager::new()),
+                    storage_manager: state.storage_manager.clone(),
+                    custom_data_dir: state.custom_data_dir.clone(),
+                    webdav_config: state.webdav_config.clone(),
+                    cloud_sync: state.cloud_sync.clone(),
+                    password_manager: state.password_manager.clone(),
+                    app_session_cache: state.app_session_cache.clone(),
+                    app_handle: app_handle_for_api.clone(),
+                });
+
+                // 启动 API 服务器
+                match server.start(api_state).await {
+                    Ok(_) => {
+                        println!("✅ API Server initialized successfully on port 8766");
+                        *state.api_server.lock().unwrap() = Some(server);
+                    }
+                    Err(e) => {
+                        eprintln!("❌ Failed to start API server: {}", e);
                     }
                 }
             });
@@ -4524,6 +4767,7 @@ fn main() {
             // 阈值配置管理命令
             save_status_thresholds,
             load_status_thresholds,
+            get_default_status_thresholds,
 
             // 版本检查命令
             get_app_version,
@@ -4552,7 +4796,12 @@ fn main() {
             close_editor_processes,
             clean_editor_database,
             reset_editor_telemetry,
-            clear_augment_chat_history
+            clear_augment_chat_history,
+
+            // API 服务器命令
+            start_api_server,
+            stop_api_server,
+            get_api_server_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

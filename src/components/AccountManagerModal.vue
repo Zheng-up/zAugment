@@ -88,11 +88,11 @@
                   </div>
                   <div class="account-tag-col">
                     <span
-                      v-if="token.tag_text"
+                      v-if="token.tag_name"
                       class="tag-text"
                       :style="getTagStyle(token)"
                     >
-                      {{ token.tag_text }}
+                      {{ token.tag_name }}
                     </span>
                     <span v-else class="tag-empty">-</span>
                   </div>
@@ -222,8 +222,8 @@ const selectedTokensForExport = ref(new Set());
 
 // Computed
 const modalTabs = computed(() => [
-  { key: "import", title: "导入账号" },
-  { key: "export", title: "导出账号" },
+  { key: "import", title: "批量导入" },
+  { key: "export", title: "批量导出" },
 ]);
 
 const isAllSelected = computed(() => {
@@ -427,18 +427,36 @@ const handleSessionImport = async (sessions) => {
       });
 
       if (result && result.access_token) {
+        console.log(`Session ${index + 1} 导入返回结果:`, result);
+
+        // 构建 portal_info（如果有 credits_balance 或 expiry_date）
+        let portalInfo = null;
+        if (
+          (result.credits_balance !== undefined && result.credits_balance !== null) ||
+          (result.expiry_date !== undefined && result.expiry_date !== null)
+        ) {
+          portalInfo = {
+            credits_balance: result.credits_balance !== undefined ? result.credits_balance : null,  // ✅ 修复：使用蛇形命名
+            expiry_date: result.expiry_date || null,  // ✅ 修复：使用蛇形命名
+          };
+        }
+
         // 构建 token 对象
         const tokenData = {
           tenant_url: result.tenant_url || "",
           access_token: result.access_token,
-          portal_url: result.user_info?.portal_url || "",
-          email_note: result.user_info?.email_note || "",
+          portal_url: null,  // Session 导入不再获取 portal_url
+          email_note: result.email || null,
           auth_session: session.trim(), // ✅ 保存原始 Session 字符串
+          ban_status: "ACTIVE",  // Session 导入默认设置为 ACTIVE
+          portal_info: portalInfo,  // ✅ 使用构建的 portal_info
+          suspensions: null,  // Session 导入不再获取 suspensions
         };
 
         console.log(
           `Session ${index + 1} 导入成功，已保存 auth_session:`,
-          session.trim().substring(0, 50) + "..."
+          session.trim().substring(0, 50) + "...",
+          "portal_info:", portalInfo
         );
         return { success: true, data: tokenData };
       } else {
@@ -624,16 +642,39 @@ const getEmailColStyle = (token) => {
   return {};
 };
 
-const getTagStyle = (token) => {
-  if (token.tag_color && colorMap[token.tag_color]) {
-    const color = colorMap[token.tag_color];
-    return {
-      color: color,
-      backgroundColor: `${color}15`, // 15% 透明度
-      borderColor: `${color}40`, // 40% 透明度
-    };
+// 将十六进制颜色转换为 rgba
+const hexToRgba = (hex, alpha) => {
+  // 如果是颜色名称，先转换为十六进制
+  if (colorMap[hex]) {
+    hex = colorMap[hex];
   }
-  return {};
+
+  // 移除 # 号
+  hex = hex.replace('#', '');
+
+  // 解析 RGB 值
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const getTagStyle = (token) => {
+  if (!token.tag_color) {
+    return {};
+  }
+
+  // 支持颜色名称和十六进制颜色值
+  let color = token.tag_color;
+  if (colorMap[token.tag_color]) {
+    color = colorMap[token.tag_color];
+  }
+
+  return {
+    color: color,
+    backgroundColor: hexToRgba(color, 0.15), // 15% 透明度
+  };
 };
 
 const getTokenExpiryDisplay = (token) => {
@@ -642,8 +683,8 @@ const getTokenExpiryDisplay = (token) => {
     return "未知";
   }
 
-  // 如果有 portal_url 且有数据，显示实际数据
-  if (token.portal_url && token.portal_info && token.portal_info.expiry_date) {
+  // 如果有 portal_info 数据（不管是否有 portal_url），显示实际数据
+  if (token.portal_info && token.portal_info.expiry_date) {
     const expiryDate = new Date(token.portal_info.expiry_date);
     const now = new Date();
     const diffTime = expiryDate - now;
@@ -665,7 +706,7 @@ const getTokenExpiryDisplay = (token) => {
     }
   }
 
-  // 其他情况：没有 portal_url 或获取失败，显示未知
+  // 其他情况：没有 portal_info 数据，显示未知
   return "未知";
 };
 
@@ -675,16 +716,15 @@ const getTokenBalanceDisplay = (token) => {
     return "未知";
   }
 
-  // 如果有 portal_url 且有数据，显示实际数据
+  // 如果有 portal_info 数据（不管是否有 portal_url），显示实际数据
   if (
-    token.portal_url &&
     token.portal_info &&
     typeof token.portal_info.credits_balance === "number"
   ) {
     return token.portal_info.credits_balance.toLocaleString();
   }
 
-  // 其他情况：没有 portal_url 或获取失败，显示未知
+  // 其他情况：没有 portal_info 数据，显示未知
   return "未知";
 };
 
@@ -1094,17 +1134,18 @@ const getTokenStatusClass = (token) => {
 }
 
 .tag-text {
-  padding: 1px 6px;
+  padding: 2px 6px;
   border-radius: 4px;
-  font-size: 10px;
-  font-weight: 500;
-  border: 1px solid;
+  font-size: 11px;
+  font-weight: 600;
   white-space: nowrap;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
 }
 
 .tag-empty {
   color: #cbd5e1;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .account-expiry-col,
@@ -1257,7 +1298,7 @@ const getTokenStatusClass = (token) => {
 }
 
 .btn.primary {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: #4f46e5;
   color: white;
   border: none;
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
@@ -1286,7 +1327,7 @@ const getTokenStatusClass = (token) => {
 }
 
 .btn.primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  background: #4338ca;
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
 }

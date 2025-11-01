@@ -7,12 +7,16 @@ pub struct TokenData {
     pub tenant_url: String,
     pub access_token: String,
     pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub portal_url: Option<String>,
     pub email_note: Option<String>,
+    pub tag_name: Option<String>,
+    pub tag_color: Option<String>,
     pub ban_status: Option<serde_json::Value>,
     pub portal_info: Option<serde_json::Value>,
     pub auth_session: Option<String>,
     pub suspensions: Option<serde_json::Value>,
+    pub skip_check: Option<bool>,
 }
 
 impl TokenData {
@@ -29,12 +33,16 @@ impl TokenData {
             tenant_url,
             access_token,
             created_at: now,
+            updated_at: now,
             portal_url,
             email_note,
+            tag_name: None,
+            tag_color: None,
             ban_status: None,
             portal_info: None,
             auth_session: None,
             suspensions: None,
+            skip_check: None,
         }
     }
 }
@@ -100,17 +108,54 @@ pub fn convert_legacy_token(legacy: &serde_json::Value) -> Result<TokenData, Box
         .map(|s| s.to_string());
     let suspensions = legacy.get("suspensions").cloned();
 
+    // 支持旧字段 tag_text 迁移到 tag_name
+    let tag_name = legacy.get("tag_name")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| {
+            // 如果没有 tag_name，尝试从 tag_text 读取
+            legacy.get("tag_text")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        });
+
+    // 颜色名称到十六进制的映射
+    let color_name_to_hex = |name: &str| -> String {
+        match name {
+            "red" => "#b91c1c".to_string(),
+            "green" => "#15803d".to_string(),
+            "yellow" => "#a16207".to_string(),
+            "blue" => "#3b82f6".to_string(),
+            "black" => "#1f2937".to_string(),
+            // 如果已经是十六进制格式，直接返回
+            s if s.starts_with('#') && s.len() == 7 => s.to_string(),
+            // 默认橙色
+            _ => "#f97316".to_string(),
+        }
+    };
+
+    let tag_color = legacy.get("tag_color")
+        .and_then(|v| v.as_str())
+        .map(|s| color_name_to_hex(s));
+
+    let skip_check = legacy.get("skip_check")
+        .and_then(|v| v.as_bool());
+
     Ok(TokenData {
         id,
         tenant_url,
         access_token,
         created_at,
+        updated_at: created_at, // 使用 created_at 作为默认值
         portal_url,
         email_note,
+        tag_name,
+        tag_color,
         ban_status,
         portal_info,
         auth_session,
         suspensions,
+        skip_check,
     })
 }
 
@@ -122,7 +167,8 @@ pub fn convert_to_legacy_format(token: &TokenData) -> serde_json::Value {
     map.insert("tenant_url".to_string(), serde_json::Value::String(token.tenant_url.clone()));
     map.insert("access_token".to_string(), serde_json::Value::String(token.access_token.clone()));
     map.insert("created_at".to_string(), serde_json::Value::String(token.created_at.to_rfc3339()));
-    
+    map.insert("updated_at".to_string(), serde_json::Value::String(token.updated_at.to_rfc3339()));
+
     if let Some(portal_url) = &token.portal_url {
         map.insert("portal_url".to_string(), serde_json::Value::String(portal_url.clone()));
     }
@@ -130,11 +176,19 @@ pub fn convert_to_legacy_format(token: &TokenData) -> serde_json::Value {
     if let Some(email_note) = &token.email_note {
         map.insert("email_note".to_string(), serde_json::Value::String(email_note.clone()));
     }
-    
+
+    if let Some(tag_name) = &token.tag_name {
+        map.insert("tag_name".to_string(), serde_json::Value::String(tag_name.clone()));
+    }
+
+    if let Some(tag_color) = &token.tag_color {
+        map.insert("tag_color".to_string(), serde_json::Value::String(tag_color.clone()));
+    }
+
     if let Some(ban_status) = &token.ban_status {
         map.insert("ban_status".to_string(), ban_status.clone());
     }
-    
+
     if let Some(portal_info) = &token.portal_info {
         map.insert("portal_info".to_string(), portal_info.clone());
     }
@@ -145,6 +199,10 @@ pub fn convert_to_legacy_format(token: &TokenData) -> serde_json::Value {
 
     if let Some(suspensions) = &token.suspensions {
         map.insert("suspensions".to_string(), suspensions.clone());
+    }
+
+    if let Some(skip_check) = token.skip_check {
+        map.insert("skip_check".to_string(), serde_json::Value::Bool(skip_check));
     }
 
     serde_json::Value::Object(map)

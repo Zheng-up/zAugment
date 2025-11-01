@@ -11,7 +11,7 @@
   >
     <!-- 状态指示器 -->
     <div
-      v-if="(token.portal_url && portalInfo.data) || token.ban_status"
+      v-if="showStatusIndicator"
       class="status-indicator"
     >
       <!-- 综合状态显示：结合API状态和Portal信息 -->
@@ -42,8 +42,8 @@
           >
             {{ displayUrl }}
           </span>
-          <span v-if="token.tag_text" class="tag-text" :style="tagTextStyle">
-            {{ token.tag_text }}
+          <span v-if="token.tag_name" class="tag-text" :style="tagTextStyle">
+            {{ token.tag_name }}
           </span>
         </div>
         <div class="token-meta">
@@ -74,7 +74,7 @@
           </div>
           <!-- 第二行：Portal信息 -->
           <div class="meta-row portal-row">
-            <template v-if="token.portal_url">
+            <template v-if="token.portal_url || portalInfo.data">
               <span class="portal-meta">
                 <span class="portal-info-item expiry">
                   时间：
@@ -281,7 +281,7 @@
   <!-- 标签编辑弹窗 -->
   <TagEditorModal
     :visible="showTagEditor"
-    :initial-tag-text="token.tag_text || ''"
+    :initial-tag-text="token.tag_name || ''"
     :initial-tag-color="token.tag_color || null"
     @close="showTagEditor = false"
     @confirm="handleTagConfirm"
@@ -663,6 +663,8 @@
       v-if="showCreditUsageModal && token.auth_session"
       :auth-session="token.auth_session"
       :credits-balance="portalInfo.data?.credits_balance"
+      :has-portal-url="!!token.portal_url"
+      @update-portal-url="handleUpdatePortalUrl"
     />
   </ModalContainer>
 </template>
@@ -734,13 +736,23 @@ let copyMenuTimer = null;
 let longPressTimer = null;
 let isLongPress = false;
 
-// 颜色映射
+// 颜色名称到十六进制的映射（用于兼容旧数据）
 const colorMap = {
   red: "#b91c1c",
   green: "#15803d",
   yellow: "#a16207",
   blue: "#3b82f6",
   black: "#1f2937",
+  orange: "#f97316",
+};
+
+// 将颜色名称转换为十六进制
+const getHexColor = (color) => {
+  if (!color) return "#1f2937"; // 默认黑色
+  // 如果已经是十六进制格式，直接返回
+  if (color.startsWith('#')) return color;
+  // 否则从映射表查找
+  return colorMap[color] || "#1f2937";
 };
 
 // 图标映射
@@ -814,25 +826,46 @@ const displayEmail = computed(() => {
 
 // 标签相关的计算属性
 const tenantNameStyle = computed(() => {
-  if (props.token.tag_color && colorMap[props.token.tag_color]) {
+  if (props.token.tag_color) {
+    const color = getHexColor(props.token.tag_color);
     return {
-      color: colorMap[props.token.tag_color] + " !important",
+      color: color + " !important",
     };
   }
   return {};
 });
 
+// 将十六进制颜色转换为 rgba
+const hexToRgba = (hex, alpha) => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 const tagTextStyle = computed(() => {
-  if (props.token.tag_color && colorMap[props.token.tag_color]) {
-    const color = colorMap[props.token.tag_color];
+  if (props.token.tag_color) {
+    const color = getHexColor(props.token.tag_color);
     return {
       color: color,
-      backgroundColor: `${color}15`, // 15% 透明度
-      borderColor: `${color}40`, // 40% 透明度
+      backgroundColor: hexToRgba(color, 0.15), // 15% 透明度
+
     };
   }
   return {};
 });
+
+// 状态指示器相关计算属性
+const hasTag = computed(() => {
+  return Boolean(props.token.tag_text || props.token.tag_color)
+})
+
+const hasStatusBadge = computed(() => {
+  const hasPortalStatus = portalInfo.value.data  // 只要有 portal_info 数据就显示
+  return Boolean(hasPortalStatus || props.token.ban_status)
+})
+
+const showStatusIndicator = computed(() => hasTag.value || hasStatusBadge.value)
 
 // Methods
 const formatDate = (dateString) => {
@@ -929,7 +962,7 @@ const openTagEditor = () => {
 // 处理标签确认
 const handleTagConfirm = async ({ tagText, tagColor }) => {
   // 直接更新 props.token 对象
-  props.token.tag_text = tagText;
+  props.token.tag_name = tagText;
   props.token.tag_color = tagColor;
   props.token.updated_at = new Date().toISOString();
 
@@ -1046,6 +1079,25 @@ const handleBalanceClick = () => {
   if (props.token.auth_session) {
     showCreditUsageModal.value = true;
   }
+};
+
+// 处理更新 portal_url
+const handleUpdatePortalUrl = (portalUrl) => {
+  if (!portalUrl || props.token.portal_url === portalUrl) {
+    return;
+  }
+
+  console.log('[TokenCard] Updating portal_url:', portalUrl);
+
+  // 直接更新本地 token 对象
+  props.token.portal_url = portalUrl;
+  props.token.updated_at = new Date().toISOString();
+
+  // 触发父组件刷新(会自动保存)
+  emit("token-updated", props.token);
+
+  // 提示用户
+  emit("copy-success", "Portal URL 已自动获取", "success");
 };
 
 // 打开编辑器模态框
@@ -1571,6 +1623,25 @@ const getStatusText = (status) => {
   }
 };
 
+// 深度比对两个对象是否相等
+const isEqual = (obj1, obj2) => {
+  if (obj1 === obj2) return true;
+  if (obj1 == null || obj2 == null) return false;
+  if (typeof obj1 !== 'object' || typeof obj2 !== 'object') return obj1 === obj2;
+
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+
+  if (keys1.length !== keys2.length) return false;
+
+  for (const key of keys1) {
+    if (!keys2.includes(key)) return false;
+    if (!isEqual(obj1[key], obj2[key])) return false;
+  }
+
+  return true;
+};
+
 const checkAccountStatus = async (showNotification = true) => {
   // 如果是长按操作，不执行刷新
   if (isLongPress) {
@@ -1602,6 +1673,7 @@ const checkAccountStatus = async (showNotification = true) => {
           tenant_url: props.token.tenant_url,
           portal_url: props.token.portal_url || null,
           auth_session: props.token.auth_session || null,
+          email_note: props.token.email_note || null,
         },
       ],
     });
@@ -1609,7 +1681,7 @@ const checkAccountStatus = async (showNotification = true) => {
     // 处理结果
     let statusMessage = "";
     let statusType = "info";
-    let portalStatusMessage = "";
+    let hasChanges = false;
 
     if (batchResults && batchResults.length > 0) {
       const result = batchResults[0]; // 取第一个结果对象
@@ -1618,24 +1690,23 @@ const checkAccountStatus = async (showNotification = true) => {
       // 使用后端返回的具体状态
       const banStatus = statusResult.status;
 
-      // 始终更新 access_token、tenant_url 和 portal_url (如果 token 被刷新,这里会是新值)
-      props.token.access_token = result.access_token;
-      props.token.tenant_url = result.tenant_url;
-
-      // 如果后端返回了新的 portal_url，更新它
-      if (result.portal_url) {
-        props.token.portal_url = result.portal_url;
-        console.log(
-          `Updated token ${props.token.id} portal_url:`,
-          result.portal_url
-        );
+      // 比对并更新 access_token
+      if (props.token.access_token !== result.access_token) {
+        props.token.access_token = result.access_token;
+        hasChanges = true;
       }
 
-      // 更新本地token对象 - 账号状态
-      props.token.ban_status = banStatus;
+      // 比对并更新 tenant_url
+      if (props.token.tenant_url !== result.tenant_url) {
+        props.token.tenant_url = result.tenant_url;
+        hasChanges = true;
+      }
 
-      // 记录是否自动禁用了检测
-      let wasAutoDisabled = false;
+      // 比对并更新 ban_status
+      if (props.token.ban_status !== banStatus) {
+        props.token.ban_status = banStatus;
+        hasChanges = true;
+      }
 
       // 自动禁用封禁或过期的账号检测
       if (
@@ -1643,65 +1714,71 @@ const checkAccountStatus = async (showNotification = true) => {
         !props.token.skip_check
       ) {
         props.token.skip_check = true;
-        wasAutoDisabled = true;
+        hasChanges = true;
+        // 通知父组件有更新，触发保存
+        emit("token-updated", props.token);
+        // 显示通知
+        const autoDisableMsg =
+          banStatus === "SUSPENDED"
+            ? "账号已封禁，已自动禁用检测"
+            : "账号已过期，已自动禁用检测";
+        emit("copy-success", autoDisableMsg, "error");
       }
 
-      // 更新 suspensions 信息（如果有）
+      // 比对并更新 suspensions 信息（如果有）
       if (result.suspensions) {
-        props.token.suspensions = result.suspensions;
-        console.log(
-          `Updated suspensions for token ${props.token.id}:`,
-          result.suspensions
-        );
+        if (!isEqual(props.token.suspensions, result.suspensions)) {
+          props.token.suspensions = result.suspensions;
+          hasChanges = true;
+          console.log(`Updated suspensions for token ${props.token.id}:`, result.suspensions);
+        }
       }
 
-      // 更新Portal信息（如果有）
+      // 比对并更新 Portal 信息（如果有）
       if (result.portal_info) {
-        props.token.portal_info = {
+        const newPortalInfo = {
           credits_balance: result.portal_info.credits_balance,
           expiry_date: result.portal_info.expiry_date,
         };
 
-        // 更新UI显示
-        portalInfo.value = {
-          data: props.token.portal_info,
-          error: null,
-        };
-        portalStatusMessage = "信息已更新";
-      } else if (result.portal_error) {
-        // 保存错误信息到 token
-        props.token.portal_info = null;
+        if (!isEqual(props.token.portal_info, newPortalInfo)) {
+          props.token.portal_info = newPortalInfo;
+          hasChanges = true;
 
+          // 更新UI显示
+          portalInfo.value = {
+            data: props.token.portal_info,
+            error: null,
+          };
+        }
+      } else if (result.portal_error) {
+        // 保留原有的 portal_info，不清空
         portalInfo.value = {
           data: null,
           error: result.portal_error,
         };
-        portalStatusMessage = "信息获取失败";
       }
 
-      // 更新时间戳以确保双向同步时选择正确版本
-      props.token.updated_at = new Date().toISOString();
+      // 比对并更新 email_note（如果有）
+      if (result.email_note && props.token.email_note !== result.email_note) {
+        props.token.email_note = result.email_note;
+        hasChanges = true;
+      }
 
-      // 通知父组件保存更新后的数据
-      emit("token-updated", props.token);
+      // 只有在有实际变化时才更新时间戳
+      if (hasChanges) {
+        props.token.updated_at = new Date().toISOString();
+      }
 
       // 根据具体状态设置消息
       switch (banStatus) {
         case "SUSPENDED":
           statusMessage = "账号已封禁";
           statusType = "error";
-          // 如果刚刚自动禁用了检测，添加提示
-          if (wasAutoDisabled) {
-            statusMessage += "，已自动禁用检测";
-          }
           break;
         case "EXPIRED":
           statusMessage = "账号已过期";
           statusType = "warning";
-          // 如果刚刚自动禁用了检测，添加提示
-          if (wasAutoDisabled) {
-            statusMessage += "，已自动禁用检测";
-          }
           break;
         case "INVALID_TOKEN":
           statusMessage = "Token失效";
@@ -1726,12 +1803,9 @@ const checkAccountStatus = async (showNotification = true) => {
       statusType = "error";
     }
 
-    // 发送账号状态消息（包含Portal信息状态）
+    // 发送账号状态消息（不包含次数信息）
     if (showNotification) {
-      let finalMessage = `刷新完成：${statusMessage}`;
-      if (portalStatusMessage) {
-        finalMessage += `，${portalStatusMessage}`;
-      }
+      const finalMessage = `刷新完成：${statusMessage}`;
       emit("copy-success", finalMessage, statusType);
     }
   } catch (error) {
@@ -1762,7 +1836,7 @@ const refreshPortalInfo = async () => {
 watch(
   () => props.token.portal_info,
   (newPortalInfo) => {
-    if (newPortalInfo && props.token.portal_url) {
+    if (newPortalInfo) {  // 不检查 portal_url，只要有 portal_info 就更新显示
       portalInfo.value = {
         data: {
           credits_balance: newPortalInfo.credits_balance,
@@ -1777,20 +1851,21 @@ watch(
 
 // 组件挂载时加载Portal信息
 onMounted(() => {
-  if (props.token.portal_url) {
-    // 如果有本地数据，立即显示
-    if (props.token.portal_info) {
-      portalInfo.value = {
-        data: {
-          credits_balance: props.token.portal_info.credits_balance,
-          expiry_date: props.token.portal_info.expiry_date,
-        },
-        error: null,
-      };
-    }
-    // 然后在后台刷新数据（静默模式）
-    checkAccountStatus(false);
+  // 如果有本地 portal_info 数据，立即显示（不管是否有 portal_url）
+  if (props.token.portal_info) {
+    portalInfo.value = {
+      data: {
+        credits_balance: props.token.portal_info.credits_balance,
+        expiry_date: props.token.portal_info.expiry_date,
+      },
+      error: null,
+    };
   }
+  // 禁用自动刷新，避免清空搜索时大量重新挂载并发起请求
+  // 与 augment-token-mng-main 保持一致
+  // if (props.token.portal_url) {
+  //   checkAccountStatus(false);
+  // }
 
   // 添加键盘事件监听器
   document.addEventListener("keydown", handleKeydown);
@@ -1941,7 +2016,7 @@ defineExpose({
   font-weight: 600;
   padding: 2px 4px;
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.06);
+  /* 背景色和边框由内联样式控制 */
   white-space: nowrap;
   letter-spacing: 0.02em;
   line-height: 1.2;

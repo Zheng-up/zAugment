@@ -204,23 +204,23 @@ const handleEscKey = (e) => {
 
 /* 尺寸变体 */
 .modal-container-content.small {
-  width: 400px;
-  max-width: 90vw;
+  width: 90%;
+  max-width: 400px;
 }
 
 .modal-container-content.medium {
-  width: 600px;
-  max-width: 90vw;
+  width: 90%;
+  max-width: 600px;
 }
 
 .modal-container-content.large {
-  width: 800px;
-  max-width: 95vw;
+  width: 95%;
+  max-width: 800px;
 }
 
 .modal-container-content.auto {
-  width: auto;
-  max-width: 90vw;
+  width: 90%;
+  max-width: 600px;
   min-width: 300px;
 }
 
@@ -379,21 +379,34 @@ const handleEscKey = (e) => {
 @media (max-width: 768px) {
   .modal-container-overlay {
     left: 0;
-    padding: 16px;
+    padding: 12px;
   }
 
   .modal-container-content {
-    width: 100% !important;
-    max-width: none !important;
+    width: calc(100% - 24px);
+    max-width: 600px;
     max-height: 90vh;
     border-radius: 16px;
   }
 
+  .modal-container-content.small {
+    max-width: 400px;
+  }
+
+  .modal-container-content.medium {
+    max-width: 600px;
+  }
+
+  .modal-container-content.large {
+    max-width: 700px;
+  }
+
   .modal-container-content.full-screen {
-    width: 100% !important;
-    height: 100vh !important;
+    width: calc(100% - 24px) !important;
+    height: calc(100vh - 24px) !important;
     border-radius: 0;
     max-height: none;
+    max-width: none;
   }
 
   .modal-header {

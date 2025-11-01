@@ -98,25 +98,37 @@ const emit = defineEmits(["close", "confirm"]);
 
 // 颜色选项（黑色排在第一个）
 const colorOptions = [
-  { name: "黑色", value: "black", hex: "#1f2937" },
-  { name: "红色", value: "red", hex: "#b91c1c" },
-  { name: "绿色", value: "green", hex: "#15803d" },
-  { name: "黄色", value: "yellow", hex: "#a16207" },
-  { name: "蓝色", value: "blue", hex: "#3b82f6" },
+  { name: "黑色", value: "#1f2937", hex: "#1f2937" },
+  { name: "红色", value: "#b91c1c", hex: "#b91c1c" },
+  { name: "绿色", value: "#15803d", hex: "#15803d" },
+  { name: "黄色", value: "#a16207", hex: "#a16207" },
+  { name: "蓝色", value: "#3b82f6", hex: "#3b82f6" },
+  { name: "橙色", value: "#f97316", hex: "#f97316" },
 ];
 
-// 颜色映射
-const colorMap = {
-  red: "#b91c1c",
-  green: "#15803d",
-  yellow: "#a16207",
-  blue: "#3b82f6",
-  black: "#1f2937",
+// 颜色名称到十六进制的映射（用于兼容旧数据）
+const colorNameToHex = (colorName) => {
+  const colorMap = {
+    red: "#b91c1c",
+    green: "#15803d",
+    yellow: "#a16207",
+    blue: "#3b82f6",
+    black: "#1f2937",
+    orange: "#f97316",
+  };
+
+  // 如果已经是十六进制格式，直接返回
+  if (colorName && colorName.startsWith('#')) {
+    return colorName;
+  }
+
+  // 否则从映射表查找
+  return colorMap[colorName] || "#1f2937";
 };
 
 // Reactive data
 const tagText = ref("");
-const selectedColor = ref("black"); // 默认为黑色
+const selectedColor = ref("#1f2937"); // 默认为黑色（十六进制）
 const errors = ref({
   tagText: "",
 });
@@ -165,15 +177,16 @@ watch(
     if (newVal) {
       // 弹窗打开时，初始化表单数据
       tagText.value = props.initialTagText || "";
-      selectedColor.value = props.initialTagColor || "black"; // 默认为黑色
+      // 将颜色名称转换为十六进制（兼容旧数据）
+      selectedColor.value = colorNameToHex(props.initialTagColor) || "#1f2937";
       errors.value.tagText = "";
     }
   }
 );
 
-// 导出颜色映射供外部使用
+// 导出颜色转换函数供外部使用
 defineExpose({
-  colorMap,
+  colorNameToHex,
 });
 </script>
 
@@ -234,8 +247,8 @@ defineExpose({
 }
 
 .color-option {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
   cursor: pointer;
   display: flex;
@@ -260,44 +273,80 @@ defineExpose({
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding-top: 20px;
 }
 
 .btn-primary,
 .btn-secondary {
-  padding: 10px 24px;
-  border-radius: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+  min-height: 44px;
 }
 
-.btn-primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
+/* 光栅效果 */
+.btn-primary::before,
+.btn-secondary::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+.btn-primary:hover::before,
+.btn-secondary:hover::before {
+  left: 100%;
 }
 
 .btn-primary:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn-primary {
+  background: #4f46e5;
+  color: white;
+  box-shadow: 0 2px 12px rgba(79, 70, 229, 0.25);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #4338ca;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(79, 70, 229, 0.35);
 }
 
 .btn-secondary {
-  background: white;
+  background: rgba(248, 250, 252, 0.9);
   color: #64748b;
-  border: 2px solid rgba(226, 232, 240, 0.8);
+  border: 1px solid rgba(226, 232, 240, 0.5);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.btn-secondary:hover {
-  background: rgba(248, 250, 252, 0.8);
-  border-color: rgba(203, 213, 225, 0.8);
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(203, 213, 225, 0.7);
+  color: #475569;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 </style>

@@ -37,6 +37,7 @@
             </svg>
             <span>账号管理</span>
           </button>
+
           <!-- 邮箱管理功能 -->
           <button
             @click="handleNavClick('email-manager')"
@@ -49,6 +50,8 @@
             </svg>
             <span>邮箱管理</span>
           </button>
+
+         
 
           <button
             @click="handleNavClick('settings')"
@@ -63,6 +66,55 @@
           </button>
         </nav>
       </aside>
+
+      <!-- 小窗口时的顶部标签页导航 -->
+      <nav class="top-tabs-nav">
+        <button
+          @click="handleNavClick('token-generator')"
+          :class="['top-tab-item', { active: currentView === 'token-generator' }]"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+            />
+          </svg>
+          <span>新增流程</span>
+        </button>
+        <button
+          @click="handleNavClick('token-list')"
+          :class="['top-tab-item', { active: currentView === 'token-list' }]"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"
+            />
+          </svg>
+          <span>账号管理</span>
+        </button>
+        <button
+          @click="handleNavClick('email-manager')"
+          :class="['top-tab-item', { active: currentView === 'email-manager' }]"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"
+            />
+          </svg>
+          <span>邮箱管理</span>
+        </button>
+        
+        <button
+          @click="handleNavClick('settings')"
+          :class="['top-tab-item', { active: currentView === 'settings' }]"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"
+            />
+          </svg>
+          <span>功能设置</span>
+        </button>
+      </nav>
 
       <!-- Main Content -->
       <main class="main-content">
@@ -462,7 +514,7 @@
                 <div class="session-section">
                   <div class="session-header">
                     <div class="step-number">1</div>
-                    <h3>通过 Session 导入 账号</h3>
+                    <h3>通过 Session 导入账号</h3>
                     <button
                       @click="showSessionHelpModal = true"
                       class="help-btn"
@@ -569,12 +621,10 @@
                 :class="[
                   'btn-header-unified',
                   'secondary',
-                  { loading: isRefreshing },
                 ]"
-                :disabled="isRefreshing"
+                :disabled="tokenListRef?.isRefreshing"
               >
                 <svg
-                  v-if="!isRefreshing"
                   width="16"
                   height="16"
                   viewBox="0 0 24 24"
@@ -584,8 +634,7 @@
                     d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
                   />
                 </svg>
-                <div v-else class="loading-spinner-small"></div>
-                {{ isRefreshing ? "刷新中" : "刷新" }}
+                {{ tokenListRef?.isRefreshing ? "刷新中" : "刷新" }}
               </button>
               <button
                 @click="handleAddNewToken"
@@ -601,23 +650,6 @@
                 </svg>
                 新增
               </button>
-              <button
-                @click="handleAccountManager"
-                class="btn-header-unified secondary"
-                title="导入/导出账号数据"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path
-                    d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z M12,19L8,15H10.5V12H13.5V15H16L12,19Z"
-                  />
-                </svg>
-                导入/导出
-              </button>
             </div>
           </div>
 
@@ -626,18 +658,8 @@
             <div class="account-management-container">
               <TokenList
                 ref="tokenListRef"
-                :tokens="tokens"
-                :isLoading="isLoading"
-                :hasUnsavedChanges="hasUnsavedChanges"
                 :statusThresholds="statusThresholds"
-                :savedTokensCount="savedTokensCount"
-                :bannedTokensCount="bannedTokensCount"
-                :invalidTokensCount="invalidTokensCount"
-                :expiredTokensCount="expiredTokensCount"
-                @edit-token="handleEditToken"
-                @delete-token="deleteToken"
-                @refresh="loadTokens"
-                @save-changes="saveTokensToFile"
+                :createTagOnImportExport="createTagOnImportExport"
                 @add-new-token="handleAddNewToken"
                 @copy-success="showStatus"
                 @token-updated="handleTokenUpdated"
@@ -723,6 +745,22 @@
               <h2>应用设置</h2>
             </div>
             <div class="header-right">
+              <button
+                @click="showCommunityModal = true"
+                class="btn-header-unified community"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path
+                    d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"
+                  />
+                </svg>
+                加入交流群
+              </button>
               <button
                 @click="showAppreciationModal = true"
                 class="btn-header-unified appreciation"
@@ -820,12 +858,12 @@
                       </button>
                     </div>
                   </div>
-                  <!-- 导入导出时创建标签 -->
+                  <!-- 批量导入导出时创建标签 -->
                   <div class="setting-item-create-tag">
                     <div class="setting-label">
-                      <label>导入导出时创建标签</label>
+                      <label>批量导入导出时创建标签</label>
                       <span class="setting-help">
-                        开启后，导入或导出账号时可以为所有账号批量创建或应用标签
+                        开启后，批量导入或导出账号时可以为所有账号创建或应用标签
                       </span>
                     </div>
                     <div class="setting-control">
@@ -845,9 +883,8 @@
                       </div>
                     </div>
                   </div>
-
-                  <!-- 账号状态阈值配置 -->
-                  <div class="setting-item-create-tag">
+ <!-- 账号状态阈值配置 -->
+ <div class="setting-item-create-tag">
                     <div class="setting-label">
                       <label>账号阈值配置</label>
                       <span class="setting-help">
@@ -917,6 +954,39 @@
                       </div>
                     </div>
                   </div>
+                  <!-- API 服务器管理 -->
+                  <div class="setting-item-create-tag">
+                    <div class="setting-label">
+                      <label>API 服务器</label>
+                      <span class="setting-help">
+                        管理内置 HTTP API 服务器，支持外部程序自动化导入账号
+                      </span>
+                    </div>
+
+                    <div class="setting-control">
+                      <div class="threshold-config-wrapper">
+                        <button
+                          @click="showApiServerModal = true"
+                          class="btn-config-threshold"
+                        >
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                          >
+                            <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+                            <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+                            <line x1="6" y1="6" x2="6.01" y2="6" />
+                            <line x1="6" y1="18" x2="6.01" y2="18" />
+                          </svg>
+                          管理 API 服务器
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                 
                 </div>
               </div>
 
@@ -1365,27 +1435,6 @@
                     </div>
                   </div>
                   <div class="info-item">
-                    <span class="info-label">QQ交流群</span>
-                    <div class="info-value-with-action">
-                      <button
-                        @click="showCommunityModal = true"
-                        class="info-action-btn primary"
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                        >
-                          <path
-                            d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"
-                          />
-                        </svg>
-                        加入交流群
-                      </button>
-                    </div>
-                  </div>
-                  <div class="info-item">
                     <span class="info-label">GitHub</span>
                     <div class="info-value-with-action">
                       <div class="github-content">
@@ -1430,56 +1479,11 @@
             </div>
           </div>
         </div>
-      </main>
 
-      <!-- Token Form Modal -->
-      <TokenForm
-        v-if="showTokenFormModal"
-        :token="editingToken"
-        @close="closeTokenForm"
-        @success="handleTokenFormSuccess"
-        @show-status="showStatus"
-        @update-token="handleUpdateToken"
-        @add-token="handleAddTokenFromForm"
-      />
+      </main>
 
       <!-- 更新检测组件 -->
       <UpdateChecker ref="updateChecker" @show-status="showStatus" />
-
-      <!-- 删除确认对话框 -->
-      <ModalContainer
-        :visible="showDeleteConfirm"
-        title="确认删除账号"
-        size="small"
-        @close="cancelDelete"
-      >
-        <div class="delete-confirm-content">
-          <div class="confirm-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M12,2C17.53,2 22,6.47 22,12C22,17.53 17.53,22 12,22C6.47,22 2,17.53 2,12C2,6.47 6.47,2 12,2M15.59,7L12,10.59L8.41,7L7,8.41L10.59,12L7,15.59L8.41,17L12,13.41L15.59,17L17,15.59L13.41,12L17,8.41L15.59,7Z"
-              />
-            </svg>
-          </div>
-          <h4>确认删除账号</h4>
-          <p>
-            确定要删除账号
-            <strong>{{
-              tokens.find((t) => t.id === tokenToDelete)?.email_note ||
-              tokens.find((t) => t.id === tokenToDelete)?.tenant_url ||
-              "此账号"
-            }}</strong>
-            吗？
-          </p>
-        </div>
-
-        <template #footer>
-          <div class="modal-actions">
-            <button @click="cancelDelete" class="btn secondary">取消</button>
-            <button @click="confirmDelete" class="btn danger">确认删除</button>
-          </div>
-        </template>
-      </ModalContainer>
 
       <!-- 改进的多条状态提示系统提示 -->
       <div class="status-messages-container">
@@ -1540,7 +1544,7 @@
       <!-- 插件下载弹窗 -->
       <ModalContainer
         :visible="showPluginModal"
-        title="下载插件"
+        title="下载防封插件"
         size="medium"
         @close="showPluginModal = false"
       >
@@ -1561,7 +1565,7 @@
               </svg>
             </div>
             <h4>VSCode 系列</h4>
-            <p>适用于 Visual Studio Code 编辑器</p>
+            <p>适用于 Visual Studio Code、cursor、Trae 等</p>
             <button @click="openVSCodePlugin" class="plugin-btn vscode-btn">
               <svg
                 width="16"
@@ -1645,6 +1649,13 @@
         @close="showThresholdConfigModal = false"
         @save="handleSaveThresholds"
         @reset="handleResetThresholds"
+      />
+
+      <!-- API 服务器管理弹窗 -->
+      <ApiServerStatus
+        :visible="showApiServerModal"
+        @close="showApiServerModal = false"
+        @show-status="showStatus"
       />
     </div>
 
@@ -2016,136 +2027,31 @@
       </div>
     </ModalContainer>
 
-    <!-- 账号管理弹窗 (导入/导出) -->
-    <AccountManagerModal
-      :visible="showAccountManagerModal"
-      :tokens="tokens"
-      :initial-tab="accountManagerTab"
-      @close="handleAccountManagerClose"
-      @import="handleAccountManagerImport"
-      @import-error="handleAccountManagerImportError"
-      @export-clipboard="handleAccountManagerExportClipboard"
-      @export-session="handleAccountManagerExportSession"
-    />
-
-    <!-- 导入导出标签编辑器 -->
-    <TagEditorModal
-      v-if="showTagEditorForImportExport"
-      :visible="showTagEditorForImportExport"
-      :initial-tag-text="''"
-      :initial-tag-color="''"
-      @close="handleTagEditorForImportExportClose"
-      @confirm="handleTagEditorForImportExportConfirm"
-    />
-
-    <!-- 重复账号确认对话框 -->
-    <ModalContainer
-      :visible="showDuplicateConfirmModal"
-      title="重复账号确认"
-      size="medium"
-      @close="handleDuplicateCancel"
-    >
-      <div class="duplicate-confirm-content">
-        <div class="warning-icon-container">
-          <div class="warning-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M12 2L1 21H23L12 2M12 6L19.53 19H4.47L12 6M11 10V14H13V10H11M11 16V18H13V16H11Z"
-              />
-            </svg>
-          </div>
-        </div>
-
-        <p
-          style="
-            margin-bottom: 24px;
-            color: #666;
-            text-align: center;
-            line-height: 1.5;
-          "
-        >
-          <span v-if="duplicateConfirmData.existingToken">
-            已存在账号
-            <span class="email-highlight">{{
-              duplicateConfirmData.existingToken.email_note
-            }}</span
-            >，是否覆盖更新数据？
-          </span>
-          <span v-else>
-            {{
-              duplicateConfirmData.newTokenData?.emailNote
-            }}，是否全部覆盖更新？
-          </span>
-        </p>
-
-        <div class="warning-details">
-          <div class="warning-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M9 12L11 14L15 10M12 2C6.48 2 2 6.48 2 12S6.48 22 12 22 22 17.52 22 12 17.52 2 12 2Z"
-              />
-            </svg>
-            <span>将更新租户URL、访问Token和Portal链接</span>
-          </div>
-          <div class="warning-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M12 2C6.48 2 2 6.48 2 12S6.48 22 12 22 22 17.52 22 12 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z"
-              />
-            </svg>
-            <span>账号状态和Portal信息将被清除并重新检测</span>
-          </div>
-        </div>
-
-        <div class="duplicate-confirm-footer">
-          <button @click="handleDuplicateCancel" class="btn-cancel">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z"
-              />
-            </svg>
-            取消
-          </button>
-          <button @click="handleDuplicateConfirm" class="btn-confirm">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z"
-              />
-            </svg>
-            确认覆盖
-          </button>
-        </div>
-      </div>
-    </ModalContainer>
+    <!-- AccountManagerModal 和 TagEditorModal 已移至 TokenList 组件内部 -->
   </div>
   <!-- 结束 app -->
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
+import { ref, onMounted, onUnmounted, onBeforeUnmount, computed, watch, nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import TokenList from "./components/TokenList.vue";
-import TokenForm from "./components/TokenForm.vue";
 import OutlookManager from "./components/OutlookManager.vue";
 import ModalContainer from "./components/ModalContainer.vue";
-import AccountManagerModal from "./components/AccountManagerModal.vue";
-import TagEditorModal from "./components/TagEditorModal.vue";
 import CustomTitleBar from "./components/CustomTitleBar.vue";
 import UpdateChecker from "./components/UpdateChecker.vue";
 import EditorResetModal from "./components/EditorResetModal.vue";
 import ThresholdConfigModal from "./components/ThresholdConfigModal.vue";
+import ApiServerStatus from "./components/ApiServerStatus.vue";
 import appreciationQR from "/赞赏.png";
 import communityQR from "/交流群.png";
 
 // 简化的状态管理
-const tokens = ref([]);
-const isLoading = ref(false);
-const isRefreshing = ref(false); // 全局刷新状态
 const currentView = ref("token-generator"); // 当前视图状态
 
 // Token Generator 相关状态
-const currentTokenTab = ref("steps"); // Token Generator Tab 状态，默认为 OAuth 流程
+const currentTokenTab = ref("session"); // Token Generator Tab 状态，默认为 session 流程
 const sessionInput = ref(""); // Session 输入
 const isImportingSession = ref(false); // Session 导入中
 const sessionImportProgress = ref(""); // Session 导入进度
@@ -2179,80 +2085,16 @@ const isImportingFromQueue = ref(false);
 
 // (TokenForm 模态框状态已在后续部分定义)
 
-// 重复账号检测和确认覆盖功能
-const showDuplicateConfirmModal = ref(false);
-const duplicateConfirmData = ref({
-  existingToken: null,
-  newTokenData: null,
-  onConfirm: null,
-  onCancel: null,
-});
-
-// 检测重复账号的通用函数
-const checkDuplicateAccount = (newTokenData) => {
-  if (!newTokenData.emailNote) {
-    return null; // 没有邮箱信息，不进行重复检测
-  }
-
-  return tokens.value.find(
-    (token) =>
-      token.email_note &&
-      token.email_note.toLowerCase() === newTokenData.emailNote.toLowerCase()
-  );
-};
-
-// 显示重复账号确认对话框
-const showDuplicateConfirm = (
-  existingToken,
-  newTokenData,
-  onConfirm,
-  onCancel
-) => {
-  duplicateConfirmData.value = {
-    existingToken,
-    newTokenData,
-    onConfirm,
-    onCancel,
-  };
-  showDuplicateConfirmModal.value = true;
-};
-
-// 处理重复账号确认
-const handleDuplicateConfirm = async () => {
-  showDuplicateConfirmModal.value = false;
-  if (duplicateConfirmData.value.onConfirm) {
-    await duplicateConfirmData.value.onConfirm();
-  }
-  duplicateConfirmData.value = {
-    existingToken: null,
-    newTokenData: null,
-    onConfirm: null,
-    onCancel: null,
-  };
-};
-
-// 处理重复账号取消
-const handleDuplicateCancel = async () => {
-  showDuplicateConfirmModal.value = false;
-  if (duplicateConfirmData.value.onCancel) {
-    await duplicateConfirmData.value.onCancel();
-  }
-  duplicateConfirmData.value = {
-    existingToken: null,
-    newTokenData: null,
-    onConfirm: null,
-    onCancel: null,
-  };
-  // 显示取消保存账号的提示
-  showStatus("取消保存账号", "info");
-};
-
 // 更新现有账号数据的通用函数
 const updateExistingToken = (existingToken, newTokenData) => {
-  const index = tokens.value.findIndex((t) => t.id === existingToken.id);
+  if (!tokenListRef.value || !tokenListRef.value.tokens || !tokenListRef.value.tokens.value) {
+    return null;
+  }
+
+  const index = tokenListRef.value.tokens.value.findIndex((t) => t.id === existingToken.id);
   if (index !== -1) {
     // 保留原有的创建时间、ID等元数据，只更新业务数据
-    tokens.value[index] = {
+    tokenListRef.value.tokens.value[index] = {
       ...existingToken,
       tenant_url: newTokenData.tenantUrl,
       access_token: newTokenData.accessToken,
@@ -2265,21 +2107,24 @@ const updateExistingToken = (existingToken, newTokenData) => {
       tag_color: newTokenData.tagColor || existingToken.tag_color,
       updated_at: new Date().toISOString(),
     };
-    hasUnsavedChanges.value = true;
     recalcHeaderCounts();
-    return tokens.value[index];
+    return tokenListRef.value.tokens.value[index];
   }
   return null;
 };
 
 // 按创建时间正确插入新账号的函数
 const insertTokenSorted = (newToken) => {
+  if (!tokenListRef.value || !tokenListRef.value.tokens || !tokenListRef.value.tokens.value) {
+    return;
+  }
+
   const newCreatedTime = new Date(newToken.created_at);
-  let insertIndex = tokens.value.length;
+  let insertIndex = tokenListRef.value.tokens.value.length;
 
   // 找到正确的插入位置
-  for (let i = 0; i < tokens.value.length; i++) {
-    const token = tokens.value[i];
+  for (let i = 0; i < tokenListRef.value.tokens.value.length; i++) {
+    const token = tokenListRef.value.tokens.value[i];
     const tokenCreatedTime = new Date(token.created_at || 0);
 
     // 如果新token的创建时间更早，应该插在当前位置
@@ -2298,13 +2143,12 @@ const insertTokenSorted = (newToken) => {
   }
 
   // 在正确位置插入新token
-  tokens.value.splice(insertIndex, 0, newToken);
+  tokenListRef.value.tokens.value.splice(insertIndex, 0, newToken);
 };
 
 // 改进的多条状态提示系统
 const statusMessages = ref([]);
 let statusIdCounter = 0;
-const hasUnsavedChanges = ref(false);
 
 // 设置页面相关状态
 const dataDirectory = ref("正在获取...");
@@ -2424,11 +2268,12 @@ const isWebDAVConfigured = ref(false);
 const autoUploadEnabled = ref(false);
 const autoDownloadEnabled = ref(false);
 
-// 导入导出时创建标签的开关
+// 批量导入导出时创建标签的开关
 const createTagOnImportExport = ref(false);
 
 // 账号状态阈值配置
 const showThresholdConfigModal = ref(false);
+const showApiServerModal = ref(false);
 const statusThresholds = ref({
   time: {
     warning: 0,
@@ -2544,8 +2389,12 @@ const saveStatusThresholds = async () => {
     if (autoUploadEnabled.value && isWebDAVConfigured.value) {
       await saveStatusThresholdsToCloud();
     }
+
+    // 显示保存成功提示
+    showStatus("账号状态阈值配置已保存", "success");
   } catch (error) {
     console.error("保存账号状态阈值失败:", error);
+    showStatus(`保存账号状态阈值失败: ${error}`, "error");
   }
 };
 
@@ -2649,7 +2498,7 @@ const createNewToken = (
   portalUrl = null,
   emailNote = null,
   authSession = null,
-  tagText = null,
+  tagName = null,
   tagColor = null
 ) => {
   const now = new Date().toISOString();
@@ -2658,12 +2507,13 @@ const createNewToken = (
     tenant_url: tenantUrl,
     access_token: accessToken,
     created_at: now,
+    updated_at: now,
     portal_url: portalUrl,
     ban_status: null,
     portal_info: null,
     email_note: emailNote,
     auth_session: authSession,
-    tag_text: tagText,
+    tag_name: tagName,
     tag_color: tagColor,
   };
 };
@@ -2684,9 +2534,7 @@ const authUrlInput = ref(null);
 const accessTokenInput = ref(null);
 const tenantUrlInput = ref(null);
 
-// Delete confirmation dialog
-const showDeleteConfirm = ref(false);
-const tokenToDelete = ref(null);
+// currentTokens 计算属性已移除 - tokens 现在完全由 TokenList 组件内部管理
 
 const showPluginHomeDialog = ref(false);
 const showPluginModal = ref(false);
@@ -2696,10 +2544,6 @@ const showEditorResetModal = ref(false);
 
 // Session help modal
 const showSessionHelpModal = ref(false);
-
-// Token form dialog
-const showTokenFormModal = ref(false);
-const editingToken = ref(null);
 
 // Import tokens dialog
 
@@ -2722,8 +2566,14 @@ const canGetToken = computed(() => {
 });
 
 // 标题状态徽章：统一通过 headerCounts 来驱动，确保任何变更后即时同步
-const headerCounts = ref({ active: 0, banned: 0, invalid: 0, unknown: 0 });
+const headerCounts = ref({ active: 0, banned: 0, invalid: 0, expired: 0, unknown: 0 });
 const computeHeaderCounts = (arr) => {
+  // 防御性检查：确保 arr 是数组
+  if (!Array.isArray(arr)) {
+    console.warn('[App] computeHeaderCounts: arr 不是数组:', arr);
+    return { active: 0, banned: 0, invalid: 0, expired: 0, unknown: 0 };
+  }
+
   let active = 0,
     banned = 0,
     invalid = 0,
@@ -2739,13 +2589,20 @@ const computeHeaderCounts = (arr) => {
   return { active, banned, invalid, expired, unknown };
 };
 const recalcHeaderCounts = () => {
-  headerCounts.value = computeHeaderCounts(tokens.value);
+  // 调用 TokenList 组件的 getStatusCounts 方法
+  if (tokenListRef.value && tokenListRef.value.getStatusCounts) {
+    headerCounts.value = tokenListRef.value.getStatusCounts();
+  } else {
+    // 如果 TokenList 不可用，重置为 0
+    headerCounts.value = { active: 0, banned: 0, invalid: 0, expired: 0, unknown: 0 };
+  }
 };
 
-// 对 tokens 进行深度监听，任何增删改都会触发重算
+// 监听 TokenList 的 tokens 变化，自动更新状态统计
 watch(
-  tokens,
+  () => tokenListRef.value?.tokens?.value,
   () => {
+    // 直接调用 recalcHeaderCounts 方法，和刷新按钮一样
     recalcHeaderCounts();
   },
   { deep: true, immediate: true }
@@ -2908,7 +2765,7 @@ const hideOperationStatus = () => {
   currentOperationStatus.value.visible = false;
 };
 
-// Session 导入方法
+// Session 导入方法（统一使用 TokenList 的 addToken）
 const importFromSession = async () => {
   const trimmedSession = sessionInput.value.trim();
 
@@ -2925,73 +2782,49 @@ const importFromSession = async () => {
       session: trimmedSession,
     });
 
+    console.log("Session 导入返回结果:", result);
+
     if (result && result.access_token) {
-      // 构建 portal_info 对象
-      const portalInfo = {
-        credits_balance: result.user_info?.credits_balance || 0,
-        expiry_date: result.user_info?.expiry_date || null,
-        is_active: result.user_info?.ban_status === "ACTIVE",
-      };
+      sessionImportProgress.value = "正在保存账号...";
 
-      // 创建新的 token 对象
-      const newTokenData = {
+      // 创建 tokenData（使用驼峰命名）
+      const tokenData = {
+        tenantUrl: result.tenant_url,
         accessToken: result.access_token,
-        tenantUrl: result.tenant_url || "",
-        portalUrl: result.user_info?.portal_url || "",
-        emailNote: result.user_info?.email_note || "",
-        authSession: trimmedSession,
-        banStatus: result.user_info?.ban_status || "ACTIVE",
-        portalInfo: portalInfo,
+        portalUrl: null,  // Session 导入不再获取 portal_url
+        emailNote: result.email || null,  // 从 get-models API 获取的邮箱
+        authSession: trimmedSession,  // 保存 auth_session
+        suspensions: null,  // Session 导入不再获取 suspensions
+        creditsBalance: result.credits_balance !== undefined ? result.credits_balance : null,  // 从 get-credit-info 获取的余额
+        expiryDate: result.expiry_date || null,  // 从 get-credit-info 获取的过期时间
+        banStatus: 'ACTIVE'  // Session 导入默认设置为 ACTIVE 状态
       };
 
-      // 检查重复账号
-      const existingToken = checkDuplicateAccount(newTokenData);
+      console.log("准备添加的 tokenData:", tokenData);
+      console.log("creditsBalance:", tokenData.creditsBalance, "expiryDate:", tokenData.expiryDate);
 
-      if (existingToken) {
-        // 显示重复账号确认对话框
-        showDuplicateConfirm(
-          existingToken,
-          newTokenData,
-          async () => {
-            // 确认覆盖
-            updateExistingToken(existingToken, newTokenData);
-            await saveTokensToFile();
-            showStatus("账号已更新", "success");
+      // 通过 TokenList 添加 token
+      if (tokenListRef.value && tokenListRef.value.addToken) {
+        const addResult = tokenListRef.value.addToken(tokenData);
+
+        if (addResult.success) {
+          // 添加成功，保存到文件
+          try {
+            await saveTokensToFile(false);
+            sessionImportProgress.value = "Session 导入成功！";
+            showStatus("Session 导入成功！", "success");
             sessionInput.value = "";
-            sessionImportProgress.value = "账号已更新！";
-          },
-          () => {
-            // 取消覆盖
-            showStatus("已取消更新账号", "info");
+          } catch (error) {
+            showStatus("自动保存失败，请手动保存", "warning");
           }
-        );
+        } else if (addResult.duplicateId) {
+          // 添加失败（重复邮箱），高亮并滚动到重复的 token
+          sessionImportProgress.value = "";
+          tokenListRef.value.highlightAndScrollTo(addResult.duplicateId);
+          sessionInput.value = "";
+        }
       } else {
-        // 新账号，直接保存
-        // 构建 portal_info 对象
-        const portalInfo = {
-          credits_balance: result.user_info?.credits_balance || 0,
-          expiry_date: result.user_info?.expiry_date || null,
-          is_active: result.user_info?.ban_status === "ACTIVE",
-        };
-
-        const newToken = {
-          id: `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          access_token: result.access_token,
-          tenant_url: result.tenant_url || "",
-          portal_url: result.user_info?.portal_url || "",
-          email_note: result.user_info?.email_note || "",
-          auth_session: trimmedSession,
-          created_at: new Date().toISOString(),
-          ban_status: result.user_info?.ban_status || "ACTIVE",
-          portal_info: portalInfo,
-        };
-
-        insertTokenSorted(newToken);
-        hasUnsavedChanges.value = true;
-        await saveTokensToFile();
-        sessionImportProgress.value = "Session 导入成功！";
-        showStatus("Session 导入成功！", "success");
-        sessionInput.value = "";
+        showStatus("TokenList 组件未就绪", "error");
       }
     } else {
       showStatus("导入失败：无效的 Session", "error");
@@ -3136,37 +2969,63 @@ const primaryAccountStatus = computed(() => {
 
 // 智能刷新：使用批量检查 API
 const smartRefresh = async () => {
-  if (tokens.value.length === 0) {
+  // 检查 tokens 是否存在且有数据
+  if (!tokenListRef.value || !tokenListRef.value.tokens || tokenListRef.value.tokens.length === 0) {
     // 如果没有数据，执行完整加载
     await loadTokens(false);
     return;
   }
 
-  // 立即设置刷新状态
-  isRefreshing.value = true;
   // 显示持久化的加载提示（duration = 0 表示不自动消失）
   const loadingStatusId = showStatus("正在刷新账号数据...", "info", 0);
 
   try {
     // 调用 TokenList 的批量检查方法
     if (tokenListRef.value && tokenListRef.value.checkAllAccountStatus) {
-      await tokenListRef.value.checkAllAccountStatus();
+      const result = await tokenListRef.value.checkAllAccountStatus();
 
-      // 刷新完成后保存
-      await saveTokensToFile(false);
-
-      // 更新状态统计
-      recalcHeaderCounts();
-
-      // 手动移除加载提示
-      removeStatusMessage(loadingStatusId);
-
-      // ✅ 不再显示 "刷新完成"，让 checkAllAccountStatus 的详细统计消息显示
-      // showStatus("刷新完成", "success");
-    } else {
-      console.error("TokenList 组件未准备好或没有 checkAllAccountStatus 方法");
       // 移除加载提示
       removeStatusMessage(loadingStatusId);
+
+      // TokenList 内部已经保存了，这里只需要更新统计
+      recalcHeaderCounts();
+
+      // 显示详细统计信息
+      if (result && result.stats) {
+        const { total, success, failed, suspended, expired } = result.stats;
+
+        // 构建提示消息
+        let message = `刷新完成：成功 ${success}/${total}`;
+        const details = [];
+
+        if (failed > 0) {
+          details.push(`失败 ${failed}`);
+        }
+        if (suspended > 0) {
+          details.push(`已封禁 ${suspended}`);
+        }
+        if (expired > 0) {
+          details.push(`已过期 ${expired}`);
+        }
+
+        if (details.length > 0) {
+          message += `，${details.join('，')}`;
+        }
+
+        // 如果有封禁或过期的账号，添加自动禁用提示
+        if (suspended > 0 || expired > 0) {
+          message += '（已自动禁用检测）';
+        }
+
+        const statusType = failed > 0 ? "warning" : "success";
+        showStatus(message, statusType);
+      } else {
+        showStatus("刷新完成", "success");
+      }
+    } else {
+      // 移除加载提示
+      removeStatusMessage(loadingStatusId);
+      console.error("TokenList 组件未准备好或没有 checkAllAccountStatus 方法");
       showStatus("刷新失败：组件未准备好", "error");
     }
   } catch (error) {
@@ -3174,137 +3033,26 @@ const smartRefresh = async () => {
     removeStatusMessage(loadingStatusId);
     showStatus("刷新失败", "error");
     console.error("智能刷新错误:", error);
-  } finally {
-    isRefreshing.value = false;
   }
 };
 
-// 完整加载：用于初始加载或重新加载
+// loadTokens 现在由 TokenList 内部管理，这里保留一个代理函数
 const loadTokens = async (showSuccessMessage = false) => {
-  isLoading.value = true;
-  try {
-    const jsonString = await invoke("load_tokens_json");
-    const loadedTokens = JSON.parse(jsonString);
-
-    // 按创建时间升序排序
-    const sortedByCreated = [...loadedTokens].sort((a, b) => {
-      const timeA = a.created_at ? new Date(a.created_at) : new Date(0);
-      const timeB = b.created_at ? new Date(b.created_at) : new Date(0);
-      return timeA - timeB;
-    });
-    tokens.value = sortedByCreated;
-
-    // 强制更新状态统计（确保加载后及时同步）
+  if (tokenListRef.value && tokenListRef.value.loadTokens) {
+    await tokenListRef.value.loadTokens(showSuccessMessage);
     recalcHeaderCounts();
-
-    hasUnsavedChanges.value = false;
-
-    // 只在明确要求时显示成功消息
-    if (showSuccessMessage) {
-      showStatus("Token加载成功", "success");
-    }
-  } catch (error) {
-    showStatus(`加载Token失败: ${error}`, "error");
-    tokens.value = [];
-    hasUnsavedChanges.value = false;
-  } finally {
-    isLoading.value = false;
   }
 };
 
+// saveTokensToFile 现在由 TokenList 内部管理，这里保留一个代理函数
 const saveTokensToFile = async (showSuccessMessage = true) => {
-  try {
-    // 保存前按创建时间升序排序，确保存储顺序一致
-    const sortedForSave = [...tokens.value].sort((a, b) => {
-      const timeA = a.created_at ? new Date(a.created_at) : new Date(0);
-      const timeB = b.created_at ? new Date(b.created_at) : new Date(0);
-      return timeA - timeB;
-    });
-
-    // 尝试序列化 JSON，捕获可能的循环引用或格式错误
-    let jsonString;
-    try {
-      jsonString = JSON.stringify(sortedForSave, null, 2);
-    } catch (jsonError) {
-      console.error("JSON 序列化失败，尝试清理数据:", jsonError);
-      // 清理可能有问题的字段
-      const cleanedTokens = sortedForSave.map((token) => ({
-        id: token.id,
-        tenant_url: token.tenant_url || "",
-        access_token: token.access_token || "",
-        created_at: token.created_at,
-        portal_url: token.portal_url || null,
-        ban_status: token.ban_status || null,
-        portal_info: token.portal_info || null,
-        email_note: token.email_note || null,
-        auth_session: token.auth_session || null,
-        suspensions: token.suspensions || null,
-        tag_text: token.tag_text || null,
-        tag_color: token.tag_color || null,
-        skip_check: token.skip_check || false,
-        updated_at: token.updated_at || null,
-      }));
-      jsonString = JSON.stringify(cleanedTokens, null, 2);
-      console.log("使用清理后的数据重新序列化成功");
-    }
-
-    await invoke("save_tokens_json", { jsonString });
-    hasUnsavedChanges.value = false;
-
-    // 只有显式保存时才显示成功消息
-    if (showSuccessMessage) {
-      showStatus("Token保存成功", "success");
-    }
-  } catch (error) {
-    console.error("保存Token失败，详细错误:", error);
-    console.error("当前 tokens 数量:", tokens.value.length);
-    console.error("错误类型:", error.constructor.name);
-    console.error("错误消息:", error.message || error);
-    showStatus(`保存Token失败: ${error.message || error}`, "error");
-    throw error;
-  }
-};
-
-const deleteToken = (tokenId) => {
-  // 显示删除确认对话框
-  tokenToDelete.value = tokenId;
-  showDeleteConfirm.value = true;
-};
-
-const confirmDelete = async () => {
-  if (!tokenToDelete.value) return;
-
-  try {
-    // 从内存中删除 token
-    tokens.value = tokens.value.filter(
-      (token) => token.id !== tokenToDelete.value
-    );
-    hasUnsavedChanges.value = true;
-
-    // 强制更新状态统计（确保删除后及时同步）
-    recalcHeaderCounts();
-
-    // 自动保存到文件
-    try {
-      await saveTokensToFile(false);
-      showStatus("账号已成功删除!", "success");
-    } catch (error) {
-      showStatus("自动保存失败，请手动保存", "warning");
-    }
-  } catch (error) {
-    showStatus(`删除Token失败: ${error}`, "error");
-    // 即使出错也要更新统计
+  if (tokenListRef.value && tokenListRef.value.saveTokens) {
+    await tokenListRef.value.saveTokens(showSuccessMessage);
     recalcHeaderCounts();
   }
-
-  showDeleteConfirm.value = false;
-  tokenToDelete.value = null;
 };
 
-const cancelDelete = () => {
-  showDeleteConfirm.value = false;
-  tokenToDelete.value = null;
-};
+// 删除功能已移至 TokenList 组件内部处理
 
 const onTokenSaved = () => {
   loadTokens();
@@ -3462,75 +3210,52 @@ const saveTokenWithAutoFetch = async () => {
       }
     }
 
-    // 准备新账号数据
-    const newTokenData = {
+    // 准备新账号数据（使用驼峰命名）
+    const tokenData = {
       tenantUrl: tokenResult.value.tenant_url,
       accessToken: tokenResult.value.access_token,
       portalUrl: portalUrl.value.trim() || null,
       emailNote: autoEmailNote,
+      creditsBalance: tokenResult.value.credits_balance || null,
+      expiryDate: tokenResult.value.expiry_date || null,
     };
 
-    // 检测重复账号
-    const existingToken = checkDuplicateAccount(newTokenData);
+    // 使用 TokenList 的 addToken 函数
+    if (tokenListRef.value && tokenListRef.value.addToken) {
+      const result = tokenListRef.value.addToken(tokenData);
 
-    if (existingToken) {
-      // 直接更新现有账号，不弹窗确认
-      const updatedToken = updateExistingToken(existingToken, newTokenData);
-      if (updatedToken) {
+      if (!result.success && result.duplicateId) {
+        // 重复邮箱，高亮并滚动到重复的 token
+        tokenListRef.value.highlightAndScrollTo(result.duplicateId);
+
+        // 重置表单
+        authUrl.value = "";
+        authCode.value = "";
+        tokenResult.value = null;
+        portalUrl.value = "";
+        emailNote.value = "";
+        return;
+      }
+
+      // 添加成功，保存到文件
+      if (result.success && result.token) {
         try {
           await saveTokensToFile(false);
-          showStatus("检测到重复账号，已更新Token", "success");
-          setTimeout(() => {
-            checkSingleAccountStatus(updatedToken.id);
-          }, 1000);
-
-          // 更新后重置表单
-          authUrl.value = "";
-          authCode.value = "";
-          tokenResult.value = null;
-          portalUrl.value = "";
-          emailNote.value = "";
+          showStatus("账号已成功保存!", "success");
         } catch (error) {
           showStatus("自动保存失败，请手动保存", "warning");
         }
+
+        // 重置表单
+        authUrl.value = "";
+        authCode.value = "";
+        tokenResult.value = null;
+        portalUrl.value = "";
+        emailNote.value = "";
       }
-      return; // 处理完成
+    } else {
+      showStatus("TokenList 组件未就绪", "error");
     }
-
-    // 没有重复，直接添加新账号
-    const newToken = createNewToken(
-      newTokenData.tenantUrl,
-      newTokenData.accessToken,
-      newTokenData.portalUrl,
-      newTokenData.emailNote
-    );
-
-    // 按过期时间正确插入新账号
-    insertTokenSorted(newToken);
-    hasUnsavedChanges.value = true;
-
-    // 强制更新状态统计（确保首页保存后及时同步）
-    recalcHeaderCounts();
-
-    // 自动保存到文件
-    try {
-      await saveTokensToFile(false);
-      showStatus("账号已成功保存!", "success");
-
-      // 新增完成后自动检测当前账号状态
-      setTimeout(() => {
-        checkSingleAccountStatus(newToken.id);
-      }, 1000); // 延迟1秒执行，让用户先看到保存成功的消息
-    } catch (error) {
-      showStatus("自动保存失败，请手动保存", "warning");
-    }
-
-    // Reset form
-    authUrl.value = "";
-    authCode.value = "";
-    tokenResult.value = null;
-    portalUrl.value = "";
-    emailNote.value = "";
   } catch (error) {
     console.error("保存账号失败:", error);
     showStatus(`保存账号失败: ${error}`, "error");
@@ -3539,133 +3264,13 @@ const saveTokenWithAutoFetch = async () => {
   }
 };
 
-// Token form methods
-const showTokenForm = () => {
-  editingToken.value = null;
-  showTokenFormModal.value = true;
-};
+// Token form methods - 已移至 TokenList 组件内部处理
 
-const handleEditToken = (token) => {
-  editingToken.value = token;
-  showTokenFormModal.value = true;
-};
-
-const closeTokenForm = () => {
-  showTokenFormModal.value = false;
-  editingToken.value = null;
-};
-
-const handleTokenFormSuccess = () => {
-  // TokenForm 的成功处理已在各自的事件处理函数中完成，这里无需额外处理
-};
-
-const handleUpdateToken = async (updatedTokenData) => {
-  // 在内存中更新 token
-  const index = tokens.value.findIndex((t) => t.id === updatedTokenData.id);
-  if (index !== -1) {
-    tokens.value[index] = {
-      ...tokens.value[index],
-      tenant_url: updatedTokenData.tenantUrl,
-      access_token: updatedTokenData.accessToken,
-      portal_url: updatedTokenData.portalUrl,
-      email_note: updatedTokenData.emailNote,
-    };
-    hasUnsavedChanges.value = true;
-
-    // 自动保存到文件
-    try {
-      await saveTokensToFile(false);
-      showStatus("账号更新已保存!", "success");
-
-      // 修改完成后自动检测当前账号状态
-      setTimeout(() => {
-        checkSingleAccountStatus(updatedTokenData.id);
-      }, 1000);
-    } catch (error) {
-      showStatus("自动保存失败，请手动保存", "warning");
-    }
-  }
-};
-
-// 处理token状态更新（如账号封禁状态检测后）
+// 处理token状态更新（如账号封禁状态检测后、标签修改等）
 const handleTokenUpdated = async (updatedToken) => {
-  // 在内存中更新对应的 token
-  const index = tokens.value.findIndex((t) => t.id === updatedToken.id);
-  if (index !== -1) {
-    tokens.value[index] = {
-      ...tokens.value[index],
-      ...updatedToken, // 合并更新的字段
-    };
-    hasUnsavedChanges.value = true;
-
-    // 自动保存到文件（静默模式，不显示成功消息）
-    try {
-      await saveTokensToFile(false);
-      console.log("Token状态更新已自动保存");
-    } catch (error) {
-      console.error("自动保存Token状态失败:", error);
-      showStatus("自动保存失败，请手动保存", "warning");
-    }
-  }
-};
-
-const handleAddTokenFromForm = async (tokenData) => {
-  // 检测重复账号
-  const existingToken = checkDuplicateAccount(tokenData);
-
-  if (existingToken) {
-    // 显示确认对话框
-    showDuplicateConfirm(
-      existingToken,
-      tokenData,
-      async () => {
-        // 确认覆盖：更新现有账号
-        const updatedToken = updateExistingToken(existingToken, tokenData);
-        if (updatedToken) {
-          try {
-            await saveTokensToFile(false);
-            showStatus("账号已成功更新!", "success");
-            setTimeout(() => {
-              checkSingleAccountStatus(updatedToken.id);
-            }, 1000);
-          } catch (error) {
-            showStatus("自动保存失败，请手动保存", "warning");
-          }
-        }
-      },
-      () => {
-        // 取消操作
-        // showStatus("取消添加账号", "info");
-      }
-    );
-    return; // 等待用户确认
-  }
-
-  // 没有重复，直接添加新账号
-  const newToken = createNewToken(
-    tokenData.tenantUrl,
-    tokenData.accessToken,
-    tokenData.portalUrl,
-    tokenData.emailNote
-  );
-  insertTokenSorted(newToken);
-  hasUnsavedChanges.value = true;
-
-  // 强制更新状态统计（确保新增后及时同步）
+  // TokenList 内部已经管理 tokens，这里只需要触发保存
+  await saveTokensToFile(false);
   recalcHeaderCounts();
-
-  // 自动保存到文件
-  try {
-    await saveTokensToFile(false);
-    showStatus("账号已成功保存!", "success");
-
-    // 新增完成后自动检测当前账号状态
-    setTimeout(() => {
-      checkSingleAccountStatus(newToken.id);
-    }, 1000); // 延迟1秒执行，让用户先看到保存成功的消息
-  } catch (error) {
-    showStatus("自动保存失败，请手动保存", "warning");
-  }
 };
 
 // 处理侧边栏导航点击
@@ -3675,26 +3280,19 @@ const handleNavClick = (view) => {
   // 关闭所有弹窗
   showPluginModal.value = false;
   showPluginHomeDialog.value = false;
-  showDeleteConfirm.value = false;
   showForceConfirm.value = false;
   showThresholdConfigModal.value = false;
+  showApiServerModal.value = false;
   showEditorResetModal.value = false;
   showPlatformSelector.value = false;
   showSyncHistoryModal.value = false;
-  showTokenFormModal.value = false;
   showAppreciationModal.value = false;
   showCommunityModal.value = false;
-  showAccountManagerModal.value = false;
   showSessionHelpModal.value = false;
 
-  // 关闭标签编辑器弹窗
-  if (showTagEditorForImportExport.value) {
-    showTagEditorForImportExport.value = false;
-    pendingImportTokens.value = null;
-    pendingExportData.value = null;
-    pendingExportType.value = null;
-    pendingExportCount.value = 0;
-    pendingExportTokenIds.value = [];
+  // 关闭 TokenList 组件的批量删除对话框
+  if (tokenListRef.value && tokenListRef.value.closeBatchDeleteDialog) {
+    tokenListRef.value.closeBatchDeleteDialog();
   }
 
   // 关闭所有 TokenCard 中的弹窗（标签编辑器、编辑器选择等）
@@ -3702,18 +3300,9 @@ const handleNavClick = (view) => {
     tokenListRef.value.closeAllTokenCardModals();
   }
 
-  // 处理确认覆盖弹窗关闭
-  if (showDuplicateConfirmModal.value) {
-    showDuplicateConfirmModal.value = false;
-    if (duplicateConfirmData.value.onCancel) {
-      duplicateConfirmData.value.onCancel();
-    }
-    duplicateConfirmData.value = {
-      existingToken: null,
-      newTokenData: null,
-      onConfirm: null,
-      onCancel: null,
-    };
+  // 关闭 OutlookManager 组件的添加账户弹窗
+  if (outlookManagerRef.value && outlookManagerRef.value.closeAddAccountModal) {
+    outlookManagerRef.value.closeAddAccountModal();
   }
 
   // 关闭更新检查弹窗
@@ -3791,7 +3380,12 @@ const handleEditorResetComplete = (result) => {
 
 // 检测单个账号状态
 const checkSingleAccountStatus = async (tokenId) => {
-  const token = tokens.value.find((t) => t.id === tokenId);
+  if (!tokenListRef.value || !tokenListRef.value.tokens || !tokenListRef.value.tokens.value) {
+    console.warn("TokenList 组件未就绪");
+    return;
+  }
+
+  const token = tokenListRef.value.tokens.value.find((t) => t.id === tokenId);
   if (!token) {
     console.warn(`未找到ID为 ${tokenId} 的账号`);
     return;
@@ -3843,10 +3437,9 @@ const checkSingleAccountStatus = async (tokenId) => {
       token.updated_at = new Date().toISOString();
 
       // 静默保存更新
-      const index = tokens.value.findIndex((t) => t.id === token.id);
+      const index = tokenListRef.value.tokens.value.findIndex((t) => t.id === token.id);
       if (index !== -1) {
-        tokens.value[index] = { ...token };
-        hasUnsavedChanges.value = true;
+        tokenListRef.value.tokens.value[index] = { ...token };
 
         // 自动保存到文件
         try {
@@ -3945,7 +3538,12 @@ const checkBatchAccountStatus = async (tokenIds) => {
 
 // 静默检测单个账号状态（不显示提示消息）
 const checkSingleAccountStatusSilent = async (tokenId) => {
-  const token = tokens.value.find((t) => t.id === tokenId);
+  if (!tokenListRef.value || !tokenListRef.value.tokens || !tokenListRef.value.tokens.value) {
+    console.warn("TokenList 组件未就绪");
+    return { success: false, error: "TokenList 组件未就绪" };
+  }
+
+  const token = tokenListRef.value.tokens.value.find((t) => t.id === tokenId);
   if (!token) {
     console.warn(`未找到ID为 ${tokenId} 的账号`);
     return { success: false, error: "账号不存在" };
@@ -3997,10 +3595,9 @@ const checkSingleAccountStatusSilent = async (tokenId) => {
       token.updated_at = new Date().toISOString();
 
       // 静默保存更新
-      const index = tokens.value.findIndex((t) => t.id === token.id);
+      const index = tokenListRef.value.tokens.value.findIndex((t) => t.id === token.id);
       if (index !== -1) {
-        tokens.value[index] = { ...token };
-        hasUnsavedChanges.value = true;
+        tokenListRef.value.tokens.value[index] = { ...token };
 
         // 自动保存到文件
         try {
@@ -4028,309 +3625,12 @@ const checkSingleAccountStatusSilent = async (tokenId) => {
   }
 };
 
-// 刷新所有账号数据（状态检测 + 额度信息 + 邮箱获取）
-const refreshAllAccountData = async (manageState = true) => {
-  if (tokens.value.length === 0) return;
 
-  // 只有在需要管理状态时才设置刷新状态
-  if (manageState) {
-    isRefreshing.value = true;
-    showStatus("正在刷新所有账号数据...", "info");
-  }
-
-  try {
-    console.log(`开始刷新 ${tokens.value.length} 个账号的数据`);
-
-    // 并行执行：状态检测 + 额度刷新
-    const promises = [];
-
-    // 1. 状态检测和邮箱获取（整合原 checkAllAccountsStatus 功能）
-    const statusCheckPromises = tokens.value.map(async (token) => {
-      // 重试逻辑：最多重试3次
-      const maxRetries = 3;
-      let lastError = null;
-
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          // 为每个账号添加前端超时控制（15秒）
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => {
-              reject(new Error(`账号 ${token.tenant_url} 检测超时（10秒）`));
-            }, 10000);
-          });
-
-          const checkPromise = (async () => {
-            let emailUpdated = false;
-
-            // 如果没有邮箱信息且有portal_url，先尝试获取邮箱
-            if (!token.email_note && token.portal_url) {
-              try {
-                const portalToken = extractTokenFromPortalUrl(token.portal_url);
-                if (portalToken) {
-                  const subscriptionData = await invoke(
-                    "get_subscriptions_from_link",
-                    {
-                      token: portalToken,
-                    }
-                  );
-                  const subscriptionInfo = JSON.parse(subscriptionData);
-
-                  if (
-                    subscriptionInfo.data &&
-                    subscriptionInfo.data.length > 0
-                  ) {
-                    const customerEmail =
-                      subscriptionInfo.data[0].customer?.email;
-                    if (customerEmail) {
-                      token.email_note = customerEmail;
-                      emailUpdated = true;
-                      console.log(`自动获取到邮箱: ${customerEmail}`);
-                    }
-                  }
-                }
-              } catch (error) {
-                console.warn("自动获取邮箱失败:", error);
-              }
-            }
-
-            const result = await invoke("check_account_status", {
-              token: token.access_token,
-              tenantUrl: token.tenant_url,
-              authSession: token.auth_session || null,
-              tokenId: token.id || null,
-            });
-
-            const banStatus =
-              result.status || (result.is_banned ? "SUSPENDED" : "ACTIVE");
-
-            // 始终更新 access_token 和 tenant_url (如果 token 被刷新,这里会是新值)
-            token.access_token = result.access_token;
-            token.tenant_url = result.tenant_url;
-
-            // 如果状态有变化或邮箱有更新，更新token
-            if (token.ban_status !== banStatus || emailUpdated) {
-              token.ban_status = banStatus;
-              token.updated_at = new Date().toISOString();
-
-              // 静默保存更新
-              const index = tokens.value.findIndex((t) => t.id === token.id);
-              if (index !== -1) {
-                tokens.value[index] = { ...token };
-                hasUnsavedChanges.value = true;
-              }
-            }
-
-            return {
-              success: true,
-              banned: result.is_banned,
-              status: banStatus,
-              emailUpdated,
-              tokenId: token.id,
-              retryCount: attempt - 1,
-            };
-          })();
-
-          // 使用 Promise.race 实现超时控制
-          const result = await Promise.race([checkPromise, timeoutPromise]);
-
-          // 成功则返回结果
-          if (attempt > 1) {
-            console.log(`账号 ${token.tenant_url} 第 ${attempt} 次重试成功`);
-          }
-          return result;
-        } catch (error) {
-          lastError = error;
-          const isTimeout = error.message.includes("超时");
-
-          if (attempt < maxRetries) {
-            console.warn(
-              `账号 ${token.tenant_url} 第 ${attempt} 次检测失败${
-                isTimeout ? "（超时）" : ""
-              }，准备重试...`
-            );
-            // 重试前等待1秒
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-          } else {
-            console.error(
-              `账号 ${token.tenant_url} 检测失败，已重试 ${maxRetries} 次:`,
-              error
-            );
-          }
-        }
-      }
-
-      // 所有重试都失败了
-      console.error(`检测账号 ${token.tenant_url} 状态失败:`, lastError);
-      const isTimeout = lastError?.message.includes("超时");
-      return {
-        success: false,
-        error: lastError,
-        tokenId: token.id,
-        timeout: isTimeout,
-        retryCount: maxRetries,
-      };
-    });
-
-    promises.push(Promise.allSettled(statusCheckPromises));
-
-    // 2. 刷新额度信息 - 通过TokenList组件（立即执行）
-    if (tokenListRef.value && tokenListRef.value.refreshAllPortalInfo) {
-      try {
-        promises.push(tokenListRef.value.refreshAllPortalInfo());
-        console.log("已添加Portal信息刷新Promise");
-      } catch (error) {
-        console.warn("添加Portal信息刷新Promise失败:", error);
-      }
-    } else {
-      console.log("TokenList组件未准备好或没有refreshAllPortalInfo方法");
-    }
-
-    // 等待所有操作完成
-    console.log(`等待 ${promises.length} 个Promise完成...`);
-    const results = await Promise.allSettled(promises);
-    console.log(`Promise.allSettled 完成，结果数量: ${results.length}`);
-
-    // 处理状态检测结果并统计
-    let checkedCount = 0;
-    let bannedCount = 0;
-    let invalidTokenCount = 0;
-    let emailFetchCount = 0;
-    let failedCount = 0;
-    let timeoutCount = 0;
-
-    console.log(`刷新结果统计开始，总共 ${tokens.value.length} 个账号`);
-
-    if (results.length > 0 && results[0].status === "fulfilled") {
-      const statusResults = results[0].value;
-      console.log(`状态检测结果数量: ${statusResults.length}`);
-
-      statusResults.forEach((result, index) => {
-        if (result.status === "fulfilled") {
-          const data = result.value;
-          if (data.success) {
-            checkedCount++;
-            if (data.status === "SUSPENDED") {
-              bannedCount++;
-            } else if (data.status === "INVALID_TOKEN") {
-              invalidTokenCount++;
-            }
-            if (data.emailUpdated) {
-              emailFetchCount++;
-            }
-            const statusText =
-              data.status === "SUSPENDED"
-                ? "已封禁"
-                : data.status === "INVALID_TOKEN"
-                ? "Token失效"
-                : "正常";
-            const retryText =
-              data.retryCount > 0 ? ` (重试${data.retryCount}次)` : "";
-            console.log(
-              `账号 ${index + 1} 检测成功: ${statusText}${
-                data.emailUpdated ? ", 邮箱已更新" : ""
-              }${retryText}`
-            );
-          } else {
-            failedCount++;
-            if (data.timeout) {
-              timeoutCount++;
-            }
-            const errorType = data.timeout ? "超时" : "错误";
-            const retryText =
-              data.retryCount > 0 ? ` (已重试${data.retryCount}次)` : "";
-            console.warn(
-              `账号 ${index + 1} 检测失败(${errorType}):`,
-              data.error?.message || data.error,
-              retryText
-            );
-          }
-        } else {
-          failedCount++;
-          console.error(`账号 ${index + 1} Promise失败:`, result.reason);
-        }
-      });
-    } else {
-      if (results.length === 0) {
-        console.error("没有任何Promise结果");
-        failedCount = tokens.value.length;
-      } else {
-        console.error("状态检测整体失败:", results[0]?.reason || "未知原因");
-        failedCount = tokens.value.length;
-      }
-    }
-
-    console.log(
-      `刷新统计完成: 成功=${checkedCount}, 失败=${failedCount}, 超时=${timeoutCount}, 封禁=${bannedCount}, Token失效=${invalidTokenCount}, 邮箱更新=${emailFetchCount}`
-    );
-
-    // 强制更新状态统计（确保及时同步）
-    recalcHeaderCounts();
-
-    // 如果有数据更新，保存到文件
-    if (hasUnsavedChanges.value) {
-      await saveTokensToFile(false);
-    }
-
-    // 显示完成状态
-    const totalAccounts = tokens.value.length;
-    const emailInfo =
-      emailFetchCount > 0 ? `，自动获取到 ${emailFetchCount} 个邮箱` : "";
-
-    // 构建失败信息，区分超时和其他错误
-    let failedInfo = "";
-    if (failedCount > 0) {
-      const failedParts = [];
-      if (timeoutCount > 0) {
-        failedParts.push(`${timeoutCount} 个账号检测超时`);
-      }
-      const otherFailedCount = failedCount - timeoutCount;
-      if (otherFailedCount > 0) {
-        failedParts.push(`${otherFailedCount} 个账号检测失败`);
-      }
-      failedInfo = `，${failedParts.join("，")}`;
-    }
-
-    if (bannedCount > 0 || invalidTokenCount > 0) {
-      const problemInfo = [];
-      if (bannedCount > 0) problemInfo.push(`${bannedCount} 个账号已被封禁`);
-      if (invalidTokenCount > 0)
-        problemInfo.push(`${invalidTokenCount} 个Token失效`);
-
-      showStatus(
-        `刷新完成：发现 ${problemInfo.join(
-          "，"
-        )}，${checkedCount}/${totalAccounts} 个账号检测成功${emailInfo}${failedInfo}`,
-        "warning"
-      );
-    } else if (failedCount > 0) {
-      showStatus(
-        `刷新完成：${checkedCount}/${totalAccounts} 个账号状态正常${emailInfo}${failedInfo}`,
-        "warning"
-      );
-    } else {
-      showStatus(
-        `刷新完成：所有 ${checkedCount} 个账号状态正常${emailInfo}`,
-        "success"
-      );
-    }
-  } catch (error) {
-    showStatus(`刷新账号数据时出现错误: ${error.message || error}`, "error");
-    console.error("刷新账号数据错误:", error);
-    console.error("错误堆栈:", error.stack);
-    // 即使出错也要更新统计
-    recalcHeaderCounts();
-  } finally {
-    // 只有在管理状态时才重置刷新状态
-    if (manageState) {
-      isRefreshing.value = false;
-    }
-  }
-};
 
 // 键盘事件处理
 const handleKeydown = (event) => {
   // 禁用所有 F 类功能键（F1-F12）
-  if (event.key && event.key.match(/^F([1-9]|1[0-2])$/)) {
+  if (event.key && event.key.match(/^F([1-9]|1[0-1])$/)) {
     event.preventDefault();
     event.stopPropagation();
     return false;
@@ -4444,7 +3744,7 @@ onUnmounted(() => {
 
 const openVSCodePlugin = async () => {
   showPluginHomeDialog.value = false;
-  const url = "https://github.com/Zheng-up/augment-code-z";
+  const url = "https://github.com/Zheng-up/augment-code-z/releases";
 
   try {
     await invoke("open_url", { url });
@@ -4471,200 +3771,19 @@ const openBalancePluginDownload = async () => {
   }
 };
 
-// Token 手动管理相关方法 - 使用现有的Token Form功能
+// Token 手动管理相关方法 - 调用 TokenList 的方法
 const handleAddNewToken = () => {
-  showTokenForm(); // 使用现有的方法
-};
-
-// 账号管理相关方法
-const showAccountManagerModal = ref(false);
-const accountManagerTab = ref("import"); // 'import' 或 'export'
-
-// 标签编辑弹框相关状态
-const showTagEditorForImportExport = ref(false);
-const pendingImportTokens = ref(null); // 待导入的账号数据
-const pendingExportData = ref(null); // 待导出的数据
-const pendingExportType = ref(null); // 'json' 或 'session'
-const pendingExportCount = ref(0); // 待导出的账号数量
-const pendingExportTokenIds = ref([]); // 待导出的账号ID列表
-
-const handleAccountManager = () => {
-  showAccountManagerModal.value = true;
-  accountManagerTab.value = "import"; // 默认显示导入tab
-};
-
-const handleImportTokens = () => {
-  accountManagerTab.value = "import";
-  showAccountManagerModal.value = true;
-};
-
-const handleExportTokens = () => {
-  accountManagerTab.value = "export";
-  showAccountManagerModal.value = true;
-};
-
-// 账号管理弹框处理方法
-const handleAccountManagerClose = () => {
-  showAccountManagerModal.value = false;
-};
-
-const handleAccountManagerImport = async (importedTokens) => {
-  // 如果开启了导入导出时创建标签功能，先打开标签编辑器
-  if (createTagOnImportExport.value) {
-    pendingImportTokens.value = importedTokens;
-    showAccountManagerModal.value = false; // 关闭导入导出弹框
-    showTagEditorForImportExport.value = true; // 打开标签编辑器
-  } else {
-    // 直接导入
-    await handleTokensImport(importedTokens);
+  // 调用 TokenList 的 openTokenForm 方法
+  if (tokenListRef.value && tokenListRef.value.openTokenForm) {
+    tokenListRef.value.openTokenForm();
   }
 };
 
-const handleAccountManagerImportError = (errorMessage) => {
-  showStatus(errorMessage, "error");
-};
+// 账号管理相关方法 - 已移至 TokenList 组件内部
 
-const handleAccountManagerExportClipboard = async ({
-  data,
-  count,
-  tokenIds,
-}) => {
-  // 如果开启了导入导出时创建标签功能，先打开标签编辑器
-  if (createTagOnImportExport.value) {
-    pendingExportData.value = data;
-    pendingExportType.value = "json";
-    pendingExportCount.value = count;
-    pendingExportTokenIds.value = tokenIds || []; // 保存账号ID列表
-    showAccountManagerModal.value = false; // 关闭导入导出弹框
-    showTagEditorForImportExport.value = true; // 打开标签编辑器
-  } else {
-    // 直接导出
-    try {
-      const success = await copyToClipboard(data);
-      if (success) {
-        showStatus(`已将 ${count} 个账号数据复制到剪贴板`, "success");
-        // 导出成功后关闭弹窗
-        showAccountManagerModal.value = false;
-      } else {
-        showStatus("复制到剪贴板失败", "error");
-      }
-    } catch (error) {
-      showStatus(`导出失败: ${error}`, "error");
-    }
-  }
-};
+// handleAccountManager, handleImportTokens, handleExportTokens 等方法已移至 TokenList 组件内部
 
-const handleAccountManagerExportSession = async ({ data, count, tokenIds }) => {
-  // 如果开启了导入导出时创建标签功能，先打开标签编辑器
-  if (createTagOnImportExport.value) {
-    pendingExportData.value = data;
-    pendingExportType.value = "session";
-    pendingExportCount.value = count;
-    pendingExportTokenIds.value = tokenIds || []; // 保存账号ID列表
-    showAccountManagerModal.value = false; // 关闭导入导出弹框
-    showTagEditorForImportExport.value = true; // 打开标签编辑器
-  } else {
-    // 直接导出
-    try {
-      const success = await copyToClipboard(data);
-      if (success) {
-        showStatus(`已将 ${count} 个账号数据复制到剪贴板`, "success");
-        // 导出成功后关闭弹窗
-        showAccountManagerModal.value = false;
-      } else {
-        showStatus("复制到剪贴板失败", "error");
-      }
-    } catch (error) {
-      showStatus(`导出失败: ${error}`, "error");
-    }
-  }
-};
-
-// 标签编辑器关闭处理
-const handleTagEditorForImportExportClose = () => {
-  showTagEditorForImportExport.value = false;
-  pendingImportTokens.value = null;
-  pendingExportData.value = null;
-  pendingExportType.value = null;
-  pendingExportCount.value = 0;
-  pendingExportTokenIds.value = [];
-};
-
-// 标签编辑器确认处理
-const handleTagEditorForImportExportConfirm = async (tagData) => {
-  showTagEditorForImportExport.value = false;
-
-  // TagEditorModal 传递的是对象 { tagText, tagColor }
-  const tagText = tagData.tagText || "";
-  const tagColor = tagData.tagColor || "";
-
-  console.log("标签编辑器确认 - 标签文字:", tagText, "标签颜色:", tagColor);
-
-  // 处理导入
-  if (pendingImportTokens.value) {
-    console.log("处理导入，待导入账号数量:", pendingImportTokens.value.length);
-    const tokensWithTag = pendingImportTokens.value.map((token) => ({
-      ...token,
-      tag_text: tagText,
-      tag_color: tagColor,
-    }));
-    await handleTokensImport(tokensWithTag);
-    pendingImportTokens.value = null;
-  }
-  // 处理导出
-  else if (pendingExportData.value) {
-    console.log("处理导出，待导出账号ID:", pendingExportTokenIds.value);
-    try {
-      const success = await copyToClipboard(pendingExportData.value);
-      if (success) {
-        const typeText =
-          pendingExportType.value === "json" ? "JSON" : "Session";
-        showStatus(
-          `已将 ${pendingExportCount.value} 个账号数据（${typeText}格式）复制到剪贴板`,
-          "success"
-        );
-
-        // 如果有标签，批量应用到选中的账号
-        if (tagText || tagColor) {
-          console.log("开始应用标签到导出的账号");
-          let updatedCount = 0;
-
-          // 根据账号ID直接更新标签
-          for (const tokenId of pendingExportTokenIds.value) {
-            const token = tokens.value.find((t) => t.id === tokenId);
-            if (token) {
-              token.tag_text = tagText;
-              token.tag_color = tagColor;
-              updatedCount++;
-              console.log(
-                `已更新账号 ${token.email_note || token.tenant_url} 的标签`
-              );
-            }
-          }
-
-          if (updatedCount > 0) {
-            // 保存更新后的账号数据
-            await saveTokensToFile(false);
-            showStatus(`标签已应用到 ${updatedCount} 个导出的账号`, "success");
-            console.log(`成功应用标签到 ${updatedCount} 个账号`);
-          } else {
-            console.log("没有找到需要更新标签的账号");
-          }
-        }
-      } else {
-        showStatus("复制到剪贴板失败", "error");
-      }
-    } catch (error) {
-      console.error("导出失败:", error);
-      showStatus(`导出失败: ${error}`, "error");
-    }
-
-    pendingExportData.value = null;
-    pendingExportType.value = null;
-    pendingExportCount.value = 0;
-    pendingExportTokenIds.value = [];
-  }
-};
+// AccountManager 和 TagEditor 相关方法已移至 TokenList 组件内部
 
 const handleTokensImport = async (importedTokens) => {
   let successCount = 0;
@@ -4713,56 +3832,46 @@ const handleTokensImport = async (importedTokens) => {
         }
       }
 
-      // 准备新账号数据
-      const newTokenData = {
+      // 准备新账号数据（使用驼峰命名）
+      const tokenDataToAdd = {
         tenantUrl: tokenData.tenant_url,
         accessToken: tokenData.access_token,
         portalUrl: tokenData.portal_url || null,
         emailNote: autoEmailNote,
         authSession: tokenData.auth_session || null,
-        tagText: tokenData.tag_text || null,
+        tagName: tokenData.tag_text || null,  // 使用 tagName 而不是 tagText
         tagColor: tokenData.tag_color || null,
+        suspensions: tokenData.suspensions || null,
+        banStatus: tokenData.ban_status || null,
+        creditsBalance: tokenData.portal_info?.credits_balance || null,
+        expiryDate: tokenData.portal_info?.expiry_date || null,
       };
 
-      // 检测重复账号（基于邮箱）
-      const existingToken = checkDuplicateAccount(newTokenData);
+      // 使用 TokenList 的 addToken 函数
+      if (tokenListRef.value && tokenListRef.value.addToken) {
+        const addResult = tokenListRef.value.addToken(tokenDataToAdd);
 
-      if (existingToken) {
-        // 收集重复账号，稍后处理
-        duplicateTokens.push({
-          existingToken,
-          newTokenData,
-          originalData: tokenData,
-        });
-      } else {
-        // 检查是否已存在相同的token（基于tenant_url和access_token）
-        const exists = tokens.value.some(
-          (t) =>
-            t.tenant_url === tokenData.tenant_url &&
-            t.access_token === tokenData.access_token
-        );
-
-        if (!exists) {
-          const newToken = createNewToken(
-            newTokenData.tenantUrl,
-            newTokenData.accessToken,
-            newTokenData.portalUrl,
-            newTokenData.emailNote,
-            newTokenData.authSession,
-            newTokenData.tagText,
-            newTokenData.tagColor
-          );
-          insertTokenSorted(newToken);
-          newTokenIds.push(newToken.id); // 记录新添加的账号ID
+        if (addResult.success) {
+          newTokenIds.push(addResult.token.id); // 记录新添加的账号ID
           successCount++;
           console.log(
-            `导入账号成功，标签: ${newTokenData.tagText || "无"}, 颜色: ${
-              newTokenData.tagColor || "无"
-            }, Session: ${newTokenData.authSession ? "有" : "无"}`
+            `导入账号成功，标签: ${tokenDataToAdd.tagName || "无"}, 颜色: ${
+              tokenDataToAdd.tagColor || "无"
+            }, Session: ${tokenDataToAdd.authSession ? "有" : "无"}`
           );
+        } else if (addResult.duplicateId) {
+          // 重复账号，收集起来稍后处理
+          duplicateTokens.push({
+            duplicateId: addResult.duplicateId,
+            newTokenData: tokenDataToAdd,
+            originalData: tokenData,
+          });
         } else {
           errorCount++;
         }
+      } else {
+        console.error("TokenList 组件未就绪");
+        errorCount++;
       }
     } catch (error) {
       console.error("导入单个token失败:", error);
@@ -4770,18 +3879,22 @@ const handleTokensImport = async (importedTokens) => {
     }
   }
 
-  // 第二阶段：处理重复账号（显示确认弹框）
+  // 第二阶段：处理重复账号
   if (duplicateTokens.length > 0) {
-    //关闭导入导出弹框
+    // 关闭导入导出弹框
     showAccountManagerModal.value = false;
-    // 显示重复账号确认弹框
-    await handleDuplicateTokensConfirm(
-      duplicateTokens,
-      successCount,
-      errorCount,
-      emailFetchCount,
-      newTokenIds
+
+    // 显示重复账号提示
+    const skippedCount = duplicateTokens.length;
+    showStatus(
+      `导入完成！成功: ${successCount}, 跳过(重复): ${skippedCount}, 失败: ${errorCount}`,
+      successCount > 0 ? "success" : "warning"
     );
+
+    // 如果只有一个重复，高亮显示
+    if (duplicateTokens.length === 1 && successCount === 0) {
+      tokenListRef.value?.highlightAndScrollTo(duplicateTokens[0].duplicateId);
+    }
   } else {
     // 没有重复账号，直接完成导入
     await completeImport(
@@ -4791,92 +3904,12 @@ const handleTokensImport = async (importedTokens) => {
       emailFetchCount,
       newTokenIds
     );
-    //关闭导入导出弹框
+    // 关闭导入导出弹框
     showAccountManagerModal.value = false;
   }
 };
 
-// 处理重复账号确认的函数
-const handleDuplicateTokensConfirm = async (
-  duplicateTokens,
-  successCount,
-  errorCount,
-  emailFetchCount,
-  newTokenIds
-) => {
-  return new Promise((resolve) => {
-    if (duplicateTokens.length === 1) {
-      // 单个重复账号，显示具体邮箱信息
-      const { existingToken, newTokenData } = duplicateTokens[0];
-      showDuplicateConfirm(
-        existingToken,
-        newTokenData,
-        async () => {
-          // 确认覆盖
-          const updatedToken = updateExistingToken(existingToken, newTokenData);
-          const updateCount = updatedToken ? 1 : 0;
-          await completeImport(
-            successCount,
-            updateCount,
-            errorCount,
-            emailFetchCount,
-            newTokenIds
-          );
-          resolve();
-        },
-        async () => {
-          // 取消覆盖
-          await completeImport(
-            successCount,
-            0, // updateCount = 0
-            errorCount,
-            emailFetchCount,
-            newTokenIds
-          );
-          resolve();
-        }
-      );
-    } else {
-      // 多个重复账号，显示批量确认
-      showDuplicateConfirm(
-        null, // 不显示具体账号
-        { emailNote: `检测到 ${duplicateTokens.length} 个重复账号` },
-        async () => {
-          // 确认覆盖所有
-          let updateCount = 0;
-          for (const { existingToken, newTokenData } of duplicateTokens) {
-            const updatedToken = updateExistingToken(
-              existingToken,
-              newTokenData
-            );
-            if (updatedToken) {
-              updateCount++;
-            }
-          }
-          await completeImport(
-            successCount,
-            updateCount,
-            errorCount,
-            emailFetchCount,
-            newTokenIds
-          );
-          resolve();
-        },
-        async () => {
-          // 取消覆盖
-          await completeImport(
-            successCount,
-            0, // updateCount = 0
-            errorCount,
-            emailFetchCount,
-            newTokenIds
-          );
-          resolve();
-        }
-      );
-    }
-  });
-};
+// 注意：handleDuplicateTokensConfirm 函数已删除，现在使用 TokenList 的 addToken 统一处理重复检测
 
 // 完成导入操作的辅助函数
 const completeImport = async (
@@ -4889,8 +3922,6 @@ const completeImport = async (
   const totalProcessed = successCount + updateCount;
 
   if (totalProcessed > 0) {
-    hasUnsavedChanges.value = true;
-
     // 强制更新状态统计（确保导入后及时同步）
     recalcHeaderCounts();
 
@@ -4921,17 +3952,9 @@ const completeImport = async (
           "success"
         );
 
-        // 导入完成后检测所有新账号状态（使用批量检查 API）
-        if (newTokenIds.length > 0) {
-          setTimeout(() => {
-            if (
-              tokenListRef.value &&
-              tokenListRef.value.checkAllAccountStatus
-            ) {
-              tokenListRef.value.checkAllAccountStatus();
-            }
-          }, 1000);
-        }
+        // 导入完成后不自动检测账号状态（避免触发批量刷新）
+        // 用户可以手动点击"批量刷新"按钮来检测状态
+        console.log(`批量导入完成，成功导入 ${newTokenIds.length} 个账号，不自动触发批量刷新`);
       } catch (error) {
         retryCount++;
         console.error(`保存失败（第 ${retryCount} 次尝试）:`, error);
@@ -4943,8 +3966,6 @@ const completeImport = async (
             `导入成功但自动保存失败（已重试${maxRetries}次），请手动保存。成功：${successCount}，更新：${updateCount}，失败：${errorCount}`,
             "warning"
           );
-          // 即使保存失败，也标记为有未保存的更改
-          hasUnsavedChanges.value = true;
         }
       }
     }
@@ -5472,9 +4493,9 @@ const toggleAutoDownload = () => {
 // 切换导入导出时创建标签
 const toggleCreateTagOnImportExport = () => {
   if (createTagOnImportExport.value) {
-    showStatus("导入导出时创建标签已开启", "success");
+    showStatus("批量导入导出时创建标签已开启", "success");
   } else {
-    showStatus("导入导出时创建标签已关闭", "info");
+    showStatus("批量导入导出时创建标签已关闭", "info");
   }
 
   // 保存状态到本地存储
@@ -5486,8 +4507,7 @@ const syncBeforeClose = async () => {
   // 只有自动上传开启时才在关闭前上传
   if (
     autoUploadEnabled.value &&
-    isWebDAVConfigured.value &&
-    hasUnsavedChanges.value
+    isWebDAVConfigured.value
   ) {
     try {
       await forceUploadToCloud();
@@ -5656,9 +4676,8 @@ onMounted(async () => {
     await getCurrentDataPath();
     console.log("数据路径获取成功");
 
-    console.log("开始加载账号数据...");
-    await loadTokens();
-    console.log("账号数据加载成功");
+    // 注意：账号数据由 TokenList 组件自己在 onMounted 中加载，这里不需要调用
+    console.log("账号数据将由 TokenList 组件自动加载");
 
     console.log("开始加载WebDAV配置...");
     await loadWebDAVConfig();
@@ -5723,14 +4742,9 @@ onMounted(async () => {
       }
     });
 
-    // 应用启动完成后，延迟执行初始账号检测
-    // 停留在当前视图（token-generator），后台静默检测账号状态
-    if (tokens.value.length > 0) {
-      setTimeout(async () => {
-        console.log("执行初始账号状态检测");
-        await smartRefresh();
-      }, 1000);
-    }
+    // 移除自动刷新逻辑，与 augment-token-mng-main 保持一致
+    // 用户可以手动点击刷新按钮来更新账号状态
+    // 这样可以避免启动时干扰用户操作（如翻页等）
 
     console.log("App.vue onMounted 完成");
   } catch (error) {
@@ -5779,6 +4793,18 @@ onMounted(async () => {
     });
   } catch (error) {
     console.error("Failed to listen to deep-link-session-received:", error);
+  }
+
+  // 监听 API 服务器导入事件（当通过 API 导入 Session 时触发）
+  try {
+    await listen("tokens-updated", async () => {
+      console.log("📥 Tokens updated event received from API server");
+      // 重新加载 tokens
+      await loadTokens();
+      showStatus("账号已通过 API 导入", "success", 3000);
+    });
+  } catch (error) {
+    console.error("Failed to listen to tokens-updated:", error);
   }
 
   // 应用启动完成后，异步初始化邮箱管理（不阻塞界面渲染）
@@ -5908,6 +4934,7 @@ onMounted(async () => {
   position: relative;
   overflow: hidden;
   transform-origin: center;
+  white-space: nowrap;
 }
 
 /* 悬浮背景效果 */
@@ -6085,7 +5112,8 @@ body {
 .token-generator-view,
 .token-list-view,
 .email-manager-view,
-.settings-view {
+.settings-view,
+.api-settings-view {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -6095,9 +5123,10 @@ body {
 .token-generator-header,
 .view-header-bar {
   display: flex;
+  max-height: 70px;
   justify-content: space-between;
   align-items: center;
-  padding: 18px 32px;
+  padding: 18px 12px;
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(226, 232, 240, 0.3);
@@ -6147,6 +5176,10 @@ body {
 }
 
 .floating-status-stats .status-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 4px 10px;
   border-radius: 8px;
   font-size: 12px;
@@ -6456,7 +5489,7 @@ body {
 .view-content-card {
   background: transparent;
   padding: 10px;
-  padding-right: 4px;
+  /* padding-right: 4px; */
   position: relative;
   flex: 1;
   overflow-y: auto;
@@ -6464,40 +5497,7 @@ body {
   min-height: 0;
 }
 
-/* 现代化滚动条样式 - 应用到所有内容卡片 */
-.token-generator-card::-webkit-scrollbar,
-.view-content-card::-webkit-scrollbar {
-  width: 16px;
-}
 
-.token-generator-card::-webkit-scrollbar-track,
-.view-content-card::-webkit-scrollbar-track {
-  background: transparent;
-  border-radius: 10px;
-  margin: 4px 0;
-}
-
-.token-generator-card::-webkit-scrollbar-thumb,
-.view-content-card::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
-  border-radius: 10px;
-  border: 4px solid transparent;
-  background-clip: padding-box;
-  transition: background 0.2s ease;
-}
-
-.token-generator-card::-webkit-scrollbar-thumb:hover,
-.view-content-card::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.5);
-  background-clip: padding-box;
-}
-
-/* Firefox 滚动条样式 */
-.token-generator-card,
-.view-content-card {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
-}
 
 /* 卡片容器样式 */
 .card-container {
@@ -7189,10 +6189,10 @@ body {
 }
 
 .btn.primary {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: #4f46e5;
   color: white;
   border: none;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
   font-weight: 600;
   position: relative;
   overflow: hidden;
@@ -7215,9 +6215,9 @@ body {
 }
 
 .btn.primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  background: #4338ca;
   transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
 }
 
 .btn.primary:hover:not(:disabled)::before {
@@ -7225,11 +6225,7 @@ body {
 }
 
 .btn.secondary {
-  background: linear-gradient(
-    135deg,
-    rgba(156, 163, 175, 0.1) 0%,
-    rgba(107, 114, 128, 0.05) 100%
-  ) !important;
+  background: rgba(156, 163, 175, 0.1) !important;
   color: #6b7280 !important;
   border: 1px solid rgba(156, 163, 175, 0.5) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
@@ -7269,11 +6265,7 @@ body {
 }
 
 .btn.secondary:hover:not(:disabled) {
-  background: linear-gradient(
-    135deg,
-    rgba(156, 163, 175, 0.15) 0%,
-    rgba(107, 114, 128, 0.1) 100%
-  ) !important;
+  background: rgba(156, 163, 175, 0.15) !important;
   border-color: rgba(107, 114, 128, 0.6) !important;
   transform: translateY(-2px);
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1) !important;
@@ -7756,7 +6748,7 @@ textarea.unified-input {
 
   .header-left-title h2 {
     width: 100%;
-    margin-bottom: 4px;
+
   }
 
   /* 响应式悬浮状态统计 */
@@ -7776,6 +6768,10 @@ textarea.unified-input {
   }
 
   .floating-status-stats .status-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
     padding: 3px 8px;
     font-size: 11px;
     min-width: 70px;
@@ -9167,6 +8163,7 @@ textarea.unified-input {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
+  max-height: 56vh;
 }
 
 .plugin-option-card {
@@ -9297,13 +8294,7 @@ textarea.unified-input {
   left: 100%;
 }
 
-/* 响应式设计 - 弹窗内容 */
-@media (max-width: 768px) {
-  .plugin-options-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-}
+
 
 /* 设置页面样式  */
 .settings-section:first-child {
@@ -9783,6 +8774,8 @@ textarea.unified-input {
   border-radius: 12px;
   border: 1px solid rgba(226, 232, 240, 0.5);
   backdrop-filter: blur(5px);
+  flex-wrap: nowrap !important;
+  min-height: 56px;
 }
 
 .info-label {
@@ -9807,7 +8800,7 @@ textarea.unified-input {
   padding: 8px 16px;
   border: none;
   border-radius: 8px;
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: #4f46e5;
   color: white;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -9843,7 +8836,7 @@ textarea.unified-input {
 }
 
 .info-action-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  background: #4338ca;
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
 }
@@ -9965,30 +8958,95 @@ textarea.unified-input {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .path-input-group {
-    flex-direction: column;
-    align-items: stretch;
+
+
+/* 移除小屏幕时的垂直布局，始终保持一行显示 */
+
+
+
+/* 顶部标签页导航（小窗口时显示） */
+.top-tabs-nav {
+  display: none;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+  padding: 0 8px;
+  gap: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.top-tabs-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.top-tab-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.top-tab-item svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+  flex-shrink: 0;
+}
+
+.top-tab-item span {
+  flex-shrink: 0;
+}
+
+.top-tab-item:hover {
+  color: #4f46e5;
+  background: rgba(79, 70, 229, 0.05);
+}
+
+.top-tab-item:hover svg {
+  opacity: 1;
+}
+
+.top-tab-item.active {
+  color: #4f46e5;
+  border-bottom-color: #4f46e5;
+  background: rgba(79, 70, 229, 0.08);
+}
+
+.top-tab-item.active svg {
+  opacity: 1;
+}
+
+/* 小窗口时隐藏侧边栏，显示顶部标签页 */
+@media (max-width: 900px) {
+  .sidebar {
+    display: none;
   }
 
-  .btn-select-path {
-    justify-content: center;
+  .top-tabs-nav {
+    display: flex;
   }
 
-  .setting-actions {
-    flex-direction: column;
+  .main-content {
+    margin-left: 0;
   }
 
-  .btn-reset,
-  .btn-open {
-    justify-content: center;
-  }
-
-  .info-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+  .modal-container-overlay {
+    left: 0;
   }
 }
 
@@ -11490,10 +10548,6 @@ textarea.unified-input {
     padding-right: 20px;
   }
 
-  .force-confirm-footer {
-    flex-direction: column;
-  }
-
   .btn-cancel,
   .btn-confirm {
     justify-content: center;
@@ -11873,85 +10927,89 @@ textarea.unified-input {
 }
 
 .btn-header-unified.primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  background: #4f46e5;
   color: white;
-  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 2px 12px rgba(79, 70, 229, 0.25);
 }
 
 .btn-header-unified.primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  background: #4338ca;
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
+  box-shadow: 0 4px 20px rgba(79, 70, 229, 0.35);
 }
 
 .btn-header-unified.secondary {
-  background: linear-gradient(
-    135deg,
-    rgba(241, 245, 249, 0.9) 0%,
-    rgba(226, 232, 240, 0.8) 100%
-  );
+  background: rgba(241, 245, 249, 0.9);
   color: #475569;
   border: 1px solid rgba(203, 213, 225, 0.6);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .btn-header-unified.secondary:hover:not(:disabled) {
-  background: linear-gradient(
-    135deg,
-    rgba(226, 232, 240, 0.95) 0%,
-    rgba(203, 213, 225, 0.9) 100%
-  );
+  background: rgba(226, 232, 240, 0.95);
   border-color: rgba(148, 163, 184, 0.8);
   transform: translateY(-2px);
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
 }
 
 .btn-header-unified.purchase {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: #10b981;
   color: white;
   box-shadow: 0 2px 12px rgba(16, 185, 129, 0.25);
 }
 
 .btn-header-unified.purchase:hover:not(:disabled) {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  background: #059669;
   transform: translateY(-2px);
   box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
 }
 
 .btn-header-unified.danger {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  background: #ef4444;
   color: white;
   box-shadow: 0 2px 12px rgba(239, 68, 68, 0.25);
 }
 
 .btn-header-unified.danger:hover:not(:disabled) {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  background: #dc2626;
   transform: translateY(-2px);
   box-shadow: 0 4px 20px rgba(239, 68, 68, 0.35);
 }
 
 .btn-header-unified.special {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  background: #8b5cf6;
   color: white;
   box-shadow: 0 2px 12px rgba(139, 92, 246, 0.25);
 }
 
 .btn-header-unified.special:hover:not(:disabled) {
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  background: #7c3aed;
   transform: translateY(-2px);
   box-shadow: 0 4px 20px rgba(139, 92, 246, 0.35);
 }
 
 .btn-header-unified.appreciation {
-  background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+  background: #ec4899;
   color: white;
   box-shadow: 0 2px 12px rgba(236, 72, 153, 0.25);
 }
 
 .btn-header-unified.appreciation:hover:not(:disabled) {
-  background: linear-gradient(135deg, #db2777 0%, #be185d 100%);
+  background: #db2777;
   transform: translateY(-2px);
   box-shadow: 0 4px 20px rgba(236, 72, 153, 0.35);
+}
+
+.btn-header-unified.community {
+  background: #06b6d4;
+  color: white;
+  box-shadow: 0 2px 12px rgba(6, 182, 212, 0.25);
+}
+
+.btn-header-unified.community:hover:not(:disabled) {
+  background: #0891b2;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.35);
 }
 
 .btn-header-unified:disabled {
@@ -12231,24 +11289,6 @@ body {
   user-select: none;
 }
 
-/* 重复账号确认对话框样式 */
-.duplicate-confirm-content {
-  text-align: center;
-}
-
-.email-highlight {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  color: white;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-weight: 600;
-  font-family: "Consolas", "Monaco", "Courier New", monospace;
-  font-size: 14px;
-  display: inline-block;
-  margin: 0 2px;
-  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
-}
-
 /* 统一的弹窗按钮样式 */
 .dialog-btn-unified {
   display: flex;
@@ -12453,11 +11493,5 @@ body {
 .btn-modal-unified:hover:not(:disabled) svg,
 .btn:hover:not(:disabled) svg {
   transform: scale(1.1) !important;
-}
-
-.duplicate-confirm-footer {
-  display: flex;
-  gap: 12px;
-  margin-top: 24px;
 }
 </style>

@@ -2,11 +2,15 @@
   <ModalContainer
     :visible="true"
     :title="isEditing ? '编辑账号' : '添加账号'"
+    :tabs="isEditing ? undefined : modalTabs"
+    :active-tab="activeTab"
     size="medium"
     :show-close-button="true"
     @close="handleCancel"
+    @tab-change="handleTabChange"
   >
-    <div class="token-form-content">
+    <!-- 手动输入 Tab -->
+    <div v-if="activeTab === 'manual'" class="token-form-content">
       <form @submit.prevent="handleSubmit">
         <div class="form-group">
           <label for="tenantUrl">租户URL *</label>
@@ -88,23 +92,61 @@
       </form>
     </div>
 
+    <!-- Session导入 Tab -->
+    <div v-if="activeTab === 'session'" class="token-form-content">
+      <div class="session-import-section">
+        <div class="form-group">
+          <label for="sessionInput">Session 字符串 *</label>
+          <textarea
+            id="sessionInput"
+            v-model="sessionInput"
+            placeholder="请粘贴 Session 字符串..."
+            rows="6"
+            :disabled="isImportingSession"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            class="session-textarea"
+          ></textarea>
+          <div class="help-text">
+            粘贴完整的 Session 字符串，系统将自动解析并导入账号信息
+          </div>
+        </div>
+      </div>
+    </div>
+
     <template #footer>
       <div class="modal-actions">
         <button
           type="button"
           @click="handleCancel"
           class="btn secondary"
-          :disabled="isLoading"
+          :disabled="isLoading || isImportingSession"
         >
           取消
         </button>
+
+        <!-- 手动输入的提交按钮 -->
         <button
+          v-if="activeTab === 'manual'"
           @click="handleSubmit"
           class="btn primary"
           :disabled="isLoading || !isFormValid"
         >
           <span v-if="isLoading" class="loading-spinner"></span>
           {{ isLoading ? "保存中..." : isEditing ? "更新账号" : "添加账号" }}
+        </button>
+
+        <!-- Session导入的提交按钮 -->
+        <button
+          v-if="activeTab === 'session'"
+          @click="handleSessionImport"
+          class="btn primary"
+          :disabled="isImportingSession || !sessionInput.trim()"
+        >
+          <span v-if="isImportingSession" class="loading-spinner"></span>
+          {{ isImportingSession ? sessionImportProgress : "导入 Session" }}
         </button>
       </div>
     </template>
@@ -134,6 +176,7 @@ const emit = defineEmits([
 ]);
 
 // Reactive data
+const activeTab = ref("manual"); // 默认显示手动输入
 const formData = ref({
   tenantUrl: "",
   accessToken: "",
@@ -150,8 +193,18 @@ const errors = ref({
 
 const isLoading = ref(false);
 
+// Session 导入相关
+const sessionInput = ref("");
+const isImportingSession = ref(false);
+const sessionImportProgress = ref("");
+
 // Computed properties
 const isEditing = computed(() => !!props.token);
+
+const modalTabs = computed(() => [
+  { key: "manual", title: "手动输入" },
+  { key: "session", title: "Session导入" },
+]);
 
 const isFormValid = computed(() => {
   return (
@@ -169,6 +222,8 @@ watch(
   () => props.token,
   (newToken) => {
     if (newToken) {
+      // 编辑模式：只显示手动输入表单，不显示 Tab
+      activeTab.value = "manual";
       formData.value = {
         tenantUrl: newToken.tenant_url || "",
         accessToken: newToken.access_token || "",
@@ -176,7 +231,8 @@ watch(
         emailNote: newToken.email_note || "",
       };
     } else {
-      // Reset form for adding new token
+      // 新增模式：默认显示手动输入 Tab
+      activeTab.value = "session";
       formData.value = {
         tenantUrl: "",
         accessToken: "",
@@ -191,6 +247,9 @@ watch(
       portalUrl: "",
       emailNote: "",
     };
+    // Clear session input
+    sessionInput.value = "";
+    sessionImportProgress.value = "";
   },
   { immediate: true }
 );
@@ -198,6 +257,20 @@ watch(
 // Methods
 const showStatus = (message, type = "info") => {
   emit("show-status", message, type);
+};
+
+const handleTabChange = (tabKey) => {
+  if (!isLoading.value && !isImportingSession.value) {
+    activeTab.value = tabKey;
+    // 清空错误信息
+    errors.value = {
+      tenantUrl: "",
+      accessToken: "",
+      portalUrl: "",
+      emailNote: "",
+    };
+    sessionImportProgress.value = "";
+  }
 };
 
 const validateForm = () => {
@@ -325,6 +398,74 @@ const handleSubmit = async () => {
 const handleCancel = () => {
   emit("close");
 };
+
+// Session 导入处理
+const handleSessionImport = async () => {
+  const trimmedSession = sessionInput.value.trim();
+  if (!trimmedSession) {
+    showStatus("请输入 Session 字符串", "error");
+    return;
+  }
+
+  isImportingSession.value = true;
+  sessionImportProgress.value = "正在解析 Session...";
+
+  try {
+    // 调用 Tauri 后端解析 Session
+    const result = await invoke("add_token_from_session", {
+      session: trimmedSession,
+    });
+
+    if (result && result.access_token) {
+      sessionImportProgress.value = "解析成功，正在保存...";
+
+      console.log("TokenForm Session 导入返回结果:", result);
+
+      // 构建 token 对象（注意：后端返回的是蛇形命名）
+      const tokenData = {
+        tenantUrl: result.tenant_url || "",
+        accessToken: result.access_token,
+        portalUrl: null, // Session 导入不获取 portal_url
+        emailNote: result.email || null,
+        authSession: trimmedSession, // 保存原始 Session 字符串
+        banStatus: "ACTIVE", // Session 导入默认设置为 ACTIVE
+        creditsBalance: result.credits_balance !== undefined ? result.credits_balance : null,  // ✅ 修复：使用蛇形命名
+        expiryDate: result.expiry_date || null,  // ✅ 修复：使用蛇形命名
+        suspensions: null, // Session 导入不获取 suspensions
+      };
+
+      console.log("TokenForm 准备添加的 tokenData:", tokenData);
+      console.log("creditsBalance:", tokenData.creditsBalance, "expiryDate:", tokenData.expiryDate);
+
+      // 通知父组件添加 token（父组件会处理重复检测、确认和关闭弹窗）
+      emit("add-token", tokenData);
+
+      // 清空输入和进度
+      sessionInput.value = "";
+      sessionImportProgress.value = "";
+
+      // 只触发成功事件，不关闭弹窗（让父组件在保存成功后关闭）
+      emit("success");
+      emit("close");
+    } else {
+      throw new Error("后端返回数据无效");
+    }
+  } catch (error) {
+    sessionImportProgress.value = "导入失败";
+    let errorMessage = error.toString();
+
+    // 映射常见错误
+    if (errorMessage.includes("SESSION_ERROR_OR_ACCOUNT_BANNED")) {
+      errorMessage = "Session 无效或账号已被封禁";
+    } else if (errorMessage.includes("NETWORK_ERROR")) {
+      errorMessage = "网络错误，请检查网络连接";
+    }
+
+    showStatus(`导入失败: ${errorMessage}`, "error");
+  } finally {
+    isImportingSession.value = false;
+  }
+};
 </script>
 
 <style scoped>
@@ -333,6 +474,63 @@ const handleCancel = () => {
   display: flex;
   flex-direction: column;
   max-height: 58vh;
+}
+
+/* Session 导入区域 */
+.session-import-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Session 导入文本域样式（参考批量导入弹框） */
+.session-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.4);
+  border-radius: 8px;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  font-size: 13px;
+  color: #1e293b;
+  background: rgba(248, 250, 252, 0.5);
+  resize: none !important; /* 禁用大小调节（使用 !important 覆盖 .form-group textarea 的 resize: vertical） */
+  overflow-y: auto; /* 允许垂直滚动 */
+  transition: all 0.3s ease;
+  min-height: 150px;
+  line-height: 1.6;
+  box-sizing: border-box;
+  /* 隐藏滚动条但保留滚动功能 */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* 隐藏 Webkit 浏览器（Chrome, Safari）的滚动条 */
+.session-textarea::-webkit-scrollbar {
+  display: none;
+}
+
+.session-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.session-textarea:disabled {
+  background: rgba(226, 232, 240, 0.2);
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.import-progress {
+  padding: 12px 16px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  color: #1e40af;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
 }
 
 .form-group {
@@ -450,23 +648,19 @@ const handleCancel = () => {
 }
 
 .btn.primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  background: #4f46e5;
   color: white;
-  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 2px 12px rgba(79, 70, 229, 0.25);
 }
 
 .btn.primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  background: #4338ca;
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
+  box-shadow: 0 4px 20px rgba(79, 70, 229, 0.35);
 }
 
 .btn.secondary {
-  background: linear-gradient(
-    135deg,
-    rgba(248, 250, 252, 0.9) 0%,
-    rgba(241, 245, 249, 0.8) 100%
-  );
+  background: rgba(248, 250, 252, 0.9);
   color: #64748b;
   border: 1px solid rgba(226, 232, 240, 0.5);
   backdrop-filter: blur(10px);
@@ -474,11 +668,7 @@ const handleCancel = () => {
 }
 
 .btn.secondary:hover:not(:disabled) {
-  background: linear-gradient(
-    135deg,
-    rgba(241, 245, 249, 0.95) 0%,
-    rgba(226, 232, 240, 0.9) 100%
-  );
+  background: rgba(241, 245, 249, 0.95);
   border-color: rgba(203, 213, 225, 0.7);
   color: #475569;
   transform: translateY(-2px);

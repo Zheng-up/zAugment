@@ -567,10 +567,10 @@ const handleClose = () => {
   localBalanceMax.value = props.balanceMax;
   emit("close");
 };
-// 恢复默认值（从后端获取）
+// 恢复默认值（获取系统预设的默认值）
 const handleReset = async () => {
   try {
-    const result = await invoke("load_status_thresholds");
+    const result = await invoke("get_default_status_thresholds");
     if (result) {
       localTimeThresholds.value = { ...result.time };
       localBalanceThresholds.value = { ...result.balance };
@@ -579,7 +579,7 @@ const handleReset = async () => {
       emit("reset");
     }
   } catch (error) {
-    console.error("从后端获取默认阈值失败:", error);
+    console.error("获取系统预设默认阈值失败:", error);
   }
 };
 </script>

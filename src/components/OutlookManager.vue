@@ -856,9 +856,16 @@ watch(
   { deep: true, immediate: true }
 );
 
+// 关闭添加账户弹窗
+const closeAddAccountModal = () => {
+  showAddAccountModal.value = false;
+  accountInput.value = "";
+};
+
 // 暴露方法供父组件调用
 defineExpose({
   openAddAccountModal,
+  closeAddAccountModal,
   refreshAllStatuses,
   initializeEmailManagement,
   refreshAccounts, // 添加账户状态刷新方法
@@ -2148,9 +2155,9 @@ onMounted(async () => {
 }
 
 .btn.primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: #4f46e5;
   color: white;
-  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 2px 12px rgba(79, 70, 229, 0.25);
   position: relative;
   overflow: hidden;
 }
@@ -2176,13 +2183,13 @@ onMounted(async () => {
 }
 
 .btn.primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: #4338ca;
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
+  box-shadow: 0 4px 20px rgba(79, 70, 229, 0.35);
 }
 
 .btn.danger {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  background: #ef4444;
   color: white;
   box-shadow: 0 2px 12px rgba(239, 68, 68, 0.25);
   position: relative;
@@ -2210,7 +2217,7 @@ onMounted(async () => {
 }
 
 .btn.danger:hover:not(:disabled) {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  background: #dc2626;
   transform: translateY(-2px);
   box-shadow: 0 4px 20px rgba(239, 68, 68, 0.35);
 }
