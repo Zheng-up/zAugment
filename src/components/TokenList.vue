@@ -1840,7 +1840,6 @@ defineExpose({
 /* 搜索和排序工具栏 */
 .list-toolbar {
   position: relative;
-  z-index: 1000;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2565,12 +2564,10 @@ defineExpose({
 .import-export-btn svg {
   flex-shrink: 0;
   position: relative;
-  z-index: 1;
 }
 
 .import-export-btn span {
   position: relative;
-  z-index: 1;
   line-height: 1;
 }
 
@@ -2600,7 +2597,6 @@ defineExpose({
   position: relative;
   overflow: hidden; /* 裁剪光栅效果在按钮内部 */
   border-radius: 8px;
-  z-index: 1;
 }
 
 .batch-delete-btn .btn-inner::before {
@@ -2621,7 +2617,6 @@ defineExpose({
 
 .batch-delete-btn .btn-inner svg {
   position: relative;
-  z-index: 1; /* 确保图标在动画效果上方 */
 }
 
 .batch-delete-btn:hover:not(:disabled) {
