@@ -456,11 +456,11 @@
                     <!-- Additional Fields -->
                     <div class="additional-fields">
                       <div class="field-container">
-                        <label>Portal URL:</label>
+                        <label>Portal URL (可选):</label>
                         <input
                           type="text"
                           v-model="portalUrl"
-                          placeholder="Payment history 地址栏 URL"
+                          placeholder="可选，主要用于编辑器额度插件"
                           class="field-input"
                         />
                         <div class="info-hint">
@@ -474,16 +474,15 @@
                               d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
                             />
                           </svg>
-                          复制后台URL  进入后台点击 Payment history 按钮 进入新页面后
-                          复制地址栏URL
+                          额度和邮箱会自动获取，无需填写 Portal URL ，主要用于编辑器额度插件
                         </div>
                       </div>
                       <div class="field-container">
-                        <label>邮箱账号:</label>
+                        <label>邮箱账号 (可选):</label>
                         <input
                           type="text"
                           v-model="emailNote"
-                          placeholder="如有 Portal URL 将自动获取 也可手动输入"
+                          placeholder="可选，会自动获取邮箱账号"
                           class="field-input"
                         />
                       </div>
@@ -981,6 +980,20 @@
                             <line x1="6" y1="18" x2="6.01" y2="18" />
                           </svg>
                           管理 API 服务器
+                        </button>
+                        <button
+                          @click="showImportListModal = true"
+                          class="btn-config-threshold secondary"
+                        >
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                          >
+                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                          </svg>
+                          导入列表
                         </button>
                       </div>
                     </div>
@@ -1657,6 +1670,13 @@
         @close="showApiServerModal = false"
         @show-status="showStatus"
       />
+
+      <!-- 导入列表弹窗 -->
+      <ImportListModal
+        :visible="showImportListModal"
+        @close="showImportListModal = false"
+        @show-status="showStatus"
+      />
     </div>
 
     <!-- 编辑器重置弹窗 -->
@@ -2044,8 +2064,13 @@ import UpdateChecker from "./components/UpdateChecker.vue";
 import EditorResetModal from "./components/EditorResetModal.vue";
 import ThresholdConfigModal from "./components/ThresholdConfigModal.vue";
 import ApiServerStatus from "./components/ApiServerStatus.vue";
+import ImportListModal from "./components/ImportListModal.vue";
+import { useImportRecords, ImportStatus } from "./stores/importRecords";
 import appreciationQR from "/赞赏.png";
 import communityQR from "/交流群.png";
+
+// 导入记录管理
+const { addRecord, addRecords, updateRecord } = useImportRecords();
 
 // 简化的状态管理
 const currentView = ref("token-generator"); // 当前视图状态
@@ -2274,6 +2299,7 @@ const createTagOnImportExport = ref(false);
 // 账号状态阈值配置
 const showThresholdConfigModal = ref(false);
 const showApiServerModal = ref(false);
+const showImportListModal = ref(false);
 const statusThresholds = ref({
   time: {
     warning: 0,
@@ -3289,15 +3315,16 @@ const handleNavClick = (view) => {
   showAppreciationModal.value = false;
   showCommunityModal.value = false;
   showSessionHelpModal.value = false;
+  showImportListModal.value = false;
 
-  // 关闭 TokenList 组件的批量删除对话框
-  if (tokenListRef.value && tokenListRef.value.closeBatchDeleteDialog) {
-    tokenListRef.value.closeBatchDeleteDialog();
+  // 关闭 TokenList 组件的所有弹窗（包括 TokenForm、AccountManagerModal、单个删除确认对话框、批量删除对话框、TokenCard 弹窗等）
+  if (tokenListRef.value && tokenListRef.value.closeAllModals) {
+    tokenListRef.value.closeAllModals();
   }
 
-  // 关闭所有 TokenCard 中的弹窗（标签编辑器、编辑器选择等）
-  if (tokenListRef.value && tokenListRef.value.closeAllTokenCardModals) {
-    tokenListRef.value.closeAllTokenCardModals();
+  // 关闭批量删除对话框（兼容旧代码）
+  if (tokenListRef.value && tokenListRef.value.closeBatchDeleteDialog) {
+    tokenListRef.value.closeBatchDeleteDialog();
   }
 
   // 关闭 OutlookManager 组件的添加账户弹窗
@@ -4769,6 +4796,57 @@ onMounted(async () => {
     );
   } catch (error) {
     console.error("Failed to listen to session-import-progress:", error);
+  }
+
+  // 监听导入记录事件
+  try {
+    // 单个导入开始
+    await listen("import-session-started", (event) => {
+      const { session } = event.payload;
+      addRecord(session, ImportStatus.PENDING);
+
+      // 自动切换到设置页面并打开导入列表
+      currentView.value = 'settings';
+      showImportListModal.value = true;
+    });
+
+    // 单个导入成功
+    await listen("import-session-success", (event) => {
+      const { session, email } = event.payload;
+      const records = useImportRecords().records.value;
+      const record = records.find(r => r.session === session);
+      if (record) {
+        updateRecord(record.id, ImportStatus.SUCCESS, null, email ? `导入成功: ${email}` : '导入成功');
+      }
+    });
+
+    // 单个导入失败
+    await listen("import-session-failed", (event) => {
+      const { session, error } = event.payload;
+      const records = useImportRecords().records.value;
+      const record = records.find(r => r.session === session);
+      if (record) {
+        updateRecord(record.id, ImportStatus.FAILED, error, null);
+      }
+    });
+
+    // 批量导入开始
+    await listen("import-sessions-started", (event) => {
+      const { sessions } = event.payload;
+      addRecords(sessions);
+
+      // 自动切换到设置页面并打开导入列表
+      currentView.value = 'settings';
+      showImportListModal.value = true;
+    });
+
+    // 批量导入完成
+    await listen("import-sessions-completed", (event) => {
+      const { successful, failed } = event.payload;
+      console.log(`批量导入完成: ${successful} 成功, ${failed} 失败`);
+    });
+  } catch (error) {
+    console.error("Failed to listen to import events:", error);
   }
 
   // 监听 Deep-Link Session 接收事件（由后端发送，前端处理导入）
@@ -7612,7 +7690,7 @@ textarea.unified-input {
   }
 
   .main-content {
-    padding: 0 0 20px;
+    padding: 0;
     flex: 1;
   }
 
@@ -8427,6 +8505,23 @@ textarea.unified-input {
 
 .btn-config-threshold svg {
   flex-shrink: 0;
+}
+
+.btn-config-threshold.secondary {
+  background: linear-gradient(135deg, rgba(226, 232, 240, 0.8) 0%, rgba(203, 213, 225, 0.8) 100%);
+  color: #475569;
+  box-shadow: 0 2px 8px rgba(100, 116, 139, 0.15);
+}
+
+.btn-config-threshold.secondary:hover {
+  background: linear-gradient(135deg, rgba(203, 213, 225, 0.9) 0%, rgba(148, 163, 184, 0.9) 100%);
+  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.25);
+}
+
+.threshold-config-wrapper {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .threshold-display {

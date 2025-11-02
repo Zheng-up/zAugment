@@ -11,7 +11,7 @@ mod storage;
 mod thresholds;
 mod webdav;
 
-use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, extract_token_from_session, batch_check_account_status, AugmentOAuthState, AugmentTokenResponse, TokenInfo, TokenStatusResult};
+use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, extract_token_from_session, batch_check_account_status, get_credit_info, get_models, AugmentOAuthState, AugmentTokenResponse, TokenInfo, TokenStatusResult};
 use augment_user_info::{exchange_auth_session_for_app_session, fetch_app_subscription};
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
@@ -386,6 +386,32 @@ async fn batch_check_tokens_status(
     batch_check_account_status(tokens)
         .await
         .map_err(|e| format!("Failed to batch check tokens status: {}", e))
+}
+
+#[tauri::command]
+async fn get_credit_info_from_token(
+    token: String,
+    tenant_url: String,
+) -> Result<String, String> {
+    let credit_info = get_credit_info(&token, &tenant_url)
+        .await
+        .map_err(|e| format!("Failed to get credit info: {}", e))?;
+
+    serde_json::to_string(&credit_info)
+        .map_err(|e| format!("Failed to serialize credit info: {}", e))
+}
+
+#[tauri::command]
+async fn get_models_from_token(
+    token: String,
+    tenant_url: String,
+) -> Result<String, String> {
+    let models_response = get_models(&token, &tenant_url)
+        .await
+        .map_err(|e| format!("Failed to get models: {}", e))?;
+
+    serde_json::to_string(&models_response)
+        .map_err(|e| format!("Failed to serialize models response: {}", e))
 }
 
 /// 批量获取 Credit 消费数据(stats 和 chart),使用缓存的 app_session
@@ -4707,6 +4733,8 @@ fn main() {
             get_augment_token,
             check_account_status,
             batch_check_tokens_status,
+            get_credit_info_from_token,
+            get_models_from_token,
             fetch_batch_credit_consumption,
             add_token_from_session,
             open_url,

@@ -8,46 +8,13 @@
       <div v-if="tokens.length > 0" class="card-divider"></div>
 
       <!-- 内容区域 -->
-      <div class="card-content">
-        <!-- Empty State -->
-        <div v-if="tokens.length === 0" class="empty-state">
-          <div class="empty-state-content">
-            <div class="empty-icon">
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path
-                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-                />
-              </svg>
-            </div>
-            <h4>还没有账号</h4>
-            <p>
-              点击右上角"新增账号"按钮添加您的第一个Augment账号，或在注册页面获取新账号。
-            </p>
-            <div class="empty-actions">
-              <button @click="$emit('add-new-token')" class="btn-empty primary">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                </svg>
-                立即新增
-              </button>
-            </div>
-          </div>
-        </div>
+      <div class="card-content" :class="windowSizeClass">
+      
 
     
 
         <!-- 搜索和排序工具栏 -->
-        <div v-if="tokens.length > 0" class="list-toolbar">
+        <div class="list-toolbar">
           <!-- 搜索框 -->
           <div class="search-box">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="search-icon">
@@ -56,13 +23,14 @@
             <input
               type="text"
               v-model="searchQuery"
-              placeholder="搜索账号（邮箱、Token、Session、标签）"
+              placeholder="邮箱 标签 Token Sessin）"
               class="search-input"
               name="token-search"
               autocomplete="new-password"
               autocorrect="off"
               autocapitalize="off"
               spellcheck="false"
+              :disabled="tokens.length === 0"
             />
             <button v-if="searchQuery.trim()" @click="searchQuery = ''" class="clear-search-btn" title="清空搜索">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -72,8 +40,8 @@
           </div>
 
           <!-- 排序按钮 -->
-          <div class="sort-dropdown" @click.stop @mouseenter="showSortMenuOnHover" @mouseleave="hideSortMenuOnLeave">
-            <button class="sort-btn" @click="toggleSortMenu" title="排序方式">
+          <div class="sort-dropdown" @click.stop @mouseenter="tokens.length > 0 ? showSortMenuOnHover() : null" @mouseleave="hideSortMenuOnLeave">
+            <button class="sort-btn" @click="tokens.length > 0 ? toggleSortMenu() : null" :disabled="tokens.length === 0" title="排序方式">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/>
               </svg>
@@ -161,11 +129,44 @@
           </button>
 
           <!-- 分页信息 -->
-          <div class="pagination-info">
+          <div v-if="tokens.length > 0" class="pagination-info">
             显示{{ paginationInfo.start }}-{{ paginationInfo.end }} 共{{ paginationInfo.total }}条
           </div>
         </div>
-
+  <!-- Empty State -->
+  <div v-if="tokens.length === 0" class="empty-state">
+          <div class="empty-state-content">
+            <div class="empty-icon">
+              <svg
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                />
+              </svg>
+            </div>
+            <h4>还没有账号</h4>
+            <p>
+              点击右上角"新增账号"按钮添加您的第一个Augment账号，或在注册页面获取新账号。
+            </p>
+            <div class="empty-actions">
+              <button @click="$emit('add-new-token')" class="btn-empty primary">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                </svg>
+                立即新增
+              </button>
+            </div>
+          </div>
+        </div>
         <!-- Token List -->
         <div v-if="tokens.length > 0" class="token-list">
           <div class="token-grid">
@@ -186,7 +187,7 @@
           
         </div>
         <!-- 分页控件 -->
-        <div v-if="filteredTokens.length > 0" class="pagination-controls">
+        <div v-if="tokens.length > 0" class="pagination-controls">
             <!-- 中间：翻页控件 -->
             <div class="pagination-center">
               <button @click="prevPage" :disabled="currentPage === 1 || totalPages <= 1" class="pagination-btn">
@@ -506,6 +507,20 @@ const pageSize = ref(10); // 默认每页10条
 const pageSizeOptions = [10, 20, 50, 100, 200];
 const showPageSizeMenu = ref(false); // 每页数量下拉菜单显示状态
 let pageSizeMenuTimer = null; // 每页数量菜单延迟隐藏计时器
+
+// 窗口尺寸状态管理
+const windowWidth = ref(window.innerWidth);
+
+// 根据窗口宽度计算尺寸类
+const windowSizeClass = computed(() => {
+  if (windowWidth.value <= 760) {
+    return 'size-small'; // 小窗口
+  } else if (windowWidth.value <= 1050) {
+    return 'size-medium'; // 中等窗口
+  } else {
+    return 'size-large'; // 大窗口/全屏
+  }
+});
 
 // localStorage 配置键名
 const STORAGE_KEY_PAGE_SIZE = 'zaugment-page-size';
@@ -892,6 +907,15 @@ const closeAllTokenCardModals = () => {
       cardRef.closeAllModals();
     }
   });
+};
+
+// 关闭 TokenList 自己的所有弹窗
+const closeAllModals = () => {
+  showTokenFormModal.value = false;
+  showDeleteConfirm.value = false;
+  showAccountManagerModal.value = false;
+  // 同时关闭所有 TokenCard 的弹窗
+  closeAllTokenCardModals();
 };
 
 // 加载 tokens 从后端
@@ -1495,6 +1519,15 @@ const confirmDelete = async () => {
     // 从内存中删除
     tokens.value = tokens.value.filter(token => token.id !== tokenToDelete.value);
 
+    // 调整当前页码（如果当前页超过了总页数）
+    nextTick(() => {
+      if (currentPage.value > totalPages.value && totalPages.value > 0) {
+        currentPage.value = totalPages.value;
+      } else if (totalPages.value === 0) {
+        currentPage.value = 1;
+      }
+    });
+
     // 保存到文件
     await saveTokens();
 
@@ -1546,6 +1579,15 @@ const executeBatchDelete = async () => {
 
     // 关闭对话框
     showBatchDeleteConfirm.value = false;
+
+    // 调整当前页码（如果当前页超过了总页数）
+    nextTick(() => {
+      if (currentPage.value > totalPages.value && totalPages.value > 0) {
+        currentPage.value = totalPages.value;
+      } else if (totalPages.value === 0) {
+        currentPage.value = 1;
+      }
+    });
 
     // 保存到文件
     await saveTokens();
@@ -1599,7 +1641,7 @@ const goToPage = (page) => {
   currentPage.value = page;
   // 滚动到顶部
   nextTick(() => {
-    const container = document.querySelector('.token-grid');
+    const container = document.querySelector('.token-list');
     if (container) {
       container.scrollTop = 0;
     }
@@ -1644,6 +1686,17 @@ onMounted(async () => {
 
   // 加载 tokens
   await loadTokens(false);
+
+  // 监听窗口尺寸变化
+  const handleResize = () => {
+    windowWidth.value = window.innerWidth;
+  };
+  window.addEventListener('resize', handleResize);
+
+  // 组件卸载时移除监听
+  return () => {
+    window.removeEventListener('resize', handleResize);
+  };
 });
 
 // 打开 TokenForm（用于新增）
@@ -1661,6 +1714,7 @@ defineExpose({
   addToken,
   highlightAndScrollTo,
   closeAllTokenCardModals,
+  closeAllModals, // 暴露关闭所有弹窗的方法
   closeBatchDeleteDialog,
   refreshAllPortalInfo,
   openTokenForm, // 暴露打开 TokenForm 的方法
@@ -1692,6 +1746,10 @@ defineExpose({
 .empty-state {
   text-align: center;
   padding: 40px 20px;
+  flex: 1; /* 占据剩余空间 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .empty-state-content {
@@ -1798,6 +1856,10 @@ defineExpose({
 .token-list {
   animation: fadeIn 0.3s ease-out;
   margin: 0 10px;
+  flex: 1; /* 占据剩余空间 */
+  overflow-y: auto; /* 允许垂直滚动 */
+  overflow-x: hidden;
+  min-height: 0; /* 允许 flex 子元素缩小 */
   /* 性能优化 */
   contain: layout style;
   transform: translateZ(0);
@@ -1850,6 +1912,7 @@ defineExpose({
     rgba(243, 244, 246, 0.95) 100%
   );
   border-bottom: 1px solid rgba(226, 232, 240, 0.4);
+  flex-shrink: 0; /* 不允许缩小 */
   /* backdrop-filter: blur(10px); */ /* 移除以提升滚动性能 */
 }
 
@@ -1879,6 +1942,12 @@ defineExpose({
   background: rgba(255, 255, 255, 0.95);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.search-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: rgba(248, 250, 252, 0.95);
 }
 
 .search-input:focus {
@@ -1954,16 +2023,26 @@ defineExpose({
   transition: left 0.5s;
 }
 
-.sort-btn:hover::before {
-  left: 100%;
+.sort-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: rgba(248, 250, 252, 0.95);
 }
 
-.sort-btn:hover {
+.sort-btn:disabled::before {
+  display: none;
+}
+
+.sort-btn:hover:not(:disabled) {
   border-color: #4f46e5;
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.04));
   color: #4f46e5;
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+.sort-btn:hover:not(:disabled)::before {
+  left: 100%;
 }
 
 .sort-btn .arrow-icon {
@@ -2082,6 +2161,10 @@ defineExpose({
   border-radius: 8px;
 }
 
+.pagination-info.disabled {
+  opacity: 0.5;
+}
+
 /* 分页控件 */
 .pagination-controls {
   display: flex;
@@ -2095,9 +2178,15 @@ defineExpose({
     rgba(243, 244, 246, 0.95) 100%
   );
   /* backdrop-filter: blur(10px); */ /* 移除以提升滚动性能 */
-  margin-top: 10px;
+  margin-top: auto; /* 推到底部 */
+  flex-shrink: 0; /* 不允许缩小 */
   position: relative;
   gap: 12px;
+  margin-top: 10px;
+}
+
+.pagination-controls.disabled {
+  opacity: 0.5;
 }
 
 .pagination-center {
@@ -2472,7 +2561,21 @@ defineExpose({
 
 /* 内容区域 */
 .card-content {
-  /* 预留样式 */
+  display: flex;
+  flex-direction: column;
+}
+
+/* 根据窗口尺寸动态调整高度 */
+.card-content.size-small {
+  min-height: 76vh; /* 小窗口 (760×700) */
+}
+
+.card-content.size-medium {
+  min-height: 81vh; /* 中等窗口 (1050×700) */
+}
+
+.card-content.size-large {
+  min-height: 87.5vh; /* 大窗口/全屏 */
 }
 
 /* Button styles */

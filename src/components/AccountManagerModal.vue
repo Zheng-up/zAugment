@@ -47,8 +47,19 @@
     <!-- 导出内容 -->
     <div v-if="activeTab === 'export'" class="tab-content">
       <div class="export-section">
+        <!-- 空状态 -->
+        <div v-if="tokens.length === 0" class="export-empty-state">
+          <div class="empty-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm0 4c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm6 12H6v-1.4c0-2 4-3.1 6-3.1s6 1.1 6 3.1V19z"/>
+            </svg>
+          </div>
+          <h3>暂无账号数据</h3>
+          <p>请先导入账号后再进行导出操作</p>
+        </div>
+
         <!-- 账号列表 -->
-        <div class="export-accounts-list">
+        <div v-else class="export-accounts-list">
           <div class="export-table-container">
             <!-- 表头 -->
             <div class="export-table-header">
@@ -153,15 +164,14 @@
           <div class="export-actions">
             <button
               @click="exportJsonToClipboard"
-              class="btn primary"
+              class="btn secondary"
               :disabled="isProcessing || selectedTokensForExport.size === 0"
             >
               {{ isProcessing ? "导出中..." : "导出JSON" }}
             </button>
-
             <button
               @click="exportSessionToClipboard"
-              class="btn secondary"
+              class="btn primary"
               :disabled="isProcessing || selectedTokensForExport.size === 0"
             >
               {{ isProcessing ? "导出中..." : "导出Session" }}
@@ -357,9 +367,8 @@ const handleImportFromText = async () => {
       // Session 格式：在这里批量处理
       await handleSessionImport(importedData);
     } else if (isJsonFormat) {
-      // JSON 格式：验证后发送
-      emit("import", importedData);
-      jsonText.value = "";
+      // JSON 格式：批量获取额度信息后发送
+      await handleJsonImport(importedData);
     } else {
       // 混合或无效格式
       emit(
@@ -507,8 +516,134 @@ const handleSessionImport = async (sessions) => {
         `成功导入 ${successCount} 个 Session，失败 ${errorCount} 个（耗时 ${duration}秒）`
       );
     }
+
+    // 导入成功后关闭弹窗
+    setTimeout(() => {
+      handleClose();
+    }, 500);
   } else {
     emit("import-error", `导入失败：${errorCount} 个 Session 处理失败`);
+  }
+};
+
+// JSON 批量导入处理（并行获取额度信息）
+const handleJsonImport = async (jsonData) => {
+  if (!Array.isArray(jsonData) || jsonData.length === 0) {
+    emit("import-error", "没有有效的 JSON 数据");
+    return;
+  }
+
+  console.log(`开始处理 ${jsonData.length} 个 JSON 账号，并获取额度信息...`);
+  const startTime = Date.now();
+
+  // 并行处理所有 JSON 数据，获取额度信息和邮箱
+  const promises = jsonData.map(async (item, index) => {
+    try {
+      // 如果有 tenant_url 和 access_token，尝试获取额度信息和邮箱
+      if (item.tenant_url && item.access_token) {
+        let portalInfo = item.portal_info || null;
+        let emailNote = item.email_note || null;
+
+        // 如果没有 portal_info，尝试获取
+        if (!portalInfo) {
+          try {
+            const creditInfoStr = await invoke("get_credit_info_from_token", {
+              token: item.access_token,
+              tenantUrl: item.tenant_url,
+            });
+
+            const creditInfo = JSON.parse(creditInfoStr);
+
+            // 构建 portal_info
+            portalInfo = {
+              credits_balance: Math.floor(creditInfo.usage_units_remaining),
+              expiry_date: creditInfo.current_billing_cycle_end_date_iso,
+            };
+
+            console.log(`JSON ${index + 1} 成功获取额度信息:`, portalInfo);
+          } catch (error) {
+            console.warn(`JSON ${index + 1} 获取额度信息失败:`, error);
+          }
+        }
+
+        // 如果没有 email_note，尝试获取
+        if (!emailNote) {
+          try {
+            const modelsDataStr = await invoke("get_models_from_token", {
+              token: item.access_token,
+              tenantUrl: item.tenant_url,
+            });
+
+            const modelsData = JSON.parse(modelsDataStr);
+            if (modelsData && modelsData.user && modelsData.user.email) {
+              emailNote = modelsData.user.email;
+              console.log(`JSON ${index + 1} 成功获取邮箱:`, emailNote);
+            }
+          } catch (error) {
+            console.warn(`JSON ${index + 1} 获取邮箱失败:`, error);
+          }
+        }
+
+        // 返回带有 portal_info 和 email_note 的数据
+        return {
+          success: true,
+          data: {
+            ...item,
+            portal_info: portalInfo,
+            email_note: emailNote,
+          },
+        };
+      } else {
+        // 没有必要的字段，返回原始数据
+        return { success: true, data: item };
+      }
+    } catch (error) {
+      console.error(`处理 JSON ${index + 1} 失败:`, error);
+      return { success: false, error: error.message || error };
+    }
+  });
+
+  // 等待所有 Promise 完成
+  const results = await Promise.all(promises);
+
+  // 统计结果
+  const importedTokens = [];
+  let successCount = 0;
+  let errorCount = 0;
+
+  results.forEach((result) => {
+    if (result.success) {
+      importedTokens.push(result.data);
+      successCount++;
+    } else {
+      errorCount++;
+    }
+  });
+
+  const endTime = Date.now();
+  const duration = ((endTime - startTime) / 1000).toFixed(2);
+  console.log(
+    `JSON 处理完成，耗时: ${duration}秒，成功: ${successCount}，失败: ${errorCount}`
+  );
+
+  if (importedTokens.length > 0) {
+    // 发送处理后的 token 数据给父组件
+    emit("import", importedTokens);
+    jsonText.value = "";
+
+    if (errorCount > 0) {
+      emit(
+        "import-error",
+        `成功导入 ${successCount} 个账号，失败 ${errorCount} 个（耗时 ${duration}秒）`
+      );
+    }
+
+    // 导入成功后关闭弹窗
+    setTimeout(() => {
+      handleClose();
+    }, 500);
+  } else {
+    emit("import-error", `导入失败：${errorCount} 个账号处理失败`);
   }
 };
 
@@ -816,7 +951,8 @@ const getTokenStatusClass = (token) => {
 <style scoped>
 /* Tab 内容样式 */
 .tab-content {
-  min-height: 300px;
+  height: 400px;
+  overflow-y: auto;
 }
 
 /* 导入部分样式 */
@@ -932,6 +1068,38 @@ const getTokenStatusClass = (token) => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.export-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 20px;
+  text-align: center;
+}
+
+.export-empty-state .empty-icon {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 20px;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.export-empty-state h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #475569;
+  margin:  0;
+}
+
+.export-empty-state p {
+  font-size: 14px;
+  color: #94a3b8;
+  margin: 0;
 }
 
 .export-accounts-list {
@@ -1236,7 +1404,7 @@ const getTokenStatusClass = (token) => {
   align-items: center;
   gap: 8px;
   padding: 12px 20px;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 10px;
   font-size: 14px;
   font-weight: 500;
@@ -1245,6 +1413,7 @@ const getTokenStatusClass = (token) => {
   min-height: 44px;
   position: relative;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .btn:disabled {
@@ -1300,7 +1469,7 @@ const getTokenStatusClass = (token) => {
 .btn.primary {
   background: #4f46e5;
   color: white;
-  border: none;
+  border: 1px solid transparent;
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
   position: relative;
   overflow: hidden;

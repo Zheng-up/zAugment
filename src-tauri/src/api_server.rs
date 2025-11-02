@@ -3,7 +3,7 @@ use tokio::sync::{oneshot, Semaphore};
 use warp::{Filter, Reply, Rejection};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use crate::storage::traits::{TokenStorage, TokenData};
 
 // ==================== 数据结构定义 ====================
@@ -211,8 +211,33 @@ async fn import_session_handler(
 ) -> Result<impl Reply, Rejection> {
     println!("📥 API: Importing single session: {}", mask_session(&request.session));
 
+    // 聚焦窗口
+    if let Some(main_window) = state.app_handle.get_webview_window("main") {
+        let _ = main_window.set_focus();
+        let _ = main_window.unminimize();
+    }
+
+    // 发送导入开始事件到前端
+    let import_event = serde_json::json!({
+        "session": request.session.clone(),
+        "status": "pending"
+    });
+    if let Err(e) = state.app_handle.emit("import-session-started", import_event) {
+        eprintln!("⚠️  Failed to emit import-session-started event: {}", e);
+    }
+
     // 验证 session
     if let Err(e) = validate_session(&request.session) {
+        // 发送导入失败事件
+        let error_event = serde_json::json!({
+            "session": request.session.clone(),
+            "status": "failed",
+            "error": e.clone()
+        });
+        if let Err(err) = state.app_handle.emit("import-session-failed", error_event) {
+            eprintln!("⚠️  Failed to emit import-session-failed event: {}", err);
+        }
+
         let error_response = ApiErrorResponse {
             error: e,
             code: "INVALID_SESSION".to_string(),
@@ -223,8 +248,33 @@ async fn import_session_handler(
         ));
     }
 
-    // 调用内部函数导入
-    match crate::add_token_from_session_internal(&request.session, &state.app_handle).await {
+    // 调用内部函数导入（带超时）
+    let import_future = crate::add_token_from_session_internal(&request.session, &state.app_handle);
+    let timeout_duration = std::time::Duration::from_secs(30); // 30秒超时
+
+    match tokio::time::timeout(timeout_duration, import_future).await {
+        Err(_) => {
+            // 超时
+            let error_msg = "导入超时（30秒）".to_string();
+            let error_event = serde_json::json!({
+                "session": request.session.clone(),
+                "status": "failed",
+                "error": error_msg.clone()
+            });
+            if let Err(err) = state.app_handle.emit("import-session-failed", error_event) {
+                eprintln!("⚠️  Failed to emit import-session-failed event: {}", err);
+            }
+
+            let error_response = ApiErrorResponse {
+                error: error_msg,
+                code: "TIMEOUT".to_string(),
+            };
+            return Ok(warp::reply::with_status(
+                warp::reply::json(&error_response),
+                warp::http::StatusCode::REQUEST_TIMEOUT,
+            ));
+        }
+        Ok(result) => match result {
         Ok(response) => {
             // 检查重复 email
             if let Some(ref email_note) = response.email {
@@ -248,8 +298,20 @@ async fn import_session_handler(
                                 }
                             }) {
                                 println!("⚠️  API: Duplicate email detected: {}", email_note);
+
+                                // 发送导入失败事件
+                                let error_msg = format!("邮箱 '{}' 已存在", email_note);
+                                let error_event = serde_json::json!({
+                                    "session": request.session.clone(),
+                                    "status": "failed",
+                                    "error": error_msg.clone()
+                                });
+                                if let Err(err) = state.app_handle.emit("import-session-failed", error_event) {
+                                    eprintln!("⚠️  Failed to emit import-session-failed event: {}", err);
+                                }
+
                                 let error_response = ApiErrorResponse {
-                                    error: format!("Token with email '{}' already exists", email_note),
+                                    error: error_msg,
                                     code: "DUPLICATE_EMAIL".to_string(),
                                 };
                                 return Ok(warp::reply::with_status(
@@ -316,6 +378,16 @@ async fn import_session_handler(
                 Ok(_) => {
                     println!("✅ API: Session imported successfully");
 
+                    // 发送导入成功事件
+                    let success_event = serde_json::json!({
+                        "session": request.session.clone(),
+                        "status": "success",
+                        "email": response.email.clone()
+                    });
+                    if let Err(e) = state.app_handle.emit("import-session-success", success_event) {
+                        eprintln!("⚠️  Failed to emit import-session-success event: {}", e);
+                    }
+
                     // 发送前端刷新事件
                     if let Err(e) = state.app_handle.emit("tokens-updated", ()) {
                         eprintln!("⚠️  Failed to emit tokens-updated event: {}", e);
@@ -348,6 +420,17 @@ async fn import_session_handler(
                 }
                 Err(e) => {
                     println!("❌ API: Failed to save token: {}", e);
+
+                    // 发送导入失败事件
+                    let error_event = serde_json::json!({
+                        "session": request.session.clone(),
+                        "status": "failed",
+                        "error": format!("Failed to save token: {}", e)
+                    });
+                    if let Err(err) = state.app_handle.emit("import-session-failed", error_event) {
+                        eprintln!("⚠️  Failed to emit import-session-failed event: {}", err);
+                    }
+
                     let error_response = ApiErrorResponse {
                         error: format!("Failed to save token: {}", e),
                         code: "STORAGE_ERROR".to_string(),
@@ -359,16 +442,28 @@ async fn import_session_handler(
                 }
             }
         }
-        Err(e) => {
-            println!("❌ API: Failed to import session: {}", e);
-            let error_response = ApiErrorResponse {
-                error: format!("Failed to import session: {}", e),
-                code: "IMPORT_ERROR".to_string(),
-            };
-            Ok(warp::reply::with_status(
-                warp::reply::json(&error_response),
-                warp::http::StatusCode::INTERNAL_SERVER_ERROR,
-            ))
+            Err(e) => {
+                println!("❌ API: Failed to import session: {}", e);
+
+                // 发送导入失败事件
+                let error_event = serde_json::json!({
+                    "session": request.session.clone(),
+                    "status": "failed",
+                    "error": format!("Failed to import session: {}", e)
+                });
+                if let Err(err) = state.app_handle.emit("import-session-failed", error_event) {
+                    eprintln!("⚠️  Failed to emit import-session-failed event: {}", err);
+                }
+
+                let error_response = ApiErrorResponse {
+                    error: format!("Failed to import session: {}", e),
+                    code: "IMPORT_ERROR".to_string(),
+                };
+                Ok(warp::reply::with_status(
+                    warp::reply::json(&error_response),
+                    warp::http::StatusCode::INTERNAL_SERVER_ERROR,
+                ))
+            }
         }
     }
 }
@@ -379,6 +474,22 @@ async fn import_sessions_handler(
     state: Arc<crate::AppState>,
 ) -> Result<impl Reply, Rejection> {
     println!("📥 API: Importing {} sessions", request.sessions.len());
+
+    // 聚焦窗口
+    if let Some(main_window) = state.app_handle.get_webview_window("main") {
+        let _ = main_window.set_focus();
+        let _ = main_window.unminimize();
+    }
+
+    // 发送批量导入开始事件
+    let batch_start_event = serde_json::json!({
+        "sessions": request.sessions.clone(),
+        "count": request.sessions.len(),
+        "status": "pending"
+    });
+    if let Err(e) = state.app_handle.emit("import-sessions-started", batch_start_event) {
+        eprintln!("⚠️  Failed to emit import-sessions-started event: {}", e);
+    }
 
     // 验证请求
     if request.sessions.is_empty() {
@@ -425,8 +536,32 @@ async fn import_sessions_handler(
                 };
             }
 
-            // 导入 session
-            match crate::add_token_from_session_internal(&session, &state.app_handle).await {
+            // 导入 session（带超时）
+            let import_future = crate::add_token_from_session_internal(&session, &state.app_handle);
+            let timeout_duration = std::time::Duration::from_secs(30); // 30秒超时
+
+            let import_result = match tokio::time::timeout(timeout_duration, import_future).await {
+                Err(_) => {
+                    // 超时
+                    let error_msg = "导入超时（30秒）".to_string();
+                    let error_event = serde_json::json!({
+                        "session": session.clone(),
+                        "status": "failed",
+                        "error": error_msg.clone()
+                    });
+                    let _ = state.app_handle.emit("import-session-failed", error_event);
+
+                    return ImportResult {
+                        success: false,
+                        token_data: None,
+                        error: Some(error_msg),
+                        session_preview: Some(mask_session(&session)),
+                    };
+                }
+                Ok(result) => result,
+            };
+
+            match import_result {
                 Ok(response) => {
                     // 检查重复 email
                     if let Some(ref email) = response.email {
@@ -447,10 +582,19 @@ async fn import_sessions_handler(
                                             false
                                         }
                                     }) {
+                                        // 发送导入失败事件
+                                        let error_msg = format!("邮箱 '{}' 已存在", email);
+                                        let error_event = serde_json::json!({
+                                            "session": session.clone(),
+                                            "status": "failed",
+                                            "error": error_msg.clone()
+                                        });
+                                        let _ = state.app_handle.emit("import-session-failed", error_event);
+
                                         return ImportResult {
                                             success: false,
                                             token_data: None,
-                                            error: Some(format!("Token with email '{}' already exists", email)),
+                                            error: Some(error_msg),
                                             session_preview: Some(mask_session(&session)),
                                         };
                                     }
@@ -555,6 +699,21 @@ async fn import_sessions_handler(
     let failed = total - successful;
 
     println!("✅ API: Batch import completed: {}/{} successful", successful, total);
+
+    // 发送批量导入完成事件
+    let batch_complete_event = serde_json::json!({
+        "total": total,
+        "successful": successful,
+        "failed": failed,
+        "results": results.iter().map(|r| serde_json::json!({
+            "success": r.success,
+            "error": r.error.clone(),
+            "session_preview": r.session_preview.clone()
+        })).collect::<Vec<_>>()
+    });
+    if let Err(e) = state.app_handle.emit("import-sessions-completed", batch_complete_event) {
+        eprintln!("⚠️  Failed to emit import-sessions-completed event: {}", e);
+    }
 
     // 发送前端刷新事件
     if successful > 0 {

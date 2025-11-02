@@ -63,19 +63,19 @@
             autocorrect="off"
             spellcheck="false"
           />
-          <div class="help-text">用于查看账户余额和过期时间</div>
+          <div class="help-text">可选，主要用于编辑器额度插件</div>
           <div v-if="errors.portalUrl" class="error-message">
             {{ errors.portalUrl }}
           </div>
         </div>
 
         <div class="form-group">
-          <label for="emailNote">邮箱备注 (可选)</label>
+          <label for="emailNote">邮箱账号 (可选)</label>
           <input
             id="emailNote"
             v-model="formData.emailNote"
             type="text"
-            placeholder="如有Portal URL将自动获取，也可手动输入"
+            placeholder="可选，会自动获取邮箱账号"
             :disabled="isLoading"
             autocomplete="off"
             autocapitalize="off"
@@ -83,7 +83,7 @@
             spellcheck="false"
           />
           <div class="help-text">
-            如果填写了Portal URL，系统会自动从API获取邮箱信息；也可手动输入邮箱备注
+            可选，会自动获取邮箱账号
           </div>
           <div v-if="errors.emailNote" class="error-message">
             {{ errors.emailNote }}
@@ -336,31 +336,48 @@ const handleSubmit = async () => {
       ? formData.value.emailNote.trim() || null
       : null;
 
-    if (formData.value.portalUrl && formData.value.portalUrl.trim()) {
+    // 如果没有手动输入邮箱，尝试通过 get_models API 自动获取
+    if (!autoEmailNote) {
       try {
-        const token = extractTokenFromPortalUrl(
-          formData.value.portalUrl.trim()
-        );
-        if (token) {
-          const subscriptionData = await invoke("get_subscriptions_from_link", {
-            token,
-          });
-          const subscriptionInfo = JSON.parse(subscriptionData);
+        showStatus("正在获取邮箱账号...", "info");
+        const modelsDataStr = await invoke("get_models_from_token", {
+          token: formData.value.accessToken.trim(),
+          tenantUrl: formData.value.tenantUrl.trim(),
+        });
 
-          if (subscriptionInfo.data && subscriptionInfo.data.length > 0) {
-            const customerEmail = subscriptionInfo.data[0].customer?.email;
-            if (customerEmail) {
-              autoEmailNote = customerEmail;
-              showStatus(`自动获取到邮箱: ${customerEmail}`, "success");
-              // 更新表单中的邮箱字段显示
-              formData.value.emailNote = customerEmail;
-            }
-          }
+        const modelsData = JSON.parse(modelsDataStr);
+        if (modelsData && modelsData.user && modelsData.user.email) {
+          autoEmailNote = modelsData.user.email;
+          showStatus(`自动获取到邮箱: ${autoEmailNote}`, "success");
+          // 更新表单中的邮箱字段显示
+          formData.value.emailNote = autoEmailNote;
         }
       } catch (error) {
         console.warn("自动获取邮箱失败:", error);
-        showStatus("自动获取邮箱失败，使用手动输入的邮箱", "warning");
+        showStatus("自动获取邮箱失败", "warning");
       }
+    }
+
+    // 尝试获取额度和过期时间信息（使用 access_token 和 tenant_url）
+    let creditsBalance = null;
+    let expiryDate = null;
+
+    try {
+      showStatus("正在获取账号额度信息...", "info");
+      const creditInfoStr = await invoke("get_credit_info_from_token", {
+        token: formData.value.accessToken.trim(),
+        tenantUrl: formData.value.tenantUrl.trim(),
+      });
+
+      const creditInfo = JSON.parse(creditInfoStr);
+      if (creditInfo) {
+        creditsBalance = Math.floor(creditInfo.usage_units_remaining);
+        expiryDate = creditInfo.current_billing_cycle_end_date_iso;
+        showStatus("成功获取账号额度信息", "success");
+      }
+    } catch (error) {
+      console.warn("获取额度信息失败:", error);
+      showStatus("获取额度信息失败，将使用默认值", "warning");
     }
 
     const tokenData = {
@@ -370,6 +387,8 @@ const handleSubmit = async () => {
         ? formData.value.portalUrl.trim() || null
         : null,
       emailNote: autoEmailNote,
+      creditsBalance: creditsBalance,
+      expiryDate: expiryDate,
     };
 
     if (isEditing.value) {
