@@ -149,8 +149,8 @@
           <button
             class="batch-delete-btn"
             @click="handleBatchDelete"
-            :disabled="deletableTokensCount === 0"
-            :title="deletableTokensCount > 0 ? `批量删除 ${deletableTokensCount} 个已封禁/过期账号` : '暂无可删除账号'"
+            :disabled="tokens.length === 0"
+            :title="tokens.length > 0 ? '批量删除账号' : '暂无账号'"
           >
             <span class="btn-inner">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -186,10 +186,10 @@
           
         </div>
         <!-- 分页控件 -->
-        <div v-if="totalPages > 1" class="pagination-controls">
+        <div v-if="filteredTokens.length > 0" class="pagination-controls">
             <!-- 中间：翻页控件 -->
             <div class="pagination-center">
-              <button @click="prevPage" :disabled="currentPage === 1" class="pagination-btn">
+              <button @click="prevPage" :disabled="currentPage === 1 || totalPages <= 1" class="pagination-btn">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
                 </svg>
@@ -203,7 +203,7 @@
                 <span class="total-pages">{{ totalPages }}</span>
               </div>
 
-              <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-btn">
+              <button @click="nextPage" :disabled="currentPage === totalPages || totalPages <= 1" class="pagination-btn">
                 下一页
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
@@ -213,8 +213,11 @@
 
             <!-- 右侧：每页数量选择器 -->
             <div class="page-size-dropdown" @click.stop @mouseenter="showPageSizeMenuOnHover" @mouseleave="hidePageSizeMenuOnLeave">
-              <button class="page-size-btn" @click="togglePageSizeMenu" title="每页数量">
-
+              <button
+                class="page-size-btn"
+                @click="togglePageSizeMenu"
+                title="每页数量"
+              >
                 <span>{{ pageSize }} 条/页</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" :class="['arrow-icon', { rotated: showPageSizeMenu }]">
                   <path d="M7 10l5 5 5-5z"/>
@@ -304,12 +307,96 @@
     </template>
   </ModalContainer>
 
+  <!-- 批量删除选项对话框 -->
+  <ModalContainer
+    :visible="showBatchDeleteOptions"
+    title="批量删除"
+    size="medium"
+    @close="showBatchDeleteOptions = false"
+  >
+    <div class="batch-delete-options-content">
+      <p class="options-description">请选择删除条件：</p>
+
+      <!-- 删除选项 -->
+      <div class="delete-options">
+        <!-- 按状态删除 -->
+        <div
+          :class="['delete-option', { active: batchDeleteType === 'status', disabled: deletableTokensCount === 0 }]"
+          @click="deletableTokensCount > 0 ? selectDeleteType('status') : null"
+        >
+          <div class="option-radio">
+            <div v-if="batchDeleteType === 'status'" class="radio-dot"></div>
+          </div>
+          <div class="option-content">
+            <div class="option-title">按状态删除</div>
+            <div class="option-description">
+              删除已封禁/过期的账号
+              <span v-if="deletableTokensCount > 0" class="option-count">（{{ deletableTokensCount }} 个）</span>
+              <span v-else class="option-count disabled">（暂无）</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 按标签删除 -->
+        <div
+          :class="['delete-option', { active: batchDeleteType === 'tag', disabled: availableTags.length === 0 }]"
+          @click="availableTags.length > 0 ? selectDeleteType('tag') : null"
+        >
+          <div class="option-radio">
+            <div v-if="batchDeleteType === 'tag'" class="radio-dot"></div>
+          </div>
+          <div class="option-content">
+            <div class="option-title">按标签删除</div>
+            <div class="option-description">
+              删除指定标签的账号
+              <span v-if="availableTags.length > 0" class="option-count">（{{ availableTags.length }} 个标签）</span>
+              <span v-else class="option-count disabled">（暂无标签）</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 标签选择器 -->
+      <div v-if="batchDeleteType === 'tag'" class="tag-selector-container">
+        <label class="tag-selector-label">选择要删除的标签：</label>
+        <div class="tags-grid">
+          <div
+            v-for="tag in availableTags"
+            :key="tag.name"
+            :class="['tag-item', { selected: selectedTagForDelete === tag.name }]"
+            @click="selectedTagForDelete = tag.name"
+          >
+            <span class="tag-badge" :style="getTagStyle(tag.color)">
+              {{ tag.name }}
+            </span>
+            <span class="tag-count-badge">{{ tag.count }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <template #footer>
+      <div class="modal-actions">
+        <button @click="showBatchDeleteOptions = false" class="btn secondary">
+          取消
+        </button>
+        <button
+          @click="confirmBatchDeleteOptions"
+          class="btn danger"
+          :disabled="!canProceedToConfirm"
+        >
+          下一步
+        </button>
+      </div>
+    </template>
+  </ModalContainer>
+
   <!-- 批量删除确认对话框 -->
   <ModalContainer
-    :visible="showBatchDeleteDialog"
-    title="批量删除"
+    :visible="showBatchDeleteConfirm"
+    title="确认批量删除"
     size="small"
-    @close="showBatchDeleteDialog = false"
+    @close="showBatchDeleteConfirm = false"
   >
     <div class="batch-delete-content">
       <div class="batch-delete-icon">
@@ -319,14 +406,19 @@
       </div>
       <h4>批量删除账号</h4>
       <p class="delete-message">
-        即将删除 <strong class="delete-count">{{ deletableTokensCount }}</strong> 个账号
-        <span class="delete-breakdown">（已封禁 {{ bannedTokensCount }} 个，已过期 {{ expiredTokensCount }} 个）</span>
+        <template v-if="batchDeleteType === 'status'">
+          即将删除 <strong class="delete-count">{{ deletableTokensCount }}</strong> 个账号
+          <span class="delete-breakdown">（已封禁 {{ bannedTokensCount }} 个，已过期 {{ expiredTokensCount }} 个）</span>
+        </template>
+        <template v-else-if="batchDeleteType === 'tag'">
+          即将删除 <strong class="delete-count">{{ tokensToDeleteByTag.length }}</strong> 个账号
+          <span class="delete-breakdown">（标签为 "{{ selectedTagForDelete }}"）</span>
+        </template>
       </p>
-     
     </div>
     <template #footer>
       <div class="modal-actions">
-        <button @click="showBatchDeleteDialog = false" class="btn secondary" :disabled="isDeleting">
+        <button @click="showBatchDeleteConfirm = false" class="btn secondary" :disabled="isDeleting">
           取消
         </button>
         <button @click="executeBatchDelete" class="btn danger" :disabled="isDeleting">
@@ -378,8 +470,11 @@ let sortMenuTimer = null; // 排序菜单延迟隐藏计时器
 const searchQuery = ref('');
 
 // 批量删除状态管理
-const showBatchDeleteDialog = ref(false);
+const showBatchDeleteOptions = ref(false); // 批量删除选项对话框
+const showBatchDeleteConfirm = ref(false); // 批量删除确认对话框
 const isDeleting = ref(false);
+const batchDeleteType = ref('status'); // 'status' 或 'tag'
+const selectedTagForDelete = ref(''); // 选中的要删除的标签
 
 // 单个删除状态管理
 const showDeleteConfirm = ref(false);
@@ -548,6 +643,64 @@ const bannedTokensCount = computed(() => {
 const expiredTokensCount = computed(() => {
   return tokens.value.filter(token => token.ban_status === 'EXPIRED').length;
 });
+
+// 获取所有可用的标签（去重并统计数量）
+const availableTags = computed(() => {
+  const tagMap = new Map();
+
+  tokens.value.forEach(token => {
+    if (token.tag_name && token.tag_name.trim()) {
+      const tagName = token.tag_name.trim();
+      const tagColor = token.tag_color || '#3b82f6'; // 默认蓝色
+
+      if (tagMap.has(tagName)) {
+        const existing = tagMap.get(tagName);
+        tagMap.set(tagName, { ...existing, count: existing.count + 1 });
+      } else {
+        tagMap.set(tagName, { name: tagName, color: tagColor, count: 1 });
+      }
+    }
+  });
+
+  // 转换为数组并按名称排序
+  return Array.from(tagMap.values())
+    .sort((a, b) => a.name.localeCompare(b.name));
+});
+
+// 计算按标签删除时要删除的 tokens
+const tokensToDeleteByTag = computed(() => {
+  if (!selectedTagForDelete.value) return [];
+  return tokens.value.filter(token =>
+    token.tag_name && token.tag_name.trim() === selectedTagForDelete.value
+  );
+});
+
+// 判断是否可以进入确认步骤
+const canProceedToConfirm = computed(() => {
+  if (batchDeleteType.value === 'status') {
+    return deletableTokensCount.value > 0;
+  } else if (batchDeleteType.value === 'tag') {
+    return selectedTagForDelete.value && tokensToDeleteByTag.value.length > 0;
+  }
+  return false;
+});
+
+// 将十六进制颜色转换为 rgba
+const hexToRgba = (hex, alpha) => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+// 获取标签样式（与 TokenCard 中的样式一致）
+const getTagStyle = (color) => {
+  if (!color) return {};
+  return {
+    color: color,
+    backgroundColor: hexToRgba(color, 0.15), // 15% 透明度
+  };
+};
 
 // 计算所有状态的统计数据
 const getStatusCounts = () => {
@@ -976,7 +1129,8 @@ const refreshAllPortalInfo = async () => {
 
 // 关闭批量删除对话框的辅助函数
 const closeBatchDeleteDialog = () => {
-  showBatchDeleteDialog.value = false;
+  showBatchDeleteOptions.value = false;
+  showBatchDeleteConfirm.value = false;
 };
 
 // 切换排序方式
@@ -1223,10 +1377,36 @@ const handleTagEditorForImportExportConfirm = async (tagData) => {
 
 // 处理批量删除按钮点击
 const handleBatchDelete = () => {
-  if (deletableTokensCount.value === 0) {
+  if (tokens.value.length === 0) {
     return;
   }
-  showBatchDeleteDialog.value = true;
+
+  // 重置状态
+  batchDeleteType.value = 'status';
+  selectedTagForDelete.value = '';
+
+  // 如果没有可删除的状态账号，默认选择标签删除
+  if (deletableTokensCount.value === 0 && availableTags.value.length > 0) {
+    batchDeleteType.value = 'tag';
+  }
+
+  showBatchDeleteOptions.value = true;
+};
+
+// 选择删除类型
+const selectDeleteType = (type) => {
+  batchDeleteType.value = type;
+  if (type === 'tag') {
+    selectedTagForDelete.value = ''; // 重置标签选择
+  }
+};
+
+// 确认批量删除选项，进入确认对话框
+const confirmBatchDeleteOptions = () => {
+  if (!canProceedToConfirm.value) return;
+
+  showBatchDeleteOptions.value = false;
+  showBatchDeleteConfirm.value = true;
 };
 
 // TokenForm 事件处理
@@ -1340,22 +1520,38 @@ const executeBatchDelete = async () => {
   isDeleting.value = true;
 
   try {
-    // 获取要删除的 token IDs
-    const tokenIdsToDelete = tokens.value
-      .filter(token => token.ban_status === 'SUSPENDED' || token.ban_status === 'EXPIRED')
-      .map(token => token.id);
+    let tokenIdsToDelete = [];
+    let deleteMessage = '';
+
+    // 根据删除类型获取要删除的 token IDs
+    if (batchDeleteType.value === 'status') {
+      tokenIdsToDelete = tokens.value
+        .filter(token => token.ban_status === 'SUSPENDED' || token.ban_status === 'EXPIRED')
+        .map(token => token.id);
+      deleteMessage = `成功删除 ${tokenIdsToDelete.length} 个已封禁/过期账号`;
+    } else if (batchDeleteType.value === 'tag') {
+      tokenIdsToDelete = tokensToDeleteByTag.value.map(token => token.id);
+      deleteMessage = `成功删除 ${tokenIdsToDelete.length} 个标签为"${selectedTagForDelete.value}"的账号`;
+    }
+
+    if (tokenIdsToDelete.length === 0) {
+      emit('copy-success', '没有符合条件的账号需要删除', 'warning');
+      showBatchDeleteConfirm.value = false;
+      isDeleting.value = false;
+      return;
+    }
 
     // 从内存中删除
     tokens.value = tokens.value.filter(token => !tokenIdsToDelete.includes(token.id));
 
     // 关闭对话框
-    showBatchDeleteDialog.value = false;
+    showBatchDeleteConfirm.value = false;
 
     // 保存到文件
     await saveTokens();
 
     // 显示提示消息
-    emit('copy-success', `成功删除 ${tokenIdsToDelete.length} 个账号`, 'success');
+    emit('copy-success', deleteMessage, 'success');
   } catch (error) {
     console.error('Batch delete failed:', error);
     emit('copy-success', '批量删除失败', 'error');
@@ -1487,6 +1683,10 @@ defineExpose({
   flex: 1;
   overflow: visible;
   min-height: 0;
+  /* 性能优化 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
 }
 
 .empty-state {
@@ -1588,12 +1788,19 @@ defineExpose({
   grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
   gap: 10px;
   padding: 10px 0 0;
+  /* 性能优化 */
+  will-change: scroll-position;
+  transform: translateZ(0);
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Token列表整体布局优化 */
 .token-list {
   animation: fadeIn 0.3s ease-out;
   margin: 0 10px;
+  /* 性能优化 */
+  contain: layout style;
+  transform: translateZ(0);
 }
 
 @keyframes fadeIn {
@@ -1640,11 +1847,11 @@ defineExpose({
   padding: 10px 16px;
   background: linear-gradient(
     135deg,
-    rgba(249, 250, 251, 0.9) 0%,
-    rgba(243, 244, 246, 0.7) 100%
+    rgba(249, 250, 251, 0.98) 0%,
+    rgba(243, 244, 246, 0.95) 100%
   );
   border-bottom: 1px solid rgba(226, 232, 240, 0.4);
-  backdrop-filter: blur(10px);
+  /* backdrop-filter: blur(10px); */ /* 移除以提升滚动性能 */
 }
 
 /* 搜索框样式 */
@@ -1880,28 +2087,31 @@ defineExpose({
 .pagination-controls {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   padding: 12px 16px;
   border-top: 1px solid rgba(226, 232, 240, 0.4);
   background: linear-gradient(
     135deg,
-    rgba(249, 250, 251, 0.9) 0%,
-    rgba(243, 244, 246, 0.7) 100%
+    rgba(249, 250, 251, 0.98) 0%,
+    rgba(243, 244, 246, 0.95) 100%
   );
-  backdrop-filter: blur(10px);
+  /* backdrop-filter: blur(10px); */ /* 移除以提升滚动性能 */
   margin-top: 10px;
   position: relative;
+  gap: 12px;
 }
 
 .pagination-center {
   display: flex;
   align-items: center;
   gap: 8px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .page-size-dropdown {
-  position: absolute;
-  right: 16px;
+  position: relative;
 }
 
 .pagination-btn {
@@ -2152,7 +2362,7 @@ defineExpose({
   border: 1px solid rgba(226, 232, 240, 0.4);
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(20px);
+  /* backdrop-filter: blur(20px); */ /* 移除以提升滚动性能 */
 }
 
 .unified-account-card:hover {
@@ -2772,6 +2982,212 @@ defineExpose({
 }
 
 .batch-delete-content .delete-warning svg {
+  flex-shrink: 0;
+}
+
+/* 批量删除选项对话框样式 */
+.batch-delete-options-content {
+  padding: 10px 0;
+  max-height: 60vh;
+}
+
+.options-description {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.delete-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.delete-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 2px solid rgba(226, 232, 240, 0.6);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.delete-option:hover:not(.disabled) {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.04);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.delete-option.active {
+  border-color: #b5d1ffbe;
+  background: rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 1px rgba(102, 158, 249, 0.2);
+}
+
+.delete-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: rgba(241, 245, 249, 0.5);
+}
+
+.option-radio {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #cbd5e1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: 2px;
+}
+
+.delete-option.active .option-radio {
+  border-color: #3b82f6;
+  background: #3b82f6;
+}
+
+.radio-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: white;
+  animation: radioDotAppear 0.2s ease-out;
+}
+
+@keyframes radioDotAppear {
+  0% {
+    transform: scale(0);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.option-content {
+  flex: 1;
+}
+
+.option-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.option-description {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.option-count {
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.option-count.disabled {
+  color: #94a3b8;
+}
+
+/* 标签选择器容器 */
+.tag-selector-container {
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(249, 250, 251, 0.9), rgba(243, 244, 246, 0.7));
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  border-radius: 10px;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tag-selector-label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+/* 标签网格 */
+.tags-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.tag-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  background: white;
+  border: 2px solid rgba(226, 232, 240, 0.6);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tag-item:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.04);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.tag-item.selected {
+  border-color: #b5d1ffbe;
+  background: rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 1px rgba(102, 158, 249, 0.2);
+  transform: translateY(-2px);
+}
+
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  /* 颜色和背景由内联样式控制 */
+}
+
+.tag-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+  color: white;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
   flex-shrink: 0;
 }
 </style>
