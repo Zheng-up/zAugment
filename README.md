@@ -59,7 +59,7 @@ npm run tauri build
 
 1. 打开Zaugment新增流程 按照OAuth流程 或 Session导入（点击问号 查看步骤） 进行注册
 
-💡 **小贴士**：Session 导入最简单，无需只需复制Session信息点击导入
+💡 **小贴士**：Session 导入最简单，只需复制Session信息点击导入
 
 ### 👥 **步骤 2：账号管理**
 
