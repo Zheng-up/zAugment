@@ -4,8 +4,7 @@
     <div class="unified-account-card">
      
 
-      <!-- 分割线 -->
-      <div v-if="tokens.length > 0" class="card-divider"></div>
+     
 
       <!-- 内容区域 -->
       <div class="card-content" :class="windowSizeClass">
@@ -125,7 +124,7 @@
                 <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
               </svg>
             </span>
-            <span v-if="deletableTokensCount > 0" class="badge">{{ deletableTokensCount }}</span>
+          
           </button>
 
           <!-- 分页信息 -->
@@ -748,7 +747,17 @@ const setTokenCardRef = (el, tokenId) => {
   }
 };
 
-const handleTokenUpdated = (updatedToken) => {
+const handleTokenUpdated = async (updatedToken) => {
+  // 查找并更新本地 token
+  const tokenIndex = tokens.value.findIndex(t => t.id === updatedToken.id);
+  if (tokenIndex !== -1) {
+    // 强制触发响应式更新
+    tokens.value[tokenIndex] = { ...updatedToken };
+
+    // 自动保存到文件
+    await saveTokens(false);
+  }
+
   emit("token-updated", updatedToken);
 };
 
@@ -802,8 +811,9 @@ const checkAllAccountStatus = async () => {
     let hasChanges = false;
 
     results.forEach(result => {
-      const token = tokens.value.find(t => t.id === result.token_id);
-      if (token) {
+      const tokenIndex = tokens.value.findIndex(t => t.id === result.token_id);
+      if (tokenIndex !== -1) {
+        const token = tokens.value[tokenIndex];
         const statusResult = result.status_result;
         let tokenHasChanges = false;
 
@@ -854,6 +864,9 @@ const checkAllAccountStatus = async () => {
         if (tokenHasChanges) {
           token.updated_at = new Date().toISOString();
           hasChanges = true;
+
+          // 强制触发响应式更新
+          tokens.value[tokenIndex] = { ...token };
         }
       }
     });
@@ -1845,7 +1858,8 @@ defineExpose({
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
   gap: 10px;
-  padding: 10px 0 0;
+  padding: 10px;
+  
   /* 性能优化 */
   will-change: scroll-position;
   transform: translateZ(0);
@@ -1855,10 +1869,10 @@ defineExpose({
 /* Token列表整体布局优化 */
 .token-list {
   animation: fadeIn 0.3s ease-out;
-  margin: 0 10px;
+
   flex: 1; /* 占据剩余空间 */
   overflow-y: auto; /* 允许垂直滚动 */
-  overflow-x: hidden;
+ 
   min-height: 0; /* 允许 flex 子元素缩小 */
   /* 性能优化 */
   contain: layout style;
@@ -2061,7 +2075,7 @@ defineExpose({
   border: 1px solid rgba(226, 232, 240, 0.6);
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  z-index: 99999;
+  z-index: 100;
   min-width: 130px;
   margin-top: 8px;
   pointer-events: auto;
@@ -2182,7 +2196,6 @@ defineExpose({
   flex-shrink: 0; /* 不允许缩小 */
   position: relative;
   gap: 12px;
-  margin-top: 10px;
 }
 
 .pagination-controls.disabled {
@@ -2354,7 +2367,7 @@ defineExpose({
   border: 1px solid rgba(226, 232, 240, 0.6);
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  z-index: 99999;
+  z-index: 100;
   min-width: 110px;
   margin-bottom: 8px;
   pointer-events: auto;
@@ -2547,17 +2560,6 @@ defineExpose({
   color: #3b82f6;
 }
 
-/* 分割线 */
-.card-divider {
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(226, 232, 240, 0.5) 50%,
-    transparent 100%
-  );
-  margin: 0 32px;
-}
 
 /* 内容区域 */
 .card-content {
@@ -2735,26 +2737,7 @@ defineExpose({
   cursor: not-allowed;
 }
 
-.batch-delete-btn .badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 5px;
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: white;
-  border-radius: 9px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  z-index: 2; /* 确保角标在最上层 */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15), 0 0 0 2px rgba(255, 255, 255, 0.9);
-  white-space: nowrap;
-}
+
 
 /* 删除确认对话框内容 */
 .delete-confirm-content {

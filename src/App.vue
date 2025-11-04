@@ -3454,12 +3454,16 @@ const checkSingleAccountStatus = async (tokenId) => {
     const banStatus =
       result.status || (result.is_banned ? "SUSPENDED" : "ACTIVE");
 
-    // 始终更新 access_token 和 tenant_url (如果 token 被刷新,这里会是新值)
-    token.access_token = result.access_token;
-    token.tenant_url = result.tenant_url;
+    // 检查是否有任何变化
+    const accessTokenChanged = token.access_token !== result.access_token;
+    const tenantUrlChanged = token.tenant_url !== result.tenant_url;
+    const banStatusChanged = token.ban_status !== banStatus;
+    const hasAnyChanges = accessTokenChanged || tenantUrlChanged || banStatusChanged || emailUpdated;
 
-    // 如果状态有变化或邮箱有更新，更新token
-    if (token.ban_status !== banStatus || emailUpdated) {
+    // 如果有任何变化，更新token
+    if (hasAnyChanges) {
+      token.access_token = result.access_token;
+      token.tenant_url = result.tenant_url;
       token.ban_status = banStatus;
       token.updated_at = new Date().toISOString();
 
@@ -3612,12 +3616,16 @@ const checkSingleAccountStatusSilent = async (tokenId) => {
     const banStatus =
       result.status || (result.is_banned ? "SUSPENDED" : "ACTIVE");
 
-    // 始终更新 access_token 和 tenant_url (如果 token 被刷新,这里会是新值)
-    token.access_token = result.access_token;
-    token.tenant_url = result.tenant_url;
+    // 检查是否有任何变化
+    const accessTokenChanged = token.access_token !== result.access_token;
+    const tenantUrlChanged = token.tenant_url !== result.tenant_url;
+    const banStatusChanged = token.ban_status !== banStatus;
+    const hasAnyChanges = accessTokenChanged || tenantUrlChanged || banStatusChanged || emailUpdated;
 
-    // 如果状态有变化或邮箱有更新，更新token
-    if (token.ban_status !== banStatus || emailUpdated) {
+    // 如果有任何变化，更新token
+    if (hasAnyChanges) {
+      token.access_token = result.access_token;
+      token.tenant_url = result.tenant_url;
       token.ban_status = banStatus;
       token.updated_at = new Date().toISOString();
 
@@ -4833,7 +4841,11 @@ onMounted(async () => {
     // 批量导入开始
     await listen("import-sessions-started", (event) => {
       const { sessions } = event.payload;
-      addRecords(sessions);
+      const newRecords = addRecords(sessions);
+
+      // 保存批量导入的 session 顺序，用于后续匹配
+      window.__batchImportSessions = sessions;
+      window.__batchImportRecords = newRecords;
 
       // 自动切换到设置页面并打开导入列表
       currentView.value = 'settings';
@@ -4842,8 +4854,30 @@ onMounted(async () => {
 
     // 批量导入完成
     await listen("import-sessions-completed", (event) => {
-      const { successful, failed } = event.payload;
+      const { successful, failed, results } = event.payload;
       console.log(`批量导入完成: ${successful} 成功, ${failed} 失败`);
+
+      // 根据返回的 results 更新每条记录的状态
+      if (results && Array.isArray(results)) {
+        const batchRecords = window.__batchImportRecords || [];
+
+        // 使用索引匹配：results 的顺序应该与 sessions 的顺序一致
+        results.forEach((result, index) => {
+          const record = batchRecords[index];
+
+          if (record) {
+            if (result.success) {
+              updateRecord(record.id, ImportStatus.SUCCESS, null, '导入成功');
+            } else {
+              updateRecord(record.id, ImportStatus.FAILED, result.error || '导入失败', null);
+            }
+          }
+        });
+
+        // 清理临时数据
+        delete window.__batchImportSessions;
+        delete window.__batchImportRecords;
+      }
     });
   } catch (error) {
     console.error("Failed to listen to import events:", error);
@@ -4999,7 +5033,7 @@ onMounted(async () => {
   gap: 12px;
   padding: 12px 14px;
   margin-top: 10px;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   color: rgba(255, 255, 255, 0.7);
   font-size: 15px;
@@ -5254,15 +5288,14 @@ body {
 }
 
 .floating-status-stats .status-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 4px 10px;
+  gap: 5px;
+  padding:2px 4px;
   border-radius: 8px;
   font-size: 12px;
-  min-width: 80px;
   border: 1px solid transparent;
+  white-space: nowrap;
 }
 
 .floating-status-stats .status-item.saved {
@@ -5295,8 +5328,10 @@ body {
 }
 
 .floating-status-stats .status-count {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
+  min-width: 12px;
+  text-align: center;
 }
 
 .header-right {
@@ -5453,7 +5488,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 5px 8px;
+  padding: 4px 4px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
@@ -6846,26 +6881,26 @@ textarea.unified-input {
   }
 
   .floating-status-stats .status-item {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    padding: 3px 8px;
+    gap: 4px;
+    padding: 2px 4px;
     font-size: 11px;
-    min-width: 70px;
+    white-space: nowrap;
   }
 
   .floating-status-stats .status-label {
-    font-size: 10px;
+    font-size: 8px;
   }
 
   .floating-status-stats .status-count {
-    font-size: 10px;
+    font-size: 11px;
+    min-width: 10px;
+    text-align: center;
   }
 
   .status-item {
-    padding: 6px 4px;
-    min-width: 74px;
+    padding: 4px 4px;
     font-size: 10px;
     display: flex;
     align-items: center;

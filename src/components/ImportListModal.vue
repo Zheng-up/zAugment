@@ -284,33 +284,39 @@ const retryAllFailed = async () => {
       })
     });
 
-    const result = await response.json();
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API 请求失败: ${response.status} ${errorText}`);
+    }
 
-    if (response.ok) {
-      // 根据返回结果更新每条记录的状态
-      if (result.results) {
-        result.results.forEach((importResult, index) => {
-          const record = failedRecords[index];
+    const result = await response.json();
+    console.log('[ImportListModal] 批量重试响应:', result);
+
+    // 根据返回结果更新每条记录的状态
+    if (result.results && Array.isArray(result.results)) {
+      result.results.forEach((importResult, index) => {
+        const record = failedRecords[index];
+        if (record) {
           if (importResult.success) {
             updateRecord(record.id, ImportStatus.SUCCESS, null, '重试成功');
           } else {
             updateRecord(record.id, ImportStatus.FAILED, importResult.error || '重试失败', null);
           }
-        });
-      }
+        }
+      });
 
       emit('show-status', `批量重试完成: ${result.successful}/${result.total} 成功`, 'success');
     } else {
-      // 如果批量 API 失败，回退到单个重试
-      for (const record of failedRecords) {
-        await retryRecord(record);
-      }
+      // 如果没有 results 字段，说明返回格式不对
+      console.error('[ImportListModal] 批量导入返回格式错误:', result);
+      throw new Error('批量导入返回格式错误');
     }
   } catch (error) {
+    console.error('[ImportListModal] 批量重试失败:', error);
     emit('show-status', `批量重试失败: ${error.message}`, 'error');
     // 将所有记录状态恢复为失败
     failedRecords.forEach(record => {
-      updateRecord(record.id, ImportStatus.FAILED, '批量重试失败', null);
+      updateRecord(record.id, ImportStatus.FAILED, error.message || '批量重试失败', null);
     });
   } finally {
     isRetrying.value = false;

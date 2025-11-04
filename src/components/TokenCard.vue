@@ -1765,9 +1765,11 @@ const checkAccountStatus = async (showNotification = true) => {
         hasChanges = true;
       }
 
-      // 只有在有实际变化时才更新时间戳
+      // 只有在有实际变化时才更新时间戳并通知父组件
       if (hasChanges) {
         props.token.updated_at = new Date().toISOString();
+        // 通知父组件保存更新
+        emit("token-updated", props.token);
       }
 
       // 根据具体状态设置消息
@@ -1915,14 +1917,12 @@ defineExpose({
   padding: 10px;
   margin: 0px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   height: fit-content;
   min-height: 100px;
   position: relative;
-  overflow: hidden;
   /* 性能优化 */
-  will-change: box-shadow;
+  will-change: transform, box-shadow;
   contain: layout style paint;
 }
 
@@ -1960,9 +1960,12 @@ defineExpose({
 }
 
 .token-card:hover {
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.1);
-  /* transform: translateY(-3px); */
-  background: rgba(255, 255, 255, 0.98);
+ 
+  box-shadow: 0 12px 16px rgba(0, 0, 0, 0.08),
+              0 4px 8px rgba(0, 0, 0, 0.04),
+              0 0 0 1px rgba(99, 102, 241, 0.1);
+  background: rgba(255, 255, 255, 1);
+  border: 1px solid rgba(226, 232, 240, 1);
 }
 
 .status-badge.invalid {
