@@ -72,34 +72,33 @@
               <span class="email-text">{{ displayEmail }}</span>
             </span>
           </div>
-          <!-- 第二行：Portal信息 -->
+          <!-- 第二行：Portal信息 - 始终显示 -->
           <div class="meta-row portal-row">
-            <template v-if="token.portal_url || portalInfo.data">
-              <span class="portal-meta">
-                <span class="portal-info-item expiry">
-                  时间：
-                  <span
-                    class="portal-value"
-                    :style="getExpiryStyle(portalInfo.data?.expiry_date)"
-                    >{{ formatExpiryDate(portalInfo.data?.expiry_date) }}</span
-                  >
-                </span>
-                <span class="portal-separator"></span>
+            <!-- 始终显示时间和额度（即使有错误也显示"未知"） -->
+            <span class="portal-meta">
+              <span class="portal-info-item expiry">
+                时间：
                 <span
-                  class="portal-info-item balance"
-                  :class="{ clickable: token.auth_session }"
-                  @click.stop="handleBalanceClick"
-                  :title="token.auth_session ? '点击查看用量统计' : ''"
+                  class="portal-value"
+                  :style="getExpiryStyle(portalInfo.data?.expiry_date)"
+                  >{{ formatExpiryDate(portalInfo.data?.expiry_date) }}</span
                 >
-                  额度：
-                  <span
-                    class="portal-value"
-                    :style="getBalanceStyle(portalInfo.data?.credits_balance)"
-                    >{{ formatBalance(portalInfo.data?.credits_balance) }}
-                  </span>
+              </span>
+              <span class="portal-separator"></span>
+              <span
+                class="portal-info-item balance"
+                :class="{ clickable: token.auth_session && !portalInfo.error }"
+                @click.stop="handleBalanceClick"
+                :title="token.auth_session && !portalInfo.error ? '点击查看用量统计' : ''"
+              >
+                额度：
+                <span
+                  class="portal-value"
+                  :style="getBalanceStyle(portalInfo.data?.credits_balance)"
+                  >{{ formatBalance(portalInfo.data?.credits_balance) }}
                 </span>
               </span>
-            </template>
+            </span>
           </div>
         </div>
       </div>
@@ -129,13 +128,13 @@
               'status-check',
               {
                 loading:
-                  isCheckingStatus || (isBatchChecking && !token.skip_check),
+                  isCheckingStatus || (checkingTokenIds.has(token.id) && !token.skip_check),
                 disabled: token.skip_check,
                 'long-pressing': isLongPressing,
               },
             ]"
             :disabled="
-              isCheckingStatus || (isBatchChecking && !token.skip_check)
+              isCheckingStatus || (checkingTokenIds.has(token.id) && !token.skip_check)
             "
             :title="
               token.skip_check
@@ -164,7 +163,7 @@
             <svg
               v-if="
                 !isCheckingStatus &&
-                !(isBatchChecking && !token.skip_check) &&
+                !(checkingTokenIds.has(token.id) && !token.skip_check) &&
                 !token.skip_check
               "
               width="16"
@@ -189,7 +188,7 @@
             </svg>
             <div
               v-else-if="
-                isCheckingStatus || (isBatchChecking && !token.skip_check)
+                isCheckingStatus || (checkingTokenIds.has(token.id) && !token.skip_check)
               "
               class="loading-spinner"
             ></div>
@@ -439,6 +438,38 @@
                 <span class="editor-name">CodeBuddy</span>
               </div>
             </button>
+            <button
+              @click="handleEditorClick('vim')"
+              class="editor-option vim-option"
+            >
+              <div class="editor-icon">
+                <img
+                  :src="editorIcons.vim"
+                  alt="Vim"
+                  width="32"
+                  height="32"
+                />
+              </div>
+              <div class="editor-info">
+                <span class="editor-name">Vim</span>
+              </div>
+            </button>
+            <button
+              @click="handleEditorClick('auggie')"
+              class="editor-option auggie-option"
+            >
+              <div class="editor-icon">
+                <img
+                  :src="editorIcons.auggie"
+                  alt="Auggie"
+                  width="32"
+                  height="32"
+                />
+              </div>
+              <div class="editor-info">
+                <span class="editor-name">Auggie</span>
+              </div>
+            </button>
           </div>
         </div>
 
@@ -663,8 +694,6 @@
       v-if="showCreditUsageModal && token.auth_session"
       :auth-session="token.auth_session"
       :credits-balance="portalInfo.data?.credits_balance"
-      :has-portal-url="!!token.portal_url"
-      @update-portal-url="handleUpdatePortalUrl"
     />
   </ModalContainer>
 </template>
@@ -707,6 +736,10 @@ const props = defineProps({
   isBatchChecking: {
     type: Boolean,
     default: false,
+  },
+  checkingTokenIds: {
+    type: Set,
+    default: () => new Set(),
   },
   isHighlighted: {
     type: Boolean,
@@ -765,18 +798,20 @@ const editorIcons = {
   qoder: "/icons/qoder.svg",
   vscodium: "/icons/vscodium.svg",
   codebuddy: "/icons/codebuddy.svg",
+  vim: "/icons/vim.svg",
+  auggie: "/icons/auggie.svg",
   idea: "/icons/idea.svg",
   pycharm: "/icons/pycharm.svg",
   goland: "/icons/goland.svg",
   rustrover: "/icons/rustrover.svg",
   webstorm: "/icons/webstorm.svg",
   phpstorm: "/icons/phpstorm.svg",
+  androidstudio: "/icons/androidstudio.svg",
   clion: "/icons/clion.svg",
   datagrip: "/icons/datagrip.svg",
   rider: "/icons/rider.svg",
   rubymine: "/icons/rubymine.svg",
   aqua: "/icons/aqua.svg",
-  androidstudio: "/icons/androidstudio.svg",
 };
 
 // Computed properties
@@ -1038,7 +1073,7 @@ const handleCheckButtonMouseDown = () => {
   // 如果正在加载，不处理
   if (
     isCheckingStatus.value ||
-    (props.isBatchChecking && !props.token.skip_check)
+    (props.checkingTokenIds.has(props.token.id) && !props.token.skip_check)
   ) {
     return;
   }
@@ -1076,6 +1111,11 @@ const handleCheckButtonMouseLeave = () => {
 
 // 处理额度点击事件
 const handleBalanceClick = () => {
+  // 如果有网络错误，不执行点击操作
+  if (portalInfo.value.error) {
+    return;
+  }
+
   if (props.token.auth_session) {
     showCreditUsageModal.value = true;
   }
@@ -1271,6 +1311,36 @@ const createJetBrainsTokenFile = async (editorType) => {
   }
 };
 
+// 配置 Vim Augment 插件
+const configureVimAugment = async () => {
+  try {
+    const result = await invoke("configure_vim_augment", {
+      accessToken: props.token.access_token,
+      tenantUrl: props.token.tenant_url,
+    });
+
+    return { success: true, filePath: result };
+  } catch (error) {
+    console.error("Failed to configure Vim Augment:", error);
+    return { success: false, error: error.toString() };
+  }
+};
+
+// 配置 Auggie 编辑器
+const configureAuggie = async () => {
+  try {
+    const result = await invoke("configure_auggie", {
+      accessToken: props.token.access_token,
+      tenantUrl: props.token.tenant_url,
+    });
+
+    return { success: true, filePath: result };
+  } catch (error) {
+    console.error("Failed to configure Auggie:", error);
+    return { success: false, error: error.toString() };
+  }
+};
+
 // 处理编辑器链接点击事件（修改后）
 const handleEditorClick = async (editorType) => {
   try {
@@ -1305,6 +1375,8 @@ const handleEditorClick = async (editorType) => {
         qoder: "Qoder",
         vscodium: "VSCodium",
         codebuddy: "CodeBuddy",
+        vim: "Vim",
+        auggie: "Auggie",
         idea: "IntelliJ IDEA",
         pycharm: "PyCharm",
         goland: "GoLand",
@@ -1322,6 +1394,28 @@ const handleEditorClick = async (editorType) => {
     };
 
     const editorName = getEditorName(editorType);
+
+    // 处理 Vim 配置
+    if (editorType === "vim") {
+      const result = await configureVimAugment();
+      if (result.success) {
+        emit("copy-success", `Vim 配置文件已创建: ${result.filePath}`, "success");
+      } else {
+        emit("copy-success", `Vim 配置失败: ${result.error}`, "error");
+      }
+      return;
+    }
+
+    // 处理 Auggie 配置
+    if (editorType === "auggie") {
+      const result = await configureAuggie();
+      if (result.success) {
+        emit("copy-success", `Auggie 配置文件已创建: ${result.filePath}`, "success");
+      } else {
+        emit("copy-success", `Auggie 配置失败: ${result.error}`, "error");
+      }
+      return;
+    }
 
     // 检查是否为 JetBrains 系编辑器
     if (jetbrainsEditors.includes(editorType)) {
@@ -1657,7 +1751,7 @@ const checkAccountStatus = async (showNotification = true) => {
   // 如果正在检测中，或者批量检测中（且未禁用），则返回
   if (
     isCheckingStatus.value ||
-    (props.isBatchChecking && !props.token.skip_check)
+    (props.checkingTokenIds.has(props.token.id) && !props.token.skip_check)
   )
     return;
 
@@ -1752,16 +1846,30 @@ const checkAccountStatus = async (showNotification = true) => {
           };
         }
       } else if (result.portal_error) {
-        // 保留原有的 portal_info，不清空
-        portalInfo.value = {
-          data: null,
-          error: result.portal_error,
-        };
+        // 如果获取 portal_info 失败，但有历史数据，则保留历史数据
+        if (props.token.portal_info) {
+          portalInfo.value = {
+            data: props.token.portal_info,
+            error: null,
+          };
+        } else {
+          // 没有历史数据时才显示错误
+          portalInfo.value = {
+            data: null,
+            error: result.portal_error,
+          };
+        }
       }
 
       // 比对并更新 email_note（如果有）
       if (result.email_note && props.token.email_note !== result.email_note) {
         props.token.email_note = result.email_note;
+        hasChanges = true;
+      }
+
+      // 比对并更新 portal_url（如果后端返回了新的 portal_url）
+      if (result.portal_url && props.token.portal_url !== result.portal_url) {
+        props.token.portal_url = result.portal_url;
         hasChanges = true;
       }
 
@@ -1811,11 +1919,19 @@ const checkAccountStatus = async (showNotification = true) => {
       emit("copy-success", finalMessage, statusType);
     }
   } catch (error) {
-    // 设置错误状态，让UI显示网络错误
-    portalInfo.value = {
-      data: null,
-      error: String(error),
-    };
+    // 如果检测失败，但有历史数据，则保留历史数据
+    if (props.token.portal_info) {
+      portalInfo.value = {
+        data: props.token.portal_info,
+        error: null,
+      };
+    } else {
+      // 没有历史数据时才显示错误
+      portalInfo.value = {
+        data: null,
+        error: String(error),
+      };
+    }
 
     console.error("Account status check failed:", error);
     if (showNotification) {
@@ -1852,7 +1968,7 @@ watch(
 );
 
 // 组件挂载时加载Portal信息
-onMounted(() => {
+onMounted(async () => {
   // 如果有本地 portal_info 数据，立即显示（不管是否有 portal_url）
   if (props.token.portal_info) {
     portalInfo.value = {
@@ -1863,11 +1979,16 @@ onMounted(() => {
       error: null,
     };
   }
-  // 禁用自动刷新，避免清空搜索时大量重新挂载并发起请求
-  // 与 augment-token-mng-main 保持一致
-  // if (props.token.portal_url) {
-  //   checkAccountStatus(false);
-  // }
+
+  // 自动检测：如果有 auth_session 但没有 portal_url，自动获取
+  // 排除已封禁(SUSPENDED)和已过期(EXPIRED)的 token
+  if (props.token.auth_session &&
+      !props.token.portal_url &&
+      props.token.ban_status !== 'SUSPENDED' &&
+      props.token.ban_status !== 'EXPIRED') {
+    console.log('TokenCard: Auto-checking status for token with auth_session but no portal_url:', props.token.id);
+    await checkAccountStatus(false);  // 静默检查
+  }
 
   // 添加键盘事件监听器
   document.addEventListener("keydown", handleKeydown);
@@ -2211,6 +2332,12 @@ defineExpose({
 }
 
 .portal-info-item.balance .portal-value {
+  font-weight: 700;
+}
+
+/* 网络错误样式 - 与额度红色样式一致 */
+.portal-value.network-error {
+  color: #ef4444;
   font-weight: 700;
 }
 

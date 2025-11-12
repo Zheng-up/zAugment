@@ -146,7 +146,8 @@
                 </svg>
                 购买账号
               </button>
-              <button
+              <!-- 逻辑未完善 暂时隐藏 -->
+              <!-- <button
                 @click="showEditorResetModal = true"
                 class="btn-header-unified danger"
                 title="重置编辑器中的Augment配置"
@@ -162,7 +163,7 @@
                   />
                 </svg>
                 重置Augment
-              </button>
+              </button> -->
               <button
                 @click="showPluginModal = true"
                 class="btn-header-unified special"
@@ -572,44 +573,43 @@
               <div class="header-left-title">
                 <h2>账号管理</h2>
 
-                <!-- 悬浮状态统计 -->
+                <!-- 悬浮状态统计 - 可点击筛选 - 一行显示 - 全部/正常/封禁/其他 -->
                 <div class="floating-status-stats">
-                  <div class="stats-column">
-                    <div class="status-item saved" v-if="savedTokensCount > 0">
-                      <span class="status-label">正常</span>
-                      <span class="status-count">{{
-                        savedTokensCount || 0
-                      }}</span>
-                    </div>
-                    <div
-                      class="status-item banned"
-                      v-if="bannedTokensCount > 0"
-                    >
-                      <span class="status-label">已封禁</span>
-                      <span class="status-count">{{
-                        bannedTokensCount || 0
-                      }}</span>
-                    </div>
+                  <!-- 全部 -->
+                  <div
+                    :class="['status-item', 'all', { 'selected': selectedStatusFilter === null }]"
+                    @click="selectStatusFilter(null)"
+                    title="点击显示全部账号"
+                  >
+                    <span class="status-label">全部</span>
+                    <span class="status-count">{{ totalTokensCount || 0 }}</span>
                   </div>
-                  <div class="stats-column">
-                    <div
-                      class="status-item expired"
-                      v-if="expiredTokensCount > 0"
-                    >
-                      <span class="status-label">已过期</span>
-                      <span class="status-count">{{
-                        expiredTokensCount || 0
-                      }}</span>
-                    </div>
-                    <div
-                      class="status-item invalid"
-                      v-if="invalidTokensCount > 0"
-                    >
-                      <span class="status-label">Token失效</span>
-                      <span class="status-count">{{
-                        invalidTokensCount || 0
-                      }}</span>
-                    </div>
+                  <!-- 正常 -->
+                  <div
+                    :class="['status-item', 'saved', { 'selected': selectedStatusFilter === 'ACTIVE' }]"
+                    @click="selectStatusFilter('ACTIVE')"
+                    title="点击筛选正常账号"
+                  >
+                    <span class="status-label">正常</span>
+                    <span class="status-count">{{ savedTokensCount || 0 }}</span>
+                  </div>
+                  <!-- 封禁 -->
+                  <div
+                    :class="['status-item', 'banned', { 'selected': selectedStatusFilter === 'SUSPENDED' }]"
+                    @click="selectStatusFilter('SUSPENDED')"
+                    title="点击筛选已封禁账号"
+                  >
+                    <span class="status-label">封禁</span>
+                    <span class="status-count">{{ bannedTokensCount || 0 }}</span>
+                  </div>
+                  <!-- 其他（过期+Token失效+未知） -->
+                  <div
+                    :class="['status-item', 'other', { 'selected': selectedStatusFilter === 'OTHER' }]"
+                    @click="selectStatusFilter('OTHER')"
+                    title="点击筛选其他状态账号（过期、Token失效、未知）"
+                  >
+                    <span class="status-label">其他</span>
+                    <span class="status-count">{{ otherTokensCount || 0 }}</span>
                   </div>
                 </div>
               </div>
@@ -2104,6 +2104,9 @@ let unlistenSessionProgress = null;
 const importQueue = ref([]);
 const isImportingFromQueue = ref(false);
 
+// 状态筛选管理
+const selectedStatusFilter = ref(null); // null表示"全部", 其他值为具体状态: 'ACTIVE', 'SUSPENDED', 'EXPIRED', 'INVALID_TOKEN'
+
 // 注意：视图切换时关闭弹窗的逻辑已移至 handleNavClick 函数中
 
 // 监听WebDAV配置状态变化，自动管理自动同步 - 将在onMounted中启用
@@ -2640,6 +2643,29 @@ const bannedTokensCount = computed(() => headerCounts.value.banned);
 const invalidTokensCount = computed(() => headerCounts.value.invalid);
 const expiredTokensCount = computed(() => headerCounts.value.expired);
 const uncheckedTokensCount = computed(() => headerCounts.value.unknown);
+// "其他"状态 = 过期 + Token失效 + 未知
+const otherTokensCount = computed(() => {
+  return headerCounts.value.expired + headerCounts.value.invalid + headerCounts.value.unknown;
+});
+// "全部" = 所有状态的总和
+const totalTokensCount = computed(() => {
+  return headerCounts.value.active + headerCounts.value.banned + headerCounts.value.expired + headerCounts.value.invalid + headerCounts.value.unknown;
+});
+
+// 状态筛选方法
+const selectStatusFilter = (status) => {
+  // 如果点击当前已选中的状态，则取消选择（回到"全部"）
+  if (selectedStatusFilter.value === status) {
+    selectedStatusFilter.value = null;
+  } else {
+    selectedStatusFilter.value = status;
+  }
+
+  // 将筛选状态传递给 TokenList
+  if (tokenListRef.value && tokenListRef.value.setStatusFilter) {
+    tokenListRef.value.setStatusFilter(selectedStatusFilter.value);
+  }
+};
 
 // WebDAV相关计算属性
 const canTestConnection = computed(() => {
@@ -2821,13 +2847,12 @@ const importFromSession = async () => {
         emailNote: result.email || null,  // 从 get-models API 获取的邮箱
         authSession: trimmedSession,  // 保存 auth_session
         suspensions: null,  // Session 导入不再获取 suspensions
-        creditsBalance: result.credits_balance !== undefined ? result.credits_balance : null,  // 从 get-credit-info 获取的余额
-        expiryDate: result.expiry_date || null,  // 从 get-credit-info 获取的过期时间
+        creditsBalance: null,  // Session 导入不再获取余额
+        expiryDate: null,  // Session 导入不再获取过期时间
         banStatus: 'ACTIVE'  // Session 导入默认设置为 ACTIVE 状态
       };
 
       console.log("准备添加的 tokenData:", tokenData);
-      console.log("creditsBalance:", tokenData.creditsBalance, "expiryDate:", tokenData.expiryDate);
 
       // 通过 TokenList 添加 token
       if (tokenListRef.value && tokenListRef.value.addToken) {
@@ -2993,7 +3018,7 @@ const primaryAccountStatus = computed(() => {
   return { type: "unknown", count: status.total, label: "未检测" };
 });
 
-// 智能刷新：使用批量检查 API
+// 智能刷新：只刷新当前页（与 augment-token-mng-1.3.3 保持一致）
 const smartRefresh = async () => {
   // 检查 tokens 是否存在且有数据
   if (!tokenListRef.value || !tokenListRef.value.tokens || tokenListRef.value.tokens.length === 0) {
@@ -3003,12 +3028,16 @@ const smartRefresh = async () => {
   }
 
   // 显示持久化的加载提示（duration = 0 表示不自动消失）
-  const loadingStatusId = showStatus("正在刷新账号数据...", "info", 0);
+  const loadingStatusId = showStatus("正在刷新账号状态和Portal信息...", "info", 0);
 
   try {
-    // 调用 TokenList 的批量检查方法
-    if (tokenListRef.value && tokenListRef.value.checkAllAccountStatus) {
-      const result = await tokenListRef.value.checkAllAccountStatus();
+    // 先重新加载最新的 tokens
+    await loadTokens(false);
+    await nextTick();
+
+    // 调用 TokenList 的当前页检查方法
+    if (tokenListRef.value && tokenListRef.value.checkPageAccountStatus) {
+      const result = await tokenListRef.value.checkPageAccountStatus();
 
       // 移除加载提示
       removeStatusMessage(loadingStatusId);
@@ -3051,7 +3080,7 @@ const smartRefresh = async () => {
     } else {
       // 移除加载提示
       removeStatusMessage(loadingStatusId);
-      console.error("TokenList 组件未准备好或没有 checkAllAccountStatus 方法");
+      console.error("TokenList 组件未准备好或没有 checkPageAccountStatus 方法");
       showStatus("刷新失败：组件未准备好", "error");
     }
   } catch (error) {
@@ -5269,47 +5298,68 @@ body {
   position: relative;
 }
 
-/* 悬浮状态统计样式 */
+/* 悬浮状态统计样式 - 一行横向显示 */
 .floating-status-stats {
   position: absolute;
   left: 100%;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
+  flex-direction: row;
   gap: 8px;
   padding: 8px 12px;
   z-index: 10;
 }
 
-.floating-status-stats .stats-column {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
 .floating-status-stats .status-item {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding:2px 4px;
+  gap: 6px;
+  padding: 6px 12px;
   border-radius: 8px;
-  font-size: 12px;
-  border: 1px solid transparent;
+  font-size: 13px;
+  border: 2px solid transparent;
   white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
 }
 
+.floating-status-stats .status-item:hover {
+  /* transform: translateY(-1px); */
+  opacity: 0.85;
+}
+
+.floating-status-stats .status-item.selected {
+  border-color: currentColor;
+  font-weight: 600;
+}
+
+/* 全部 */
+.floating-status-stats .status-item.all {
+  background: #f0f9ff;
+  color: #0369a1;
+}
+
+/* 正常 */
 .floating-status-stats .status-item.saved {
   background: #f0fdf4;
   color: #15803d;
-  border-color: rgba(21, 128, 61, 0.15);
 }
 
+/* 封禁 */
 .floating-status-stats .status-item.banned {
   background: #fee2e2;
   color: #b91c1c;
-  border-color: rgba(185, 28, 28, 0.15);
 }
 
+/* 其他（过期+Token失效+未知） */
+.floating-status-stats .status-item.other {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* 以下样式保留用于兼容（如果有其他地方使用） */
 .floating-status-stats .status-item.expired {
   background: #fed7aa;
   color: #c2410c;
@@ -5323,14 +5373,14 @@ body {
 }
 
 .floating-status-stats .status-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
 }
 
 .floating-status-stats .status-count {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  min-width: 12px;
+  min-width: 14px;
   text-align: center;
 }
 

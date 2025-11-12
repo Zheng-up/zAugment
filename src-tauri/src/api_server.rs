@@ -248,8 +248,8 @@ async fn import_session_handler(
         ));
     }
 
-    // 调用内部函数导入（带超时）
-    let import_future = crate::add_token_from_session_internal(&request.session, &state.app_handle);
+    // 调用内部函数导入（带超时，使用 app_session 缓存）
+    let import_future = crate::add_token_from_session_internal_with_cache(&request.session, &state);
     let timeout_duration = std::time::Duration::from_secs(30); // 30秒超时
 
     match tokio::time::timeout(timeout_duration, import_future).await {
@@ -330,20 +330,6 @@ async fn import_session_handler(
             // 使用 UUID 生成唯一 ID
             let id = Uuid::new_v4().to_string();
 
-            // 构建 portal_info (如果有 credits_balance 或 expiry_date)
-            let portal_info = if response.credits_balance.is_some() || response.expiry_date.is_some() {
-                let mut portal_map = serde_json::Map::new();
-                if let Some(credits) = response.credits_balance {
-                    portal_map.insert("credits_balance".to_string(), serde_json::Value::Number(credits.into()));
-                }
-                if let Some(expiry) = &response.expiry_date {
-                    portal_map.insert("expiry_date".to_string(), serde_json::Value::String(expiry.clone()));
-                }
-                Some(serde_json::Value::Object(portal_map))
-            } else {
-                None
-            };
-
             // 构造 TokenData
             let token_data = TokenData {
                 id,
@@ -356,7 +342,7 @@ async fn import_session_handler(
                 tag_name: None,
                 tag_color: None,
                 ban_status: Some(serde_json::Value::String("ACTIVE".to_string())),  // Session 导入默认设置为 ACTIVE
-                portal_info,
+                portal_info: None,  // Session 导入不再获取 portal_info
                 auth_session: Some(request.session.clone()),
                 suspensions: None,  // Session 导入不再获取 suspensions
                 skip_check: Some(false),
@@ -536,8 +522,8 @@ async fn import_sessions_handler(
                 };
             }
 
-            // 导入 session（带超时）
-            let import_future = crate::add_token_from_session_internal(&session, &state.app_handle);
+            // 导入 session（带超时，使用 app_session 缓存）
+            let import_future = crate::add_token_from_session_internal_with_cache(&session, &state);
             let timeout_duration = std::time::Duration::from_secs(30); // 30秒超时
 
             let import_result = match tokio::time::timeout(timeout_duration, import_future).await {
@@ -606,19 +592,6 @@ async fn import_sessions_handler(
 
                     let id = Uuid::new_v4().to_string();
 
-                    let portal_info = if response.credits_balance.is_some() || response.expiry_date.is_some() {
-                        let mut portal_map = serde_json::Map::new();
-                        if let Some(credits) = response.credits_balance {
-                            portal_map.insert("credits_balance".to_string(), serde_json::Value::Number(credits.into()));
-                        }
-                        if let Some(expiry) = &response.expiry_date {
-                            portal_map.insert("expiry_date".to_string(), serde_json::Value::String(expiry.clone()));
-                        }
-                        Some(serde_json::Value::Object(portal_map))
-                    } else {
-                        None
-                    };
-
                     let token_data = TokenData {
                         id,
                         tenant_url: response.tenant_url.clone(),
@@ -630,7 +603,7 @@ async fn import_sessions_handler(
                         tag_name: None,
                         tag_color: None,
                         ban_status: Some(serde_json::Value::String("ACTIVE".to_string())),  // Session 导入默认设置为 ACTIVE
-                        portal_info,
+                        portal_info: None,  // Session 导入不再获取 portal_info
                         auth_session: Some(session.clone()),
                         suspensions: None,  // Session 导入不再获取 suspensions
                         skip_check: Some(false),

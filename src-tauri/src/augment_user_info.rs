@@ -25,9 +25,7 @@ pub struct CreditsInfo {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CompleteUserInfo {
-    pub email_note: Option<String>,
     pub suspensions: Option<Value>,
-    pub portal_url: Option<String>,
     pub ban_status: String,
 }
 
@@ -92,7 +90,11 @@ pub async fn exchange_auth_session_for_app_session(auth_session: &str) -> Result
 
 /// 获取用户信息
 pub async fn fetch_app_user(app_session: &str) -> Result<UserInfo, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
     let response = client
         .get("https://app.augmentcode.com/api/user")
         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
@@ -109,7 +111,11 @@ pub async fn fetch_app_user(app_session: &str) -> Result<UserInfo, String> {
 
 /// 获取订阅信息
 pub async fn fetch_app_subscription(app_session: &str) -> Result<SubscriptionInfo, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
     let response = client
         .get("https://app.augmentcode.com/api/subscription")
         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
@@ -143,16 +149,8 @@ pub async fn fetch_app_credits(app_session: &str) -> Result<CreditsInfo, String>
 
 /// 使用已有的 app_session 获取完整的用户信息
 pub async fn get_user_info_with_app_session(app_session: &str) -> Result<CompleteUserInfo, String> {
-    // 并发获取所有信息
-    let (user_result, subscription_result, credits_result) = tokio::join!(
-        fetch_app_user(app_session),
-        fetch_app_subscription(app_session),
-        fetch_app_credits(app_session)
-    );
-
-    let user_info = user_result.ok();
-    let subscription_info = subscription_result.ok();
-    let _credits_info = credits_result.ok();
+    // 只获取用户信息
+    let user_info = fetch_app_user(app_session).await.ok();
 
     // 计算 ban_status
     let ban_status = if let Some(ref user) = user_info {
@@ -182,19 +180,47 @@ pub async fn get_user_info_with_app_session(app_session: &str) -> Result<Complet
     };
 
     Ok(CompleteUserInfo {
-        email_note: user_info.as_ref().and_then(|u| u.email.clone()),
         suspensions: user_info.and_then(|u| u.suspensions),
-        portal_url: subscription_info.as_ref().and_then(|s| s.portal_url.clone()),
         ban_status,
     })
 }
 
-/// 获取完整的用户信息
-pub async fn get_user_info(auth_session: &str) -> Result<CompleteUserInfo, String> {
+/// 获取完整的用户信息 (使用缓存的 app_session)
+pub async fn get_user_info(
+    auth_session: &str,
+    app_session_cache: &std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, crate::AppSessionCache>>>,
+) -> Result<CompleteUserInfo, String> {
+    use std::time::SystemTime;
+
+    // 1. 检查缓存中是否有有效的 app_session
+    let cached_app_session = {
+        let cache = app_session_cache.lock().unwrap();
+        cache.get(auth_session).map(|c| c.app_session.clone())
+    };
+
+    // 2. 尝试使用缓存的 app_session
+    if let Some(app_session) = cached_app_session {
+        match get_user_info_with_app_session(&app_session).await {
+            Ok(user_info) => return Ok(user_info),
+            Err(e) => println!("Cached app_session failed: {}, will refresh", e),
+        }
+    }
+
+    // 3. 交换新的 app_session
     let app_session = exchange_auth_session_for_app_session(auth_session).await?;
 
     println!("App session obtained: {}", &app_session[..20.min(app_session.len())]);
 
+    // 4. 更新缓存
+    {
+        let mut cache = app_session_cache.lock().unwrap();
+        cache.insert(auth_session.to_string(), crate::AppSessionCache {
+            app_session: app_session.clone(),
+            created_at: SystemTime::now(),
+        });
+    }
+
+    // 5. 获取用户信息
     get_user_info_with_app_session(&app_session).await
 }
 

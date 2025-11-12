@@ -448,13 +448,12 @@ const handleSessionImport = async () => {
         emailNote: result.email || null,
         authSession: trimmedSession, // 保存原始 Session 字符串
         banStatus: "ACTIVE", // Session 导入默认设置为 ACTIVE
-        creditsBalance: result.credits_balance !== undefined ? result.credits_balance : null,  // ✅ 修复：使用蛇形命名
-        expiryDate: result.expiry_date || null,  // ✅ 修复：使用蛇形命名
+        creditsBalance: null,  // Session 导入不再获取余额
+        expiryDate: null,  // Session 导入不再获取过期时间
         suspensions: null, // Session 导入不获取 suspensions
       };
 
       console.log("TokenForm 准备添加的 tokenData:", tokenData);
-      console.log("creditsBalance:", tokenData.creditsBalance, "expiryDate:", tokenData.expiryDate);
 
       // 通知父组件添加 token（父组件会处理重复检测、确认和关闭弹窗）
       emit("add-token", tokenData);

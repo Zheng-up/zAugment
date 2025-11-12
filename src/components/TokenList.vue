@@ -22,7 +22,7 @@
             <input
               type="text"
               v-model="searchQuery"
-              placeholder="邮箱 标签 Token Sessin）"
+              placeholder="Token / 邮箱 / Session / 标签 / 状态..."
               class="search-input"
               name="token-search"
               autocomplete="new-password"
@@ -132,13 +132,13 @@
             显示{{ paginationInfo.start }}-{{ paginationInfo.end }} 共{{ paginationInfo.total }}条
           </div>
         </div>
-  <!-- Empty State -->
+  <!-- Empty State - 没有任何账号 -->
   <div v-if="tokens.length === 0" class="empty-state">
           <div class="empty-state-content">
             <div class="empty-icon">
               <svg
-                width="48"
-                height="48"
+                width="64"
+                height="64"
                 viewBox="0 0 24 24"
                 fill="currentColor"
               >
@@ -166,8 +166,31 @@
             </div>
           </div>
         </div>
+
+        <!-- Empty State - 筛选后无结果 -->
+        <div v-else-if="tokens.length > 0 && filteredTokens.length === 0" class="empty-state">
+          <div class="empty-state-content">
+            <div class="empty-icon">
+              <svg
+                width="64"
+                height="64"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+                />
+              </svg>
+            </div>
+            <h4>没有找到匹配的账号</h4>
+            <p>
+              当前筛选条件下没有账号，请尝试调整筛选条件或搜索关键词。
+            </p>
+          </div>
+        </div>
+
         <!-- Token List -->
-        <div v-if="tokens.length > 0" class="token-list">
+        <div v-else class="token-list">
           <div class="token-grid">
             <TokenCard
               v-for="token in paginatedTokens"
@@ -175,6 +198,7 @@
               :ref="(el) => setTokenCardRef(el, token.id)"
               :token="token"
               :is-batch-checking="isRefreshing"
+              :checking-token-ids="checkingTokenIds"
               :statusThresholds="statusThresholds"
               @delete="handleDeleteToken"
               @copy-success="handleCopySuccess"
@@ -469,6 +493,9 @@ let sortMenuTimer = null; // 排序菜单延迟隐藏计时器
 // 搜索状态管理
 const searchQuery = ref('');
 
+// 状态筛选管理
+const selectedStatusFilter = ref(null); // null表示"全部", 其他值为具体状态: 'ACTIVE', 'SUSPENDED', 'EXPIRED', 'INVALID_TOKEN'
+
 // 批量删除状态管理
 const showBatchDeleteOptions = ref(false); // 批量删除选项对话框
 const showBatchDeleteConfirm = ref(false); // 批量删除确认对话框
@@ -600,21 +627,67 @@ const sortedTokens = computed(() => {
   });
 });
 
-// 过滤后的tokens计算属性（搜索 + 排序）
+// 状态关键词匹配辅助函数 - 支持中英文及常见别名搜索
+const matchStatusKeyword = (banStatus, query) => {
+  if (!banStatus || !query) return false;
+
+  const lowerQuery = query.toLowerCase();
+
+  // 状态关键词映射表（支持中英文及别名）
+  const statusKeywords = {
+    'ACTIVE': ['active', 'normal', '正常', '激活', '可用'],
+    'SUSPENDED': ['suspended', 'banned', 'ban', '封禁', '已封禁', '被封', '禁用'],
+    'EXPIRED': ['expired', 'expire', '过期', '已过期', '到期'],
+    'INVALID_TOKEN': ['invalid', 'token invalid', '失效', 'token失效', '无效']
+  };
+
+  // 获取当前状态的关键词列表
+  const keywords = statusKeywords[banStatus] || [];
+
+  // 检查是否有任何关键词包含查询词（支持部分匹配）
+  return keywords.some(keyword => keyword.includes(lowerQuery));
+};
+
+// 过滤后的tokens计算属性（状态筛选 + 搜索 + 排序）
 const filteredTokens = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return sortedTokens.value;
+  let result = sortedTokens.value;
+
+  // 1. 应用状态筛选
+  if (selectedStatusFilter.value !== null) {
+    result = result.filter(token => {
+      const status = token.ban_status;
+
+      if (selectedStatusFilter.value === 'OTHER') {
+        // "其他"包含除 ACTIVE 和 SUSPENDED 以外的所有状态
+        return status !== 'ACTIVE' && status !== 'SUSPENDED';
+      } else {
+        // 精确匹配状态
+        return status === selectedStatusFilter.value;
+      }
+    });
   }
 
-  const query = searchQuery.value.toLowerCase().trim();
-  return sortedTokens.value.filter(token => {
-    return (
-      token.access_token?.toLowerCase().includes(query) ||
-      token.email_note?.toLowerCase().includes(query) ||
-      token.auth_session?.toLowerCase().includes(query) ||
-      token.tag_name?.toLowerCase().includes(query)
-    );
-  });
+  // 2. 应用搜索过滤
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim();
+    result = result.filter(token => {
+      // 原有字段搜索
+      const matchesOriginalFields = (
+        token.access_token?.toLowerCase().includes(query) ||
+        token.email_note?.toLowerCase().includes(query) ||
+        token.auth_session?.toLowerCase().includes(query) ||
+        token.tag_name?.toLowerCase().includes(query)
+      );
+
+      // 状态搜索（支持中英文关键词）
+      const matchesStatus = matchStatusKeyword(token.ban_status, query);
+
+      // 任一匹配即返回
+      return matchesOriginalFields || matchesStatus;
+    });
+  }
+
+  return result;
 });
 
 // 总页数
@@ -738,6 +811,7 @@ const getStatusCounts = () => {
 // Token card refs for portal refresh
 const tokenCardRefs = ref({});
 const isRefreshing = ref(false);
+const checkingTokenIds = ref(new Set()); // 正在检测的 token ID 集合
 
 const setTokenCardRef = (el, tokenId) => {
   if (el) {
@@ -784,6 +858,148 @@ const isEqual = (obj1, obj2) => {
   return true;
 };
 
+// 检查当前页Token的账号状态
+const checkPageAccountStatus = async () => {
+  // 获取当前页需要检测的tokens(过滤掉标记为跳过检测的)
+  const tokensToCheck = paginatedTokens.value.filter(token => !token.skip_check);
+
+  if (tokensToCheck.length === 0) {
+    return { hasChanges: false, stats: { total: 0, success: 0, failed: 0, retried: 0 } };
+  }
+
+  isRefreshing.value = true;
+
+  // 记录正在检测的 token ID
+  tokensToCheck.forEach(token => {
+    checkingTokenIds.value.add(token.id);
+  });
+
+  try {
+    const tokenInfos = tokensToCheck.map(token => ({
+      id: token.id,
+      access_token: token.access_token,
+      tenant_url: token.tenant_url,
+      portal_url: token.portal_url || null,
+      auth_session: token.auth_session || null,
+      email_note: token.email_note || null
+    }));
+
+    // 单次批量API调用检测当前页所有tokens
+    const results = await invoke('batch_check_tokens_status', {
+      tokens: tokenInfos
+    });
+
+    let hasChanges = false;
+
+    results.forEach(result => {
+      const token = tokens.value.find(t => t.id === result.token_id);
+      if (token) {
+        const statusResult = result.status_result;
+        let tokenHasChanges = false;
+
+        if (token.access_token !== result.access_token) {
+          token.access_token = result.access_token;
+          tokenHasChanges = true;
+        }
+
+        if (token.tenant_url !== result.tenant_url) {
+          token.tenant_url = result.tenant_url;
+          tokenHasChanges = true;
+        }
+
+        if (token.ban_status !== statusResult.status) {
+          token.ban_status = statusResult.status;
+          tokenHasChanges = true;
+        }
+
+        if ((statusResult.status === 'SUSPENDED' || statusResult.status === 'EXPIRED') && !token.skip_check) {
+          token.skip_check = true;
+          tokenHasChanges = true;
+        }
+
+        if (result.suspensions) {
+          if (!isEqual(token.suspensions, result.suspensions)) {
+            token.suspensions = result.suspensions;
+            tokenHasChanges = true;
+          }
+        }
+
+        if (result.portal_info) {
+          const newPortalInfo = {
+            credits_balance: result.portal_info.credits_balance,
+            expiry_date: result.portal_info.expiry_date
+          };
+
+          if (!isEqual(token.portal_info, newPortalInfo)) {
+            token.portal_info = newPortalInfo;
+            tokenHasChanges = true;
+          }
+        }
+
+        if (result.email_note && token.email_note !== result.email_note) {
+          token.email_note = result.email_note;
+          tokenHasChanges = true;
+        }
+
+        // 更新 portal_url（如果后端返回了新的 portal_url）
+        if (result.portal_url && token.portal_url !== result.portal_url) {
+          token.portal_url = result.portal_url;
+          tokenHasChanges = true;
+        }
+
+        if (tokenHasChanges) {
+          token.updated_at = new Date().toISOString();
+          hasChanges = true;
+        }
+      }
+    });
+
+    if (hasChanges) {
+      await saveTokens(false);
+    }
+
+    let successCount = 0;
+    let failedCount = 0;
+    let suspendedCount = 0;
+    let expiredCount = 0;
+
+    results.forEach(result => {
+      if (result.status_result && result.status_result.status === 'ERROR') {
+        failedCount++;
+      } else if (result.status_result && result.status_result.status === 'SUSPENDED') {
+        suspendedCount++;
+        successCount++;
+      } else if (result.status_result && result.status_result.status === 'EXPIRED') {
+        expiredCount++;
+        successCount++;
+      } else {
+        successCount++;
+      }
+    });
+
+    return {
+      hasChanges,
+      stats: {
+        total: tokensToCheck.length,
+        success: successCount,
+        failed: failedCount,
+        suspended: suspendedCount,
+        expired: expiredCount,
+        retried: 0
+      }
+    };
+  } catch (error) {
+    console.error('Batch check page error:', error);
+    throw error;
+  } finally {
+    // 清除正在检测的 token ID
+    tokensToCheck.forEach(token => {
+      checkingTokenIds.value.delete(token.id);
+    });
+    isRefreshing.value = false;
+  }
+};
+
 // 检查所有Token的账号状态
 const checkAllAccountStatus = async () => {
   const tokensToCheck = tokens.value.filter(token => !token.skip_check);
@@ -793,6 +1009,11 @@ const checkAllAccountStatus = async () => {
   }
 
   isRefreshing.value = true;
+
+  // 记录正在检测的 token ID
+  tokensToCheck.forEach(token => {
+    checkingTokenIds.value.add(token.id);
+  });
 
   try {
     const tokenInfos = tokensToCheck.map(token => ({
@@ -861,6 +1082,12 @@ const checkAllAccountStatus = async () => {
           tokenHasChanges = true;
         }
 
+        // 更新 portal_url（如果后端返回了新的 portal_url）
+        if (result.portal_url && token.portal_url !== result.portal_url) {
+          token.portal_url = result.portal_url;
+          tokenHasChanges = true;
+        }
+
         if (tokenHasChanges) {
           token.updated_at = new Date().toISOString();
           hasChanges = true;
@@ -909,6 +1136,10 @@ const checkAllAccountStatus = async () => {
     console.error('Batch check all error:', error);
     throw error;
   } finally {
+    // 清除正在检测的 token ID
+    tokensToCheck.forEach(token => {
+      checkingTokenIds.value.delete(token.id);
+    });
     isRefreshing.value = false;
   }
 };
@@ -944,6 +1175,15 @@ const loadTokens = async (showSuccessMessage = false) => {
     } else {
       tokens.value = [];
     }
+
+    // 调整当前页码（如果当前页超过了总页数）
+    nextTick(() => {
+      if (currentPage.value > totalPages.value && totalPages.value > 0) {
+        currentPage.value = totalPages.value;
+      } else if (totalPages.value === 0) {
+        currentPage.value = 1;
+      }
+    });
 
     if (showSuccessMessage) {
       emit("copy-success", "账号加载成功", "success");
@@ -1718,12 +1958,20 @@ const openTokenForm = () => {
   showTokenFormModal.value = true;
 };
 
+// 设置状态筛选（供 App.vue 调用）
+const setStatusFilter = (status) => {
+  selectedStatusFilter.value = status;
+  // 重置到第一页
+  currentPage.value = 1;
+};
+
 // 暴露给父组件的方法和数据
 defineExpose({
   tokens,
   loadTokens,
   saveTokens,
-  checkAllAccountStatus,
+  checkPageAccountStatus, // 检查当前页账号状态
+  checkAllAccountStatus, // 检查所有账号状态
   addToken,
   highlightAndScrollTo,
   closeAllTokenCardModals,
@@ -1732,6 +1980,7 @@ defineExpose({
   refreshAllPortalInfo,
   openTokenForm, // 暴露打开 TokenForm 的方法
   getStatusCounts, // 暴露状态统计方法
+  setStatusFilter, // 暴露状态筛选方法
   get isRefreshing() {
     return isRefreshing.value;
   }
@@ -1758,28 +2007,39 @@ defineExpose({
 
 .empty-state {
   text-align: center;
-  padding: 40px 20px;
+  padding: 80px 20px;
   flex: 1; /* 占据剩余空间 */
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 400px;
 }
 
 .empty-state-content {
-  max-width: 400px;
+  max-width: 450px;
   margin: 0 auto;
 }
 
 .empty-icon {
-  color: rgba(59, 130, 246, 0.6);
-  margin-bottom: 24px;
-  filter: drop-shadow(0 2px 4px rgba(59, 130, 246, 0.1));
+  color: rgba(59, 130, 246, 0.5);
+  margin-bottom: 28px;
+  filter: drop-shadow(0 4px 8px rgba(59, 130, 246, 0.15));
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 .empty-state h4 {
   color: #1e293b;
-  margin: 0 0 12px 0;
-  font-size: 1.25rem;
+  margin: 0 0 16px 0;
+  font-size: 1.5rem;
   font-weight: 600;
   background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
   -webkit-background-clip: text;
@@ -1789,9 +2049,9 @@ defineExpose({
 
 .empty-state p {
   color: #64748b;
-  margin: 0 0 24px 0;
+  margin: 0 0 28px 0;
   font-size: 1rem;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
 .empty-actions {

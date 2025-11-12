@@ -11,8 +11,8 @@ mod storage;
 mod thresholds;
 mod webdav;
 
-use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, extract_token_from_session, batch_check_account_status, get_credit_info, get_models, AugmentOAuthState, AugmentTokenResponse, TokenInfo, TokenStatusResult};
-use augment_user_info::{exchange_auth_session_for_app_session, fetch_app_subscription};
+use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, extract_token_from_session, batch_check_account_status, get_credit_info, get_models, get_batch_credit_consumption_with_app_session, AugmentOAuthState, AugmentTokenResponse, TokenInfo, TokenStatusResult, BatchCreditConsumptionResponse};
+use augment_user_info::exchange_auth_session_for_app_session;
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
 use outlook_manager::{OutlookManager, OutlookCredentials, EmailListResponse, EmailDetailsResponse, AccountStatus as OutlookAccountStatus};
@@ -38,8 +38,6 @@ pub struct TokenFromSessionResponse {
     pub access_token: String,
     pub tenant_url: String,
     pub email: Option<String>,           // 从 get-models API 获取的邮箱
-    pub credits_balance: Option<i32>,    // 从 get-credit-info 获取的余额
-    pub expiry_date: Option<String>,     // 从 get-credit-info 获取的过期时间
 }
 
 // 用户数据同步包结构
@@ -180,48 +178,6 @@ use std::env;
 pub struct AppSessionCache {
     pub app_session: String,
     pub created_at: SystemTime,
-}
-
-// ============ Credit Consumption 相关结构体 ============
-
-/// Credit 消费数据点
-#[derive(Debug, Serialize, Deserialize)]
-struct CreditDataPoint {
-    #[serde(rename(serialize = "group_key", deserialize = "groupKey"))]
-    group_key: Option<String>, // 模型名称
-    #[serde(rename(serialize = "date_range", deserialize = "dateRange"))]
-    date_range: Option<DateRange>,
-    #[serde(rename(serialize = "credits_consumed", deserialize = "creditsConsumed"), default = "default_credits_consumed")]
-    credits_consumed: String,
-}
-
-/// 默认值函数：当 creditsConsumed 字段缺失时返回 "0"
-fn default_credits_consumed() -> String {
-    "0".to_string()
-}
-
-/// 日期范围
-#[derive(Debug, Serialize, Deserialize)]
-struct DateRange {
-    #[serde(rename(serialize = "start_date_iso", deserialize = "startDateIso"))]
-    start_date_iso: String,
-    #[serde(rename(serialize = "end_date_iso", deserialize = "endDateIso"))]
-    end_date_iso: String,
-}
-
-/// Credit 消费响应
-#[derive(Debug, Serialize, Deserialize)]
-struct CreditConsumptionResponse {
-    #[serde(rename(serialize = "data_points", deserialize = "dataPoints"), default)]
-    data_points: Vec<CreditDataPoint>,
-}
-
-/// 批量获取 Credit 消费数据的响应
-#[derive(Debug, Serialize, Deserialize)]
-struct BatchCreditConsumptionResponse {
-    stats_data: CreditConsumptionResponse,
-    chart_data: CreditConsumptionResponse,
-    portal_url: Option<String>,  // 添加 portal_url 字段
 }
 
 // Global state to store OAuth state and storage managers
@@ -382,8 +338,9 @@ async fn check_account_status(
 #[tauri::command]
 async fn batch_check_tokens_status(
     tokens: Vec<TokenInfo>,
+    state: State<'_, AppState>,
 ) -> Result<Vec<TokenStatusResult>, String> {
-    batch_check_account_status(tokens)
+    batch_check_account_status(tokens, state.app_session_cache.clone())
         .await
         .map_err(|e| format!("Failed to batch check tokens status: {}", e))
 }
@@ -418,188 +375,95 @@ async fn get_models_from_token(
 #[tauri::command]
 async fn fetch_batch_credit_consumption(
     auth_session: String,
-    fetch_portal_url: Option<bool>,  // 是否获取 portal_url，默认为 false
     state: State<'_, AppState>,
 ) -> Result<BatchCreditConsumptionResponse, String> {
-    let should_fetch_portal_url = fetch_portal_url.unwrap_or(false);
-    println!("[Credit] fetch_batch_credit_consumption called with fetch_portal_url: {:?}, should_fetch: {}", fetch_portal_url, should_fetch_portal_url);
+    println!("fetch_batch_credit_consumption called");
     // 1. 检查缓存中是否有有效的 app_session
     let cached_app_session = {
         let cache = state.app_session_cache.lock().unwrap();
         cache.get(&auth_session).map(|c| c.app_session.clone())
     };
 
-    // 2. 获取或刷新 app_session
-    let app_session = if let Some(app_session) = cached_app_session {
-        println!("[Credit] Using cached app_session");
-        println!("[Credit] App session (first 20 chars): {}...", &app_session.chars().take(20).collect::<String>());
-        app_session
-    } else {
-        // 使用 auth_session 交换新的 app_session
-        println!("[Credit] Exchanging auth_session for new app_session");
-        println!("[Credit] Auth session (first 20 chars): {}...", &auth_session.chars().take(20).collect::<String>());
+    // 2. 如果有缓存，先尝试使用缓存的 app_session
+    if let Some(app_session) = cached_app_session {
+        println!("Using cached app_session for credit consumption");
 
-        let new_app_session = exchange_auth_session_for_app_session(&auth_session).await?;
-
-        println!("[Credit] Successfully exchanged app_session");
-        println!("[Credit] New app session (first 20 chars): {}...", &new_app_session.chars().take(20).collect::<String>());
-
-        // 缓存新的 app_session
-        {
-            let mut cache = state.app_session_cache.lock().unwrap();
-            cache.insert(
-                auth_session.clone(),
-                AppSessionCache {
-                    app_session: new_app_session.clone(),
-                    created_at: SystemTime::now(),
-                },
-            );
-            println!("[Credit] App session cached for future use");
-        }
-
-        new_app_session
-    };
-
-    // 3. 创建 HTTP 客户端
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .connect_timeout(std::time::Duration::from_secs(10))
-        .build()
-        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
-
-    // 4. 并行获取两个数据
-    let stats_url = "https://app.augmentcode.com/api/credit-consumption?groupBy=NONE&granularity=DAY&billingCycle=CURRENT_BILLING_CYCLE";
-    let chart_url = "https://app.augmentcode.com/api/credit-consumption?groupBy=MODEL_NAME&granularity=TOTAL&billingCycle=CURRENT_BILLING_CYCLE";
-
-    println!("[Credit] Fetching stats from: {}", stats_url);
-    println!("[Credit] Fetching chart from: {}", chart_url);
-    println!("[Credit] Cookie header: _session={}...", &app_session.chars().take(20).collect::<String>());
-
-    let (stats_result, chart_result) = tokio::join!(
-        async {
-            let response = client
-                .get(stats_url)
-                .header("Cookie", format!("_session={}", urlencoding::encode(&app_session)))
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                .header("Accept", "application/json")
-                .send()
-                .await
-                .map_err(|e| format!("Failed to fetch stats data: {}", e))?;
-
-            let status = response.status();
-            println!("[Credit] Stats API response status: {}", status);
-
-            if !status.is_success() {
-                let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                println!("[Credit] Stats API error body: {}", error_body);
-                return Err(format!("Stats API returned status {}: {}", status, error_body));
-            }
-
-            let response_text = response.text().await
-                .map_err(|e| format!("Failed to read stats response body: {}", e))?;
-
-            println!("[Credit] Stats response (first 200 chars): {}...",
-                &response_text.chars().take(200).collect::<String>());
-
-            serde_json::from_str::<CreditConsumptionResponse>(&response_text)
-                .map_err(|e| format!("Failed to parse stats response: {}. Response body: {}", e, response_text))
-        },
-        async {
-            let response = client
-                .get(chart_url)
-                .header("Cookie", format!("_session={}", urlencoding::encode(&app_session)))
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                .header("Accept", "application/json")
-                .send()
-                .await
-                .map_err(|e| format!("Failed to fetch chart data: {}", e))?;
-
-            let status = response.status();
-            println!("[Credit] Chart API response status: {}", status);
-
-            if !status.is_success() {
-                let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                println!("[Credit] Chart API error body: {}", error_body);
-                return Err(format!("Chart API returned status {}: {}", status, error_body));
-            }
-
-            let response_text = response.text().await
-                .map_err(|e| format!("Failed to read chart response body: {}", e))?;
-
-            println!("[Credit] Chart response (first 200 chars): {}...",
-                &response_text.chars().take(200).collect::<String>());
-
-            serde_json::from_str::<CreditConsumptionResponse>(&response_text)
-                .map_err(|e| format!("Failed to parse chart response: {}. Response body: {}", e, response_text))
-        }
-    );
-
-    let stats_data = stats_result?;
-    let chart_data = chart_result?;
-
-    // 5. 如果需要，获取 portal_url
-    let portal_url = if should_fetch_portal_url {
-        println!("[Credit] Fetching portal_url from subscription API...");
-        match fetch_app_subscription(&app_session).await {
-            Ok(subscription) => {
-                println!("[Credit] Got portal_url: {:?}", subscription.portal_url);
-                subscription.portal_url
+        // 尝试使用缓存的 app_session 获取数据
+        match get_batch_credit_consumption_with_app_session(&app_session).await {
+            Ok(result) => {
+                println!("Successfully fetched credit data with cached app_session");
+                return Ok(result);
             }
             Err(e) => {
-                println!("[Credit] Failed to fetch subscription info: {}", e);
-                None
+                // 如果失败（可能是 session 过期），记录日志并继续获取新的
+                println!("Cached app_session failed: {}, will refresh", e);
             }
         }
-    } else {
-        println!("[Credit] Skipping portal_url fetch (not requested)");
-        None
-    };
+    }
 
-    Ok(BatchCreditConsumptionResponse {
-        stats_data,
-        chart_data,
-        portal_url,
-    })
+    // 3. 没有缓存或缓存失效，获取新的 app_session
+    println!("Exchanging auth_session for new app_session...");
+    let app_session = exchange_auth_session_for_app_session(&auth_session).await?;
+    println!("New app session obtained: {}", &app_session[..20.min(app_session.len())]);
+
+    // 4. 更新缓存
+    {
+        let mut cache = state.app_session_cache.lock().unwrap();
+        cache.insert(
+            auth_session.clone(),
+            AppSessionCache {
+                app_session: app_session.clone(),
+                created_at: SystemTime::now(),
+            },
+        );
+        println!("App session cached for future use");
+    }
+
+    // 5. 使用新的 app_session 获取数据
+    let result = get_batch_credit_consumption_with_app_session(&app_session).await?;
+
+    Ok(result)
 }
 
-// 内部函数：从 session 导入 token（供 API 服务器使用）
+// 内部函数：从 session 导入 token（供 API 服务器使用，不发送进度事件）
 pub async fn add_token_from_session_internal(session: &str, _app: &tauri::AppHandle) -> Result<TokenFromSessionResponse, String> {
-    // 从 session 提取 token (包含 email, credits_balance, expiry_date)
+    // 从 session 提取 token (包含 email)
     let token_response = extract_token_from_session(session).await?;
 
     Ok(TokenFromSessionResponse {
         access_token: token_response.access_token,
         tenant_url: token_response.tenant_url,
         email: token_response.email,
-        credits_balance: token_response.credits_balance,
-        expiry_date: token_response.expiry_date,
+    })
+}
+
+// 内部函数：从 session 导入 token（供 API 服务器批量导入使用，使用 app_session 缓存）
+// 注意：这个函数与 add_token_from_session_internal 功能相同，但为了与 augment-token-mng-1.3.3 保持一致而添加
+pub async fn add_token_from_session_internal_with_cache(session: &str, _state: &AppState) -> Result<TokenFromSessionResponse, String> {
+    // 从 session 提取 token (包含 email)
+    // 注意：extract_token_from_session 内部已经使用了 app_session 缓存机制
+    let token_response = extract_token_from_session(session).await?;
+
+    Ok(TokenFromSessionResponse {
+        access_token: token_response.access_token,
+        tenant_url: token_response.tenant_url,
+        email: token_response.email,
     })
 }
 
 #[tauri::command]
 async fn add_token_from_session(session: String, app: tauri::AppHandle) -> Result<TokenFromSessionResponse, String> {
-    // 从 session 提取 token (包含 email, credits_balance, expiry_date)
+    // 从 session 提取 token (包含 email)
     let _ = app.emit("session-import-progress", "sessionImportExtractingToken");
     let token_response = extract_token_from_session(&session).await?;
 
     let _ = app.emit("session-import-progress", "sessionImportComplete");
 
-    let response = TokenFromSessionResponse {
+    Ok(TokenFromSessionResponse {
         access_token: token_response.access_token,
         tenant_url: token_response.tenant_url,
-        email: token_response.email.clone(),
-        credits_balance: token_response.credits_balance,
-        expiry_date: token_response.expiry_date.clone(),
-    };
-
-    println!("=== Session 导入返回数据 ===");
-    println!("Email: {:?}", response.email);
-    println!("Credits Balance: {:?}", response.credits_balance);
-    println!("Expiry Date: {:?}", response.expiry_date);
-    println!("Credits Balance: {:?}", response.credits_balance);
-    println!("Expiry Date: {:?}", response.expiry_date);
-
-    Ok(response)
+        email: token_response.email,
+    })
 }
 
 #[tauri::command]
@@ -1856,6 +1720,133 @@ async fn create_jetbrains_token_file(
         .map_err(|e| format!("Failed to write token file: {}", e))?;
 
     Ok(file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn configure_vim_augment(
+    access_token: String,
+    tenant_url: String,
+) -> Result<String, String> {
+    use std::fs;
+    use std::env;
+    use std::path::PathBuf;
+
+    // 获取用户主目录
+    let home_dir = env::var("USERPROFILE")
+        .or_else(|_| env::var("HOME"))
+        .map_err(|_| "Failed to get home directory".to_string())?;
+
+    // 配置文件路径 (所有系统统一使用 .local/share/vim-augment)
+    let vim_augment_dir = PathBuf::from(&home_dir).join(".local").join("share").join("vim-augment");
+
+    // 确保目录存在
+    fs::create_dir_all(&vim_augment_dir)
+        .map_err(|e| format!("Failed to create vim-augment directory: {}", e))?;
+
+    let secrets_path = vim_augment_dir.join("secrets.json");
+
+    // 如果文件已存在，先删除
+    if secrets_path.exists() {
+        fs::remove_file(&secrets_path)
+            .map_err(|e| format!("Failed to remove existing secrets.json: {}", e))?;
+    }
+
+    // 构建内层 JSON 对象
+    let inner_json = serde_json::json!({
+        "accessToken": access_token,
+        "tenantURL": tenant_url,
+        "scopes": ["email"]
+    });
+
+    // 将内层 JSON 转换为字符串（这会自动转义引号）
+    let inner_json_str = serde_json::to_string(&inner_json)
+        .map_err(|e| format!("Failed to serialize inner JSON: {}", e))?;
+
+    // 构建外层 JSON 对象
+    let outer_json = serde_json::json!({
+        "augment.sessions": inner_json_str
+    });
+
+    // 将外层 JSON 转换为格式化的字符串
+    let json_content = serde_json::to_string_pretty(&outer_json)
+        .map_err(|e| format!("Failed to serialize outer JSON: {}", e))?;
+
+    // 写入文件
+    fs::write(&secrets_path, json_content)
+        .map_err(|e| format!("Failed to write secrets.json: {}", e))?;
+
+    // 在 Unix 系统上设置文件权限
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&secrets_path)
+            .map_err(|e| format!("Failed to get file metadata: {}", e))?
+            .permissions();
+        perms.set_mode(0o600); // 仅所有者可读写
+        fs::set_permissions(&secrets_path, perms)
+            .map_err(|e| format!("Failed to set file permissions: {}", e))?;
+    }
+
+    Ok(secrets_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn configure_auggie(
+    access_token: String,
+    tenant_url: String,
+) -> Result<String, String> {
+    use std::fs;
+    use std::env;
+    use std::path::PathBuf;
+
+    // 获取用户主目录
+    let home_dir = env::var("USERPROFILE")
+        .or_else(|_| env::var("HOME"))
+        .map_err(|_| "Failed to get home directory".to_string())?;
+
+    // 确定 .augment 目录路径
+    let augment_dir = PathBuf::from(&home_dir).join(".augment");
+
+    // 确保目录存在
+    fs::create_dir_all(&augment_dir)
+        .map_err(|e| format!("Failed to create .augment directory: {}", e))?;
+
+    let session_path = augment_dir.join("session.json");
+
+    // 如果文件已存在，先删除
+    if session_path.exists() {
+        fs::remove_file(&session_path)
+            .map_err(|e| format!("Failed to remove existing session.json: {}", e))?;
+    }
+
+    // 构建 JSON 对象
+    let session_json = serde_json::json!({
+        "accessToken": access_token,
+        "tenantURL": tenant_url,
+        "scopes": ["read", "write"]
+    });
+
+    // 将 JSON 转换为格式化的字符串
+    let json_content = serde_json::to_string_pretty(&session_json)
+        .map_err(|e| format!("Failed to serialize session JSON: {}", e))?;
+
+    // 写入文件
+    fs::write(&session_path, json_content)
+        .map_err(|e| format!("Failed to write session.json: {}", e))?;
+
+    // 在 Unix 系统上设置文件权限
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&session_path)
+            .map_err(|e| format!("Failed to get file metadata: {}", e))?
+            .permissions();
+        perms.set_mode(0o600); // 仅所有者可读写
+        fs::set_permissions(&session_path, perms)
+            .map_err(|e| format!("Failed to set file permissions: {}", e))?;
+    }
+
+    Ok(session_path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -4758,6 +4749,8 @@ fn main() {
             open_data_folder,
             open_editor_with_protocol,
             create_jetbrains_token_file,
+            configure_vim_augment,
+            configure_auggie,
             // Outlook 邮箱管理命令
             outlook_save_credentials,
             outlook_get_all_accounts,

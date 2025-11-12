@@ -213,6 +213,40 @@
                   <span class="editor-name">CodeBuddy</span>
                 </div>
               </button>
+              <button
+                @click="selectEditor('vim')"
+                class="editor-option vim-option"
+                :class="{ active: selectedEditor === 'vim' }"
+              >
+                <div class="editor-icon">
+                  <img
+                    :src="editorIcons.vim"
+                    alt="Vim"
+                    width="32"
+                    height="32"
+                  />
+                </div>
+                <div class="editor-info">
+                  <span class="editor-name">Vim</span>
+                </div>
+              </button>
+              <button
+                @click="selectEditor('auggie')"
+                class="editor-option auggie-option"
+                :class="{ active: selectedEditor === 'auggie' }"
+              >
+                <div class="editor-icon">
+                  <img
+                    :src="editorIcons.auggie"
+                    alt="Auggie"
+                    width="32"
+                    height="32"
+                  />
+                </div>
+                <div class="editor-info">
+                  <span class="editor-name">Auggie</span>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -497,18 +531,20 @@ const editorIcons = {
   qoder: "/icons/qoder.svg",
   vscodium: "/icons/vscodium.svg",
   codebuddy: "/icons/codebuddy.svg",
+  vim: "/icons/vim.svg",
+  auggie: "/icons/auggie.svg",
   idea: "/icons/idea.svg",
   pycharm: "/icons/pycharm.svg",
   goland: "/icons/goland.svg",
   rustrover: "/icons/rustrover.svg",
   webstorm: "/icons/webstorm.svg",
   phpstorm: "/icons/phpstorm.svg",
+  androidstudio: "/icons/androidstudio.svg",
   clion: "/icons/clion.svg",
   datagrip: "/icons/datagrip.svg",
   rider: "/icons/rider.svg",
   rubymine: "/icons/rubymine.svg",
   aqua: "/icons/aqua.svg",
-  androidstudio: "/icons/androidstudio.svg",
 };
 
 // Methods

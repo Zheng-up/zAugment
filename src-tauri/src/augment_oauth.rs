@@ -4,6 +4,7 @@ use reqwest;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use url::Url;
 
@@ -30,8 +31,6 @@ pub struct AugmentTokenResponse {
     pub access_token: String,
     pub tenant_url: String,
     pub email: Option<String>,           // 从 get-models API 获取的邮箱
-    pub credits_balance: Option<i32>,    // 从 get-credit-info 获取的余额
-    pub expiry_date: Option<String>,     // 从 get-credit-info 获取的过期时间
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -97,6 +96,46 @@ pub struct ModelsResponse {
 pub struct UserData {
     pub id: String,
     pub email: String,
+}
+
+// Credit 消费数据点
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreditDataPoint {
+    #[serde(rename(serialize = "group_key", deserialize = "groupKey"))]
+    pub group_key: Option<String>, // 模型名称
+    #[serde(rename(serialize = "date_range", deserialize = "dateRange"))]
+    pub date_range: Option<DateRange>,
+    #[serde(rename(serialize = "credits_consumed", deserialize = "creditsConsumed"), default = "default_credits_consumed")]
+    pub credits_consumed: String,
+}
+
+/// 默认值函数：当 creditsConsumed 字段缺失时返回 "0"
+fn default_credits_consumed() -> String {
+    "0".to_string()
+}
+
+/// 日期范围
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DateRange {
+    #[serde(rename(serialize = "start_date_iso", deserialize = "startDateIso"))]
+    pub start_date_iso: String,
+    #[serde(rename(serialize = "end_date_iso", deserialize = "endDateIso"))]
+    pub end_date_iso: String,
+}
+
+// Credit 消费响应
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreditConsumptionResponse {
+    #[serde(rename(serialize = "data_points", deserialize = "dataPoints"), default)]
+    pub data_points: Vec<CreditDataPoint>,
+}
+
+// 批量获取 Credit 消费数据的响应
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BatchCreditConsumptionResponse {
+    pub stats_data: CreditConsumptionResponse,
+    pub chart_data: CreditConsumptionResponse,
+    pub portal_url: Option<String>,  // 添加 portal_url 字段
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -233,14 +272,8 @@ pub async fn complete_augment_oauth_flow(
         &parsed_code.code,
     ).await?;
 
-    // 并行获取用户邮箱和 credit 信息
-    let (email_result, credit_result) = tokio::join!(
-        get_models(&token, &parsed_code.tenant_url),
-        get_credit_info(&token, &parsed_code.tenant_url)
-    );
-
-    // 处理邮箱结果
-    let email = match email_result {
+    // 获取用户邮箱（OAuth 流程也不再获取 credits_balance 和 expiry_date）
+    let email = match get_models(&token, &parsed_code.tenant_url).await {
         Ok(models_response) => Some(models_response.user.email),
         Err(err) => {
             println!("Failed to get user email: {}", err);
@@ -248,24 +281,10 @@ pub async fn complete_augment_oauth_flow(
         }
     };
 
-    // 处理 credit 信息结果
-    let (credits_balance, expiry_date) = match credit_result {
-        Ok(credit_info) => (
-            Some(credit_info.usage_units_remaining.floor() as i32),  // 转换为整数
-            Some(credit_info.current_billing_cycle_end_date_iso),
-        ),
-        Err(err) => {
-            println!("Failed to get credit info: {}", err);
-            (None, None)
-        }
-    };
-
     Ok(AugmentTokenResponse {
         access_token: token,
         tenant_url: parsed_code.tenant_url,
         email,
-        credits_balance,
-        expiry_date,
     })
 }
 
@@ -495,17 +514,11 @@ pub async fn extract_token_from_session(session: &str) -> Result<AugmentTokenRes
         .await
         .map_err(|e| format!("Failed to parse token response: {}", e))?;
 
-    // 并行获取用户邮箱和 credit 信息
+    // 获取用户邮箱（Session 导入不再获取 credits_balance 和 expiry_date）
     let token = token_data.access_token.clone();
     let tenant_url_clone = tenant_url.to_string();
 
-    let (email_result, credit_result) = tokio::join!(
-        get_models(&token, &tenant_url_clone),
-        get_credit_info(&token, &tenant_url_clone)
-    );
-
-    // 处理邮箱结果
-    let email = match email_result {
+    let email = match get_models(&token, &tenant_url_clone).await {
         Ok(models_response) => Some(models_response.user.email),
         Err(err) => {
             println!("Failed to get user email from session: {}", err);
@@ -513,33 +526,15 @@ pub async fn extract_token_from_session(session: &str) -> Result<AugmentTokenRes
         }
     };
 
-    // 处理 credit 信息结果
-    let (credits_balance, expiry_date) = match credit_result {
-        Ok(credit_info) => {
-            println!("✅ Successfully got credit info from session:");
-            println!("   usage_units_remaining: {}", credit_info.usage_units_remaining);
-            println!("   current_billing_cycle_end_date_iso: {}", credit_info.current_billing_cycle_end_date_iso);
-            (
-                Some(credit_info.usage_units_remaining.floor() as i32),  // 转换为整数
-                Some(credit_info.current_billing_cycle_end_date_iso),
-            )
-        },
-        Err(err) => {
-            println!("❌ Failed to get credit info from session: {}", err);
-            (None, None)
-        }
-    };
-
     println!("📦 Final AugmentTokenResponse:");
-    println!("   credits_balance: {:?}", credits_balance);
-    println!("   expiry_date: {:?}", expiry_date);
+    println!("   access_token: {}", token_data.access_token);
+    println!("   tenant_url: {}", tenant_url);
+    println!("   email: {:?}", email);
 
     Ok(AugmentTokenResponse {
         access_token: token_data.access_token,
         tenant_url: tenant_url.to_string(),
         email,
-        credits_balance,
-        expiry_date,
     })
 }
 
@@ -660,6 +655,7 @@ async fn get_portal_info(portal_url: &str) -> Result<PortalInfo, String> {
 // 批量检测账号状态
 pub async fn batch_check_account_status(
     tokens: Vec<TokenInfo>,
+    app_session_cache: Arc<Mutex<HashMap<String, crate::AppSessionCache>>>,
 ) -> Result<Vec<TokenStatusResult>, String> {
 
     // 创建并发任务并立即spawn
@@ -671,6 +667,7 @@ pub async fn batch_check_account_status(
         let token_id = token_info.id.clone();
         let portal_url = token_info.portal_url.clone();
         let auth_session = token_info.auth_session.clone();
+        let cache = app_session_cache.clone();
 
         let handle = tokio::spawn(async move {
             println!("Checking status for token: {:?}", token_id);
@@ -777,7 +774,7 @@ pub async fn batch_check_account_status(
                 // 如果有 auth_session,获取详细的封禁信息
                 if let Some(ref session) = auth_session {
                     println!("Account banned for {:?}, fetching detailed user info", token_id);
-                    match crate::augment_user_info::get_user_info(session).await {
+                    match crate::augment_user_info::get_user_info(session, &cache).await {
                         Ok(user_info) => {
                             println!("Successfully fetched user info for banned account {:?}", token_id);
                             // 保存 suspensions 信息
@@ -809,26 +806,97 @@ pub async fn batch_check_account_status(
                 };
             }
 
-            // 4. 获取余额和过期时间信息
-            // 使用 get-credit-info API
-            let (portal_info, portal_error) = {
-                println!("Using get-credit-info API to fetch credits and expiry for {:?}", token_id);
-                match get_credit_info(&token, &tenant_url).await {
-                    Ok(credit_info) => {
-                        let portal_info = PortalInfo {
-                            credits_balance: credit_info.usage_units_remaining.floor() as i32,  // 转换为整数
-                            expiry_date: Some(credit_info.current_billing_cycle_end_date_iso),
-                        };
-                        (Some(portal_info), None)
+            // 4. 如果没有 portal_url 但有 auth_session，尝试获取 portal_url
+            let mut fetched_portal_url = portal_url.clone();
+            if fetched_portal_url.is_none() && auth_session.is_some() {
+                println!("No portal_url for token {:?}, attempting to fetch from auth_session", token_id);
+
+                // 尝试从 auth_session 获取 portal_url
+                if let Some(ref session) = auth_session {
+                    // 检查缓存
+                    let cached_app_session = {
+                        let cache_guard = cache.lock().unwrap();
+                        cache_guard.get(session).map(|c| c.app_session.clone())
+                    };
+
+                    // 尝试使用缓存的 app_session
+                    let app_session = if let Some(app_session) = cached_app_session {
+                        println!("Using cached app_session for portal_url fetch");
+                        match crate::augment_user_info::fetch_app_subscription(&app_session).await {
+                            Ok(subscription) => {
+                                fetched_portal_url = subscription.portal_url.clone();
+                                if let Some(ref url) = fetched_portal_url {
+                                    println!("Successfully fetched portal_url from cached app_session: {}", url);
+                                } else {
+                                    println!("Subscription response has no portal_url");
+                                }
+                                Some(app_session)
+                            }
+                            Err(e) => {
+                                println!("Cached app_session failed: {}, will refresh", e);
+                                None
+                            }
+                        }
+                    } else {
+                        println!("No cached app_session found, will exchange auth_session");
+                        None
+                    };
+
+                    // 如果缓存失败或不存在，交换新的 app_session
+                    if app_session.is_none() && fetched_portal_url.is_none() {
+                        match crate::augment_user_info::exchange_auth_session_for_app_session(session).await {
+                            Ok(new_app_session) => {
+                                // 更新缓存
+                                {
+                                    let mut cache_guard = cache.lock().unwrap();
+                                    cache_guard.insert(session.clone(), crate::AppSessionCache {
+                                        app_session: new_app_session.clone(),
+                                        created_at: std::time::SystemTime::now(),
+                                    });
+                                }
+
+                                // 获取订阅信息
+                                match crate::augment_user_info::fetch_app_subscription(&new_app_session).await {
+                                    Ok(subscription) => {
+                                        fetched_portal_url = subscription.portal_url;
+                                    }
+                                    Err(e) => {
+                                        println!("Failed to fetch subscription with new app_session: {}", e);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                println!("Failed to exchange auth_session for app_session: {}", e);
+                            }
+                        }
+                    }
+
+                    if let Some(ref url) = fetched_portal_url {
+                        println!("Successfully fetched portal_url for token {:?}: {}", token_id, url);
+                    }
+                }
+            }
+
+            // 5. 获取余额和过期时间信息
+            // 使用 get_portal_info (需要 portal_url)
+            let (portal_info, portal_error) = if let Some(ref url) = fetched_portal_url {
+                match get_portal_info(url).await {
+                    Ok(info) => {
+                        println!("Successfully fetched portal_info for token {:?}: balance={}, expiry={:?}",
+                                 token_id, info.credits_balance, info.expiry_date);
+                        (Some(info), None)
                     }
                     Err(err) => {
-                        println!("Failed to get credit info: {}", err);
+                        println!("Failed to fetch portal_info for token {:?}: {}", token_id, err);
                         (None, Some(err))
                     }
                 }
+            } else {
+                println!("No portal_url available for token {:?}, skipping portal_info fetch", token_id);
+                (None, Some("No portal_url available".to_string()))
             };
 
-            // 5. 如果没有邮箱备注,尝试获取邮箱
+            // 6. 如果没有邮箱备注,尝试获取邮箱
             let email_note = if token_info.email_note.is_none() {
                 match get_models(&token, &tenant_url).await {
                     Ok(models_response) => {
@@ -848,7 +916,7 @@ pub async fn batch_check_account_status(
                 token_id,
                 access_token: token,
                 tenant_url,
-                portal_url,
+                portal_url: fetched_portal_url,
                 status_result,
                 portal_info,
                 portal_error,
@@ -996,4 +1064,81 @@ pub async fn get_models(
     println!("User Email: {}", models_response.user.email);
 
     Ok(models_response)
+}
+
+/// 使用已有的 app_session 获取 Credit 消费数据
+pub async fn get_batch_credit_consumption_with_app_session(
+    app_session: &str,
+) -> Result<BatchCreditConsumptionResponse, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    // 并行获取两个数据
+    let stats_url = "https://app.augmentcode.com/api/credit-consumption?groupBy=NONE&granularity=DAY&billingCycle=CURRENT_BILLING_CYCLE";
+    let chart_url = "https://app.augmentcode.com/api/credit-consumption?groupBy=MODEL_NAME&granularity=TOTAL&billingCycle=CURRENT_BILLING_CYCLE";
+
+    println!("Fetching stats from: {}", stats_url);
+    println!("Fetching chart from: {}", chart_url);
+
+    let (stats_result, chart_result) = tokio::join!(
+        async {
+            let response = client
+                .get(stats_url)
+                .header("Cookie", format!("_session={}", urlencoding::encode(app_session)))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("Accept", "application/json")
+                .send()
+                .await
+                .map_err(|e| format!("Failed to fetch stats data: {}", e))?;
+
+            let status = response.status();
+            if !status.is_success() {
+                let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                return Err(format!("Stats API returned status {}: {}", status, error_body));
+            }
+
+            let response_text = response.text().await
+                .map_err(|e| format!("Failed to read stats response body: {}", e))?;
+
+            println!("Stats response: {}", response_text);
+
+            serde_json::from_str::<CreditConsumptionResponse>(&response_text)
+                .map_err(|e| format!("Failed to parse stats response: {}. Response body: {}", e, response_text))
+        },
+        async {
+            let response = client
+                .get(chart_url)
+                .header("Cookie", format!("_session={}", urlencoding::encode(app_session)))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("Accept", "application/json")
+                .send()
+                .await
+                .map_err(|e| format!("Failed to fetch chart data: {}", e))?;
+
+            let status = response.status();
+            if !status.is_success() {
+                let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                return Err(format!("Chart API returned status {}: {}", status, error_body));
+            }
+
+            let response_text = response.text().await
+                .map_err(|e| format!("Failed to read chart response body: {}", e))?;
+
+            println!("Chart response: {}", response_text);
+
+            serde_json::from_str::<CreditConsumptionResponse>(&response_text)
+                .map_err(|e| format!("Failed to parse chart response: {}. Response body: {}", e, response_text))
+        }
+    );
+
+    let stats_data = stats_result?;
+    let chart_data = chart_result?;
+
+    Ok(BatchCreditConsumptionResponse {
+        stats_data,
+        chart_data,
+        portal_url: None,
+    })
 }
